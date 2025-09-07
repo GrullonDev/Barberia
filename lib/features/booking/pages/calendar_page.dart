@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'package:barberia/app/router.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
+import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/l10n/app_localizations.dart';
 
 class CalendarPage extends ConsumerStatefulWidget {
   const CalendarPage({super.key});
@@ -74,6 +79,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   Future<void> _openSlotsSheet(final DateTime day) async {
     final BookingDraft draft = ref.read(bookingDraftProvider);
+    // Pre-generate slots (would be fetched from backend in real app)
     final Map<DateTime, SlotState> slots = _generateSlots(day);
     final List<MapEntry<DateTime, SlotState>> morning = slots.entries
         .where((final MapEntry<DateTime, SlotState> e) => e.key.hour < 13)
@@ -92,6 +98,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       ),
       builder: (final BuildContext ctx) {
         final ColorScheme cs = Theme.of(ctx).colorScheme;
+        final S tr = S.of(ctx);
+        final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
+        // Simulated loading future for skeleton (shimmer could be added later)
+        final Future<void> loadFuture = Future<void>.delayed(
+          const Duration(milliseconds: 600),
+        );
         Widget section(String title, List<MapEntry<DateTime, SlotState>> list) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,6 +165,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       onPressed: disabled
                           ? null
                           : () {
+                              HapticFeedback.selectionClick();
                               picked = dt;
                               Navigator.of(ctx).pop();
                             },
@@ -169,6 +182,35 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           );
         }
 
+        Widget skeletonPill({double w = 56}) => Container(
+          width: w,
+          height: 36,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: .35),
+            borderRadius: BorderRadius.circular(14),
+          ),
+        );
+
+        Widget skeletonSection(String title) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: Theme.of(ctx).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                skeletonPill(),
+                skeletonPill(w: 64),
+                skeletonPill(w: 52),
+                skeletonPill(),
+                skeletonPill(w: 60),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        );
+
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.only(
@@ -177,21 +219,36 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               top: 8,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Slots para ${day.day}/${day.month} (Horario 08:00 - 19:00)',
-                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+            child: FutureBuilder<void>(
+              future: loadFuture,
+              builder: (final BuildContext _, final AsyncSnapshot<void> snap) {
+                final bool loaded =
+                    snap.connectionState == ConnectionState.done;
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        tr.calendar_slots_title(
+                          '${day.day}/${day.month}',
+                          headerRange,
+                        ),
+                        style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (!loaded) ...<Widget>[
+                        skeletonSection(tr.calendar_morning),
+                        skeletonSection(tr.calendar_afternoon),
+                      ] else ...<Widget>[
+                        section(tr.calendar_morning, morning),
+                        section(tr.calendar_afternoon, afternoon),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  section('Mañana', morning),
-                  section('Tarde', afternoon),
-                ],
-              ),
+                );
+              },
             ),
           ),
         );
@@ -213,10 +270,75 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final BookingDraft draft = ref.watch(bookingDraftProvider);
     final ColorScheme cs = Theme.of(context).colorScheme;
 
+    final Service? selectedService = draft.service;
+    final DateFormat dayFmt = DateFormat('d/M');
+    final DateFormat timeFmt = DateFormat('HH:mm');
+    final String? summary = (selectedService != null && draft.dateTime != null)
+        ? '${selectedService.name} • ${dayFmt.format(draft.dateTime!)} • ${timeFmt.format(draft.dateTime!)}'
+        : null;
+
+    final S tr = S.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Seleccionar Fecha y Hora')),
+      appBar: AppBar(title: Text(tr.calendar_title)),
       body: Column(
         children: <Widget>[
+          // Cabecera horario + quick picks
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    tr.calendar_schedule_range('08:00', '19:00'),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                _QuickDateChip(
+                  label: tr.calendar_quick_today,
+                  selected: isSameDay(_selectedDay, _today),
+                  onTap: () {
+                    setState(() {
+                      _focusedDay = DateTime(
+                        _today.year,
+                        _today.month,
+                        _today.day,
+                      );
+                      _selectedDay = _focusedDay;
+                    });
+                  },
+                ),
+                const SizedBox(width: 6),
+                _QuickDateChip(
+                  label: tr.calendar_quick_tomorrow,
+                  selected: isSameDay(
+                    _selectedDay,
+                    _today.add(const Duration(days: 1)),
+                  ),
+                  onTap: () {
+                    final DateTime d = _today.add(const Duration(days: 1));
+                    setState(() {
+                      _focusedDay = d;
+                      _selectedDay = d;
+                    });
+                  },
+                ),
+                const SizedBox(width: 6),
+                _QuickDateChip(
+                  label: tr.calendar_quick_next_sat,
+                  selected: isSameDay(_selectedDay, _nextSaturday(_today)),
+                  onTap: () {
+                    final DateTime d = _nextSaturday(_today);
+                    setState(() {
+                      _focusedDay = d;
+                      _selectedDay = d;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
           TableCalendar<void>(
             firstDay: _today,
             lastDay: _lastDay,
@@ -264,7 +386,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Selecciona una hora',
+                tr.calendar_select_hour_label,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -286,41 +408,133 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 ],
               ),
             ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: FilledButton(
-              onPressed: draft.dateTime == null
-                  ? null
-                  : () => context.goNamed(RouteNames.details),
-              child: const Text('Continuar'),
+          if (summary != null)
+            Semantics(
+              label: tr.calendar_summary_semantics(
+                selectedService!.name,
+                dayFmt.format(draft.dateTime!),
+                timeFmt.format(draft.dateTime!),
+              ),
+              container: true,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: cs.outlineVariant),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.event_available, color: cs.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        summary,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: () => context.goNamed(RouteNames.details),
+                      child: Text(tr.calendar_continue),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 }
 
+class _QuickDateChip extends StatelessWidget {
+  const _QuickDateChip({
+    required this.label,
+    required this.onTap,
+    required this.selected,
+  });
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Semantics(
+      label: label,
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? cs.primaryContainer
+                : cs.surfaceContainerHighest.withValues(alpha: .4),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? cs.primary : cs.outlineVariant,
+            ),
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+DateTime _nextSaturday(DateTime from) {
+  int add = (DateTime.saturday - from.weekday) % 7;
+  if (add == 0) add = 7; // next, not today if today is Saturday
+  return DateTime(from.year, from.month, from.day).add(Duration(days: add));
+}
+
 class _SlotLegend extends StatelessWidget {
   @override
   Widget build(final BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
+    final S tr = S.of(context);
     return Wrap(
       runSpacing: 6,
       spacing: 18,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
-        _LegendItem(color: cs.primaryContainer, label: 'Disponible'),
-        _LegendItem(color: cs.surfaceContainerHighest, label: 'Ocupado', opacity: 1),
+        _LegendItem(
+          color: cs.primaryContainer,
+          label: tr.calendar_legend_available,
+        ),
+        _LegendItem(
+          color: cs.surfaceContainerHighest,
+          label: tr.calendar_legend_occupied,
+          opacity: 1,
+        ),
         _LegendItem(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          label: 'Hold',
+          label: tr.calendar_legend_hold,
           border: Border.all(color: cs.outline, width: 1),
         ),
         _LegendItem(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-          label: 'Fuera de horario',
+          label: tr.calendar_legend_off,
         ),
       ],
     );

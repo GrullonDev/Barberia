@@ -48,5 +48,28 @@
   "services_filter_combo": "Combo",
   "service_policy_rebook": "Puedes reprogramar hasta 3 h antes",
   "service_choose_and_continue": "Elegir y continuar",
-  "cancel": "Cancelar"
+  "cancel": "Cancelar",
+  "calendar_schedule_range": "Horario {open}–{close}",
+  "@calendar_schedule_range": {
+    "placeholders": {"open": {"type": "String"}, "close": {"type": "String"}}
+  },
+  "calendar_quick_today": "Hoy",
+  "calendar_quick_tomorrow": "Mañana",
+  "calendar_quick_next_sat": "Próx. Sáb",
+  "calendar_slots_title": "Slots {date} • {range}",
+  "@calendar_slots_title": {
+    "placeholders": {"date": {"type": "String"}, "range": {"type": "String"}}
+  },
+  "calendar_morning": "Mañana",
+  "calendar_afternoon": "Tarde",
+  "calendar_legend_available": "Disponible",
+  "calendar_legend_occupied": "Ocupado",
+  "calendar_legend_hold": "Hold",
+  "calendar_legend_off": "Fuera de horario",
+  "calendar_select_hour_label": "Selecciona una hora",
+  "calendar_continue": "Continuar",
+  "calendar_summary_semantics": "Resumen: {service} el {date} a las {time}",
+  "@calendar_summary_semantics": {
+    "placeholders": {"service": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}}
+  }
 }

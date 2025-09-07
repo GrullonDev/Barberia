@@ -148,4 +148,52 @@ class SEs extends S {
 
   @override
   String get cancel => 'Cancelar';
+
+  @override
+  String calendar_schedule_range(String open, String close) {
+    return 'Horario $open–$close';
+  }
+
+  @override
+  String get calendar_quick_today => 'Hoy';
+
+  @override
+  String get calendar_quick_tomorrow => 'Mañana';
+
+  @override
+  String get calendar_quick_next_sat => 'Próx. Sáb';
+
+  @override
+  String calendar_slots_title(String date, String range) {
+    return 'Slots $date • $range';
+  }
+
+  @override
+  String get calendar_morning => 'Mañana';
+
+  @override
+  String get calendar_afternoon => 'Tarde';
+
+  @override
+  String get calendar_legend_available => 'Disponible';
+
+  @override
+  String get calendar_legend_occupied => 'Ocupado';
+
+  @override
+  String get calendar_legend_hold => 'Hold';
+
+  @override
+  String get calendar_legend_off => 'Fuera de horario';
+
+  @override
+  String get calendar_select_hour_label => 'Selecciona una hora';
+
+  @override
+  String get calendar_continue => 'Continuar';
+
+  @override
+  String calendar_summary_semantics(String service, String date, String time) {
+    return 'Resumen: $service el $date a las $time';
+  }
 }

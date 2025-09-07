@@ -149,4 +149,52 @@ class SEn extends S {
 
   @override
   String get cancel => 'Cancel';
+
+  @override
+  String calendar_schedule_range(String open, String close) {
+    return 'Hours $open–$close';
+  }
+
+  @override
+  String get calendar_quick_today => 'Today';
+
+  @override
+  String get calendar_quick_tomorrow => 'Tomorrow';
+
+  @override
+  String get calendar_quick_next_sat => 'Next Sat';
+
+  @override
+  String calendar_slots_title(String date, String range) {
+    return 'Slots $date • $range';
+  }
+
+  @override
+  String get calendar_morning => 'Morning';
+
+  @override
+  String get calendar_afternoon => 'Afternoon';
+
+  @override
+  String get calendar_legend_available => 'Available';
+
+  @override
+  String get calendar_legend_occupied => 'Busy';
+
+  @override
+  String get calendar_legend_hold => 'Hold';
+
+  @override
+  String get calendar_legend_off => 'Off hours';
+
+  @override
+  String get calendar_select_hour_label => 'Select a time';
+
+  @override
+  String get calendar_continue => 'Continue';
+
+  @override
+  String calendar_summary_semantics(String service, String date, String time) {
+    return 'Summary: $service on $date at $time';
+  }
 }

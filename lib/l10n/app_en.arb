@@ -48,5 +48,28 @@
   "services_filter_combo": "Combo",
   "service_policy_rebook": "You can reschedule up to 3h before",
   "service_choose_and_continue": "Choose & continue",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "calendar_schedule_range": "Hours {open}–{close}",
+  "@calendar_schedule_range": {
+    "placeholders": {"open": {"type": "String"}, "close": {"type": "String"}}
+  },
+  "calendar_quick_today": "Today",
+  "calendar_quick_tomorrow": "Tomorrow",
+  "calendar_quick_next_sat": "Next Sat",
+  "calendar_slots_title": "Slots {date} • {range}",
+  "@calendar_slots_title": {
+    "placeholders": {"date": {"type": "String"}, "range": {"type": "String"}}
+  },
+  "calendar_morning": "Morning",
+  "calendar_afternoon": "Afternoon",
+  "calendar_legend_available": "Available",
+  "calendar_legend_occupied": "Busy",
+  "calendar_legend_hold": "Hold",
+  "calendar_legend_off": "Off hours",
+  "calendar_select_hour_label": "Select a time",
+  "calendar_continue": "Continue",
+  "calendar_summary_semantics": "Summary: {service} on {date} at {time}",
+  "@calendar_summary_semantics": {
+    "placeholders": {"service": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}}
+  }
 }

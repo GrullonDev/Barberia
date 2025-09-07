@@ -378,6 +378,90 @@ abstract class S {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+  /// No description provided for @calendar_schedule_range.
+  ///
+  /// In en, this message translates to:
+  /// **'Hours {open}–{close}'**
+  String calendar_schedule_range(String open, String close);
+
+  /// No description provided for @calendar_quick_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get calendar_quick_today;
+
+  /// No description provided for @calendar_quick_tomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get calendar_quick_tomorrow;
+
+  /// No description provided for @calendar_quick_next_sat.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Sat'**
+  String get calendar_quick_next_sat;
+
+  /// No description provided for @calendar_slots_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Slots {date} • {range}'**
+  String calendar_slots_title(String date, String range);
+
+  /// No description provided for @calendar_morning.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get calendar_morning;
+
+  /// No description provided for @calendar_afternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Afternoon'**
+  String get calendar_afternoon;
+
+  /// No description provided for @calendar_legend_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get calendar_legend_available;
+
+  /// No description provided for @calendar_legend_occupied.
+  ///
+  /// In en, this message translates to:
+  /// **'Busy'**
+  String get calendar_legend_occupied;
+
+  /// No description provided for @calendar_legend_hold.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold'**
+  String get calendar_legend_hold;
+
+  /// No description provided for @calendar_legend_off.
+  ///
+  /// In en, this message translates to:
+  /// **'Off hours'**
+  String get calendar_legend_off;
+
+  /// No description provided for @calendar_select_hour_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a time'**
+  String get calendar_select_hour_label;
+
+  /// No description provided for @calendar_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get calendar_continue;
+
+  /// No description provided for @calendar_summary_semantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary: {service} on {date} at {time}'**
+  String calendar_summary_semantics(String service, String date, String time);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {
