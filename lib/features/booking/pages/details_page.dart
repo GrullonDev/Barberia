@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:barberia/app/router.dart';
@@ -425,6 +426,10 @@ class _SummaryBlock extends StatelessWidget {
     final String timeStr =
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     final double price = draft.service!.price;
+    final String priceStr = NumberFormat.currency(
+      name: 'GTQ',
+      symbol: 'Q',
+    ).format(price);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -450,7 +455,7 @@ class _SummaryBlock extends StatelessWidget {
                 Text('$dateStr • $timeStr', style: txt.bodySmall),
                 const SizedBox(height: 4),
                 Text(
-                  'Total: \$${price.toStringAsFixed(2)}',
+                  'Total: $priceStr',
                   style: txt.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],

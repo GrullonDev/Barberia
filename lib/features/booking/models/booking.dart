@@ -8,6 +8,7 @@ class Booking {
   final String? customerPhone; // Ahora opcional: se permite solo email.
   final String? customerEmail;
   final String? notes;
+  final BookingStatus status;
 
   const Booking({
     required this.id,
@@ -17,16 +18,18 @@ class Booking {
     this.customerPhone,
     this.customerEmail,
     this.notes,
+    this.status = BookingStatus.active,
   });
 
-  DateTime get endTime => dateTime.add(Duration(minutes: service.durationMinutes));
+  DateTime get endTime =>
+      dateTime.add(Duration(minutes: service.durationMinutes));
 
   String toIcsString() {
     final String dtStart = _formatIcsDateTime(dateTime.toUtc());
     final String dtEnd = _formatIcsDateTime(endTime.toUtc());
     final String summary = '${service.name} - Barbería';
-    final String uid = 'booking-${id}@barberia';
-    return [
+    final String uid = 'booking-$id@barberia';
+    return <String>[
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//Barberia//ES',
@@ -36,7 +39,8 @@ class Booking {
       'SUMMARY:${_escapeText(summary)}',
       'DTSTART:$dtStart',
       'DTEND:$dtEnd',
-      if (customerName.isNotEmpty) 'DESCRIPTION:${_escapeText('Cliente: $customerName')}',
+      if (customerName.isNotEmpty)
+        'DESCRIPTION:${_escapeText('Cliente: $customerName')}',
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\n');
@@ -53,3 +57,5 @@ class Booking {
       .replaceAll(',', '\\,')
       .replaceAll('\n', '\\n');
 }
+
+enum BookingStatus { active, canceled }

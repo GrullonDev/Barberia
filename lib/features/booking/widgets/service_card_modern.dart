@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:intl/intl.dart';
+
 import 'package:barberia/features/booking/models/service.dart';
 
 /// Modern service card with image placeholder, duration & price badges.
@@ -120,7 +122,12 @@ class ServiceCardModern extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   fontSize: priceFont,
                 ),
-                child: Text('4${service.price.toStringAsFixed(2)}'),
+                child: Text(
+                  NumberFormat.currency(
+                    name: 'GTQ',
+                    symbol: 'Q',
+                  ).format(service.price),
+                ),
               ),
             ),
           ],

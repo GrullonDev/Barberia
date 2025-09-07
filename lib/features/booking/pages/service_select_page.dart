@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:barberia/app/router.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
-import 'package:barberia/features/booking/widgets/service_card.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/booking/widgets/service_card.dart';
 
 class ServiceSelectPage extends ConsumerWidget {
   const ServiceSelectPage({super.key});
@@ -48,7 +49,7 @@ class ServiceSelectPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${s.durationMinutes} min · \$${s.price.toStringAsFixed(2)}',
+                  '${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}',
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -102,7 +103,10 @@ class ServiceSelectPage extends ConsumerWidget {
                   return ServiceCard(
                     title: s.name,
                     subtitle: '${s.durationMinutes} min',
-                    price: '\$${s.price.toStringAsFixed(2)}',
+                    price: NumberFormat.currency(
+                      name: 'GTQ',
+                      symbol: 'Q',
+                    ).format(s.price),
                     selected: isSelected,
                     onTap: () => showDetails(s),
                   );
