@@ -11,42 +11,69 @@ import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 
-class ConfirmationPage extends ConsumerWidget {
+class ConfirmationPage extends ConsumerStatefulWidget {
   const ConfirmationPage({super.key});
 
   @override
-  Widget build(final BuildContext context, final WidgetRef ref) {
-    final BookingDraft draft = ref.watch(bookingDraftProvider);
-    if (draft.service == null ||
-        draft.dateTime == null ||
-        draft.name == null ||
-        draft.phone == null) {
+  ConsumerState<ConfirmationPage> createState() => _ConfirmationPageState();
+}
+
+class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
+  Booking? _booking; // Persist booking so it doesn't regenerate with new id on rebuilds.
+  String? _qrData;
+  bool _enqueued = false;
+
+  void _ensureBookingScheduled() {
+    if (_enqueued || _booking == null) {
+      return;
+    }
+    _enqueued = true;
+    // Schedule addition after build frame to avoid modifying provider in build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final List<Booking> current = ref.read(bookingsProvider);
+      if (!current.any((final Booking b) => b.id == _booking!.id)) {
+        ref.read(bookingsProvider.notifier).add(_booking!);
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize booking once when dependencies available.
+    if (_booking == null) {
+      final BookingDraft draft = ref.read(bookingDraftProvider);
+      if (draft.service != null &&
+          draft.dateTime != null &&
+          draft.name != null &&
+          draft.phone != null) {
+        _booking = Booking(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          service: draft.service!,
+          dateTime: draft.dateTime!,
+            customerName: draft.name!,
+          customerPhone: draft.phone!,
+          customerEmail: draft.email,
+          notes: draft.notes,
+        );
+        _qrData = QrSigner.buildSignedPayload(<String, Object?>{
+          'id': _booking!.id,
+          'svc': _booking!.service.id,
+          'ts': _booking!.dateTime.toIso8601String(),
+          'nm': _booking!.customerName,
+        });
+        _ensureBookingScheduled();
+      }
+    }
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    if (_booking == null) {
       return const Scaffold(body: Center(child: Text('Reserva incompleta')));
     }
-
-    final Booking booking = Booking(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      service: draft.service!,
-      dateTime: draft.dateTime!,
-      customerName: draft.name!,
-      customerPhone: draft.phone!,
-      customerEmail: draft.email,
-      notes: draft.notes,
-    );
-
-    // Agregar si no existe todavía por id.
-    final List<Booking> bookings = ref.watch(bookingsProvider);
-    final bool exists = bookings.any((final Booking b) => b.id == booking.id);
-    if (!exists) {
-      ref.read(bookingsProvider.notifier).add(booking);
-    }
-
-    final String qrData = QrSigner.buildSignedPayload(<String, Object?>{
-      'id': booking.id,
-      'svc': booking.service.id,
-      'ts': booking.dateTime.toIso8601String(),
-      'nm': booking.customerName,
-    });
+    final Booking booking = _booking!;
+    final String qrData = _qrData!;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Confirmación de Reserva')),
@@ -64,7 +91,7 @@ class ConfirmationPage extends ConsumerWidget {
             const SizedBox(height: 16),
             QrImageView(data: qrData, size: 160),
             const SizedBox(height: 16),
-            Text('Cliente: ${booking.customerName}'),
+            Text('Cliente: ${booking.customerName}') ,
             if (booking.customerEmail != null)
               Text('Email: ${booking.customerEmail}'),
             const Spacer(),
@@ -82,7 +109,6 @@ class ConfirmationPage extends ConsumerWidget {
                     onPressed: () {
                       final String ics =
                           'BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:${booking.service.name} - Barbería\nDTSTART:${booking.dateTime.toUtc().toIso8601String()}\nEND:VEVENT\nEND:VCALENDAR';
-                      // Uso ligero: compartir string. (Se podría guardar como file temporal)
                       // ignore: deprecated_member_use
                       Share.share(ics, subject: 'Añadir a calendario');
                     },

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../booking/models/booking.dart';
-import '../../booking/providers/booking_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:barberia/features/booking/models/booking.dart';
+import 'package:barberia/features/booking/providers/booking_providers.dart';
 
 class MyBookingsPage extends ConsumerWidget {
   const MyBookingsPage({super.key});
@@ -10,8 +12,13 @@ class MyBookingsPage extends ConsumerWidget {
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
     final List<Booking> bookings = ref.watch(bookingsProvider);
+    final bool canPop = context.canPop();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis Citas')),
+      appBar: AppBar(
+        title: const Text('Mis Citas'),
+        automaticallyImplyLeading: canPop,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
