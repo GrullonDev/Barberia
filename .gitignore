@@ -27,11 +27,15 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
-/coverage/
+
+# Web related
+lib/generated_plugin_registrant.dart
 
 # Symbolication related
 app.*.symbols
@@ -44,5 +48,126 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android related
+/android/app/build/
+/android/userdata/
+/android/.gradle/
+/android/captures/
+/android/gradlew
+/android/gradlew.bat
+/android/local.properties
+/android/**/GeneratedPluginRegistrant.java
+
+# iOS related
+/ios/**/*.mode1v3
+/ios/**/*.mode2v3
+/ios/**/*.moved-aside
+/ios/**/*.pbxuser
+/ios/**/*.perspectivev3
+/ios/**/*sync/
+/ios/**/.sconsign.dblite
+/ios/**/.tags*
+/ios/**/.vagrant/
+/ios/**/*.xcodeproj/*
+/ios/**/*.xcscmblueprint
+/ios/**/*.xccheckout
+/ios/**/xcuserdata/
+/ios/**/Pods/
+/ios/**/Flutter/Flutter.framework
+/ios/**/Flutter/Flutter.podspec
+/ios/**/.generated/
+
+# macOS related
+/macOS/Flutter/ephemeral/
+/macOS/Flutter/GeneratedPluginRegistrant.swift
+/macOS/**/*.mode1v3
+/macOS/**/*.mode2v3
+/macOS/**/*.moved-aside
+/macOS/**/*.pbxuser
+/macOS/**/*.perspectivev3
+/macOS/**/*sync/
+/macOS/**/.sconsign.dblite
+/macOS/**/.tags*
+/macOS/**/.vagrant/
+/macOS/**/*.xcodeproj/*
+/macOS/**/*.xcscmblueprint
+/macOS/**/*.xccheckout
+/macOS/**/xcuserdata/
+/macOS/**/Pods/
+/macOS/**/Flutter/Flutter.framework
+/macOS/**/Flutter/Flutter.podspec
+/macOS/**/.generated/
+
+# Windows related
+/windows/flutter/ephemeral/
+/windows/flutter/generated_plugin_registrant.cc
+/windows/flutter/generated_plugin_registrant.h
+/windows/**/*.filters
+/windows/**/*.opensdf
+/windows/**/*.sdf
+/windows/**/*.sln
+/windows/**/*.suo
+/windows/**/*.vcxproj
+/windows/**/*.vcxproj.filters
+/windows/**/.vs/
+/windows/**/x64/
+/windows/**/ARM/
+/windows/**/ARM64/
+
+# Linux related
+/linux/flutter/ephemeral/
+/linux/flutter/generated_plugin_registrant.cc
+/linux/flutter/generated_plugin_registrant.h
+/linux/**/.cmake/
+/linux/**/CMakeCache.txt
+/linux/**/CMakeFiles/
+/linux/**/Makefile
+/linux/**/cmake_install.cmake
+/linux/**/install_manifest.txt
+/linux/**/compile_commands.json
+/linux/**/.ninja_deps
+/linux/**/.ninja_log
+
+# Coverage
+/coverage/
+
 # FVM Version Cache
 .fvm/
+
+# Test related
+/test/**/testfile.txt
+
+# Temporary folders
+tmp/
+temp/
+
+# Logs
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Sentry
+.sentryclirc
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/
+
+# Thumbs.db
+Thumbs.db
+
+# Additional ignores
+linux/
+macOS/
+windows/
+.metadata/
