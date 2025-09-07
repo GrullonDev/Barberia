@@ -73,12 +73,16 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
   Future<void> _loadDraft() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       final String? name = prefs.getString(_kDraftName);
       final String? phone = prefs.getString(_kDraftPhone);
       final String? email = prefs.getString(_kDraftEmail);
       final String? notes = prefs.getString(_kDraftNotes);
-      if (name != null) _nameCtrl.text = name;
+      if (name != null) {
+        _nameCtrl.text = name;
+      }
       if (phone != null && phone.isNotEmpty) {
         _rawPhone = phone;
         _phoneCtrl.text = _maskPhone(phone);
@@ -89,7 +93,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         _emailCtrl.text = _maskEmail(email);
         _emailMasked = true;
       }
-      if (notes != null) _notesCtrl.text = notes;
+      if (notes != null) {
+        _notesCtrl.text = notes;
+      }
       setState(() {});
     } catch (_) {
       /* ignore */
@@ -97,13 +103,17 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
   }
 
   String _maskPhone(String raw) {
-    if (raw.length != 8) return '•••• ••••';
+    if (raw.length != 8) {
+      return '•••• ••••';
+    }
     return '${raw.substring(0, 4)} ••••';
   }
 
   String _maskEmail(String raw) {
     final int at = raw.indexOf('@');
-    if (at <= 1) return '***';
+    if (at <= 1) {
+      return '***';
+    }
     final String local = raw.substring(0, at);
     final String domain = raw.substring(at);
     final String visible = local.length <= 3 ? local[0] : local.substring(0, 2);
@@ -122,7 +132,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
   }
 
   Future<void> _persist() async {
-    if (_saving) return; // simple guard
+    if (_saving) {
+      return; // simple guard
+    }
     _saving = true;
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -146,14 +158,18 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
   }
 
   void _onPhoneChanged() {
-    if (_phoneMasked) return; // ignore masked representation
+    if (_phoneMasked) {
+      return; // ignore masked representation
+    }
     final String digits = _phoneCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
     _rawPhone = digits;
     _persistDebounced();
   }
 
   void _onEmailChanged() {
-    if (_emailMasked) return;
+    if (_emailMasked) {
+      return;
+    }
     _rawEmail = _emailCtrl.text;
     _persistDebounced();
   }
@@ -278,7 +294,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
               );
             },
       );
-      Future.delayed(const Duration(milliseconds: 900), () {
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
         if (mounted) {
           Navigator.of(context, rootNavigator: true).pop();
           context.goNamed(RouteNames.confirmation);

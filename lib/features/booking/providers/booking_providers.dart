@@ -61,18 +61,13 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   BookingsNotifier() : super(const <Booking>[]);
 
   void add(final Booking booking) => state = <Booking>[...state, booking];
-
+  /// Verifica si un slot [start] con duración [duration] se solapa con
+  /// alguna reserva existente (overlap estricto, bordes que tocan permiten).
   bool hasConflict(DateTime start, Duration duration) {
     final DateTime end = start.add(duration);
     for (final Booking b in state) {
-      final DateTime bStart = b.dateTime;
-      final DateTime bEnd = bStart.add(
-        Duration(minutes: b.service.durationMinutes),
-      );
-      final bool overlap = start.isBefore(bEnd) && end.isAfter(bStart);
-      if (overlap) {
-        return true;
-      }
+      final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
+      if (overlap) return true;
     }
     return false;
   }

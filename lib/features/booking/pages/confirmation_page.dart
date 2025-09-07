@@ -34,6 +34,8 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
       final List<Booking> current = ref.read(bookingsProvider);
       if (!current.any((final Booking b) => b.id == _booking!.id)) {
         ref.read(bookingsProvider.notifier).add(_booking!);
+        // Limpiar borrador para siguiente flujo.
+        ref.read(bookingDraftProvider.notifier).reset();
       }
     });
   }
@@ -44,16 +46,16 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     // Initialize booking once when dependencies available.
     if (_booking == null) {
       final BookingDraft draft = ref.read(bookingDraftProvider);
-      if (draft.service != null &&
-          draft.dateTime != null &&
-          draft.name != null &&
-          draft.phone != null) {
+    if (draft.service != null &&
+      draft.dateTime != null &&
+      draft.name != null &&
+      (draft.phone != null || draft.email != null)) {
         _booking = Booking(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           service: draft.service!,
           dateTime: draft.dateTime!,
           customerName: draft.name!,
-          customerPhone: draft.phone!,
+      customerPhone: draft.phone,
           customerEmail: draft.email,
           notes: draft.notes,
         );
@@ -75,6 +77,12 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     }
     final Booking booking = _booking!;
     final String qrData = _qrData!;
+  String two(int v) => v.toString().padLeft(2, '0');
+  final DateTime start = booking.dateTime;
+  final DateTime end = booking.endTime;
+  final String dateStr = '${two(start.day)}/${two(start.month)}/${start.year}';
+  final String timeRange = '${two(start.hour)}:${two(start.minute)} - ${two(end.hour)}:${two(end.minute)}';
+  final int durMin = booking.service.durationMinutes;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Confirmación de Reserva')),
@@ -88,13 +96,17 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text('${booking.dateTime}'),
+            Text('$dateStr  $timeRange'),
             const SizedBox(height: 16),
             QrImageView(data: qrData, size: 160),
             const SizedBox(height: 16),
             Text('Cliente: ${booking.customerName}'),
+            if (booking.customerPhone != null)
+              Text('Tel: ${booking.customerPhone}'),
             if (booking.customerEmail != null)
               Text('Email: ${booking.customerEmail}'),
+            const SizedBox(height: 8),
+            Text('Duración: $durMin min'),
             const Spacer(),
             Row(
               children: <Widget>[
@@ -108,8 +120,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      final String ics =
-                          'BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:${booking.service.name} - Barbería\nDTSTART:${booking.dateTime.toUtc().toIso8601String()}\nEND:VEVENT\nEND:VCALENDAR';
+                      final String ics = booking.toIcsString();
                       // ignore: deprecated_member_use
                       Share.share(ics, subject: 'Añadir a calendario');
                     },
