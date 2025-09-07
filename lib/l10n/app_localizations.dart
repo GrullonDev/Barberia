@@ -288,6 +288,96 @@ abstract class S {
   /// In en, this message translates to:
   /// **'Q'**
   String get currency_symbol_gtq;
+
+  /// No description provided for @hero_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your style, your time'**
+  String get hero_title;
+
+  /// No description provided for @hero_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Book in 3 steps. No signup.'**
+  String get hero_subtitle;
+
+  /// No description provided for @hero_cta_primary.
+  ///
+  /// In en, this message translates to:
+  /// **'Book now'**
+  String get hero_cta_primary;
+
+  /// No description provided for @hero_cta_secondary.
+  ///
+  /// In en, this message translates to:
+  /// **'View services'**
+  String get hero_cta_secondary;
+
+  /// No description provided for @home_popular_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get home_popular_title;
+
+  /// No description provided for @price_from_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get price_from_prefix;
+
+  /// No description provided for @hero_image_semantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustrative shop image'**
+  String get hero_image_semantics;
+
+  /// No description provided for @see_all.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get see_all;
+
+  /// No description provided for @services_filter_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get services_filter_all;
+
+  /// No description provided for @services_filter_hair.
+  ///
+  /// In en, this message translates to:
+  /// **'Hair'**
+  String get services_filter_hair;
+
+  /// No description provided for @services_filter_beard.
+  ///
+  /// In en, this message translates to:
+  /// **'Beard'**
+  String get services_filter_beard;
+
+  /// No description provided for @services_filter_combo.
+  ///
+  /// In en, this message translates to:
+  /// **'Combo'**
+  String get services_filter_combo;
+
+  /// No description provided for @service_policy_rebook.
+  ///
+  /// In en, this message translates to:
+  /// **'You can reschedule up to 3h before'**
+  String get service_policy_rebook;
+
+  /// No description provided for @service_choose_and_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose & continue'**
+  String get service_choose_and_continue;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

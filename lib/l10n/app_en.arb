@@ -33,5 +33,20 @@
   "duration_label": "Duration",
   "client_label": "Client",
   "price_total": "Total",
-  "currency_symbol_gtq": "Q"
+  "currency_symbol_gtq": "Q",
+  "hero_title": "Your style, your time",
+  "hero_subtitle": "Book in 3 steps. No signup.",
+  "hero_cta_primary": "Book now",
+  "hero_cta_secondary": "View services",
+  "home_popular_title": "Popular",
+  "price_from_prefix": "From",
+  "hero_image_semantics": "Illustrative shop image",
+  "see_all": "See all",
+  "services_filter_all": "All",
+  "services_filter_hair": "Hair",
+  "services_filter_beard": "Beard",
+  "services_filter_combo": "Combo",
+  "service_policy_rebook": "You can reschedule up to 3h before",
+  "service_choose_and_continue": "Choose & continue",
+  "cancel": "Cancel"
 }

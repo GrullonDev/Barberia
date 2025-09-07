@@ -12,6 +12,7 @@ final Provider<List<Service>> servicesProvider = Provider<List<Service>>(
       name: 'Corte',
       durationMinutes: 30,
       price: 12,
+  category: ServiceCategory.hair,
       extendedDescription:
           'Bloque de 30 min · incluye lavado rápido · buffer 5 min',
     ),
@@ -20,6 +21,7 @@ final Provider<List<Service>> servicesProvider = Provider<List<Service>>(
       name: 'Corte + Barba',
       durationMinutes: 45,
       price: 18,
+  category: ServiceCategory.combo,
       extendedDescription:
           'Bloque de 45 min · incluye lavado · perfilado de barba · buffer 10 min',
     ),
@@ -28,6 +30,7 @@ final Provider<List<Service>> servicesProvider = Provider<List<Service>>(
       name: 'Barba',
       durationMinutes: 20,
       price: 10,
+  category: ServiceCategory.beard,
       extendedDescription:
           'Bloque de 20 min · incluye toalla caliente · buffer 5 min',
     ),

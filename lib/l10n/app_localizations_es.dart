@@ -103,4 +103,49 @@ class SEs extends S {
 
   @override
   String get currency_symbol_gtq => 'Q';
+
+  @override
+  String get hero_title => 'Tu corte, a tu hora';
+
+  @override
+  String get hero_subtitle => 'Reserva en 3 pasos sin registro.';
+
+  @override
+  String get hero_cta_primary => 'Reservar ahora';
+
+  @override
+  String get hero_cta_secondary => 'Ver servicios';
+
+  @override
+  String get home_popular_title => 'Populares';
+
+  @override
+  String get price_from_prefix => 'Desde';
+
+  @override
+  String get hero_image_semantics => 'Imagen ilustrativa del local';
+
+  @override
+  String get see_all => 'Ver todos';
+
+  @override
+  String get services_filter_all => 'Todo';
+
+  @override
+  String get services_filter_hair => 'Cabello';
+
+  @override
+  String get services_filter_beard => 'Barba';
+
+  @override
+  String get services_filter_combo => 'Combo';
+
+  @override
+  String get service_policy_rebook => 'Puedes reprogramar hasta 3 h antes';
+
+  @override
+  String get service_choose_and_continue => 'Elegir y continuar';
+
+  @override
+  String get cancel => 'Cancelar';
 }

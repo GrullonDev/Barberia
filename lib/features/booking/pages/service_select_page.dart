@@ -9,12 +9,14 @@ import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/service_card.dart';
+import 'package:barberia/l10n/app_localizations.dart';
 
 class ServiceSelectPage extends ConsumerWidget {
   const ServiceSelectPage({super.key});
 
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
+  final S tr = S.of(context);
     final AsyncValue<List<Service>> asyncServices = ref.watch(
       servicesAsyncProvider,
     );
@@ -48,8 +50,35 @@ class ServiceSelectPage extends ConsumerWidget {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}',
+                Text('${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}'),
+                const SizedBox(height: 12),
+                if (s.extendedDescription != null)
+                  Text(
+                    s.extendedDescription!,
+                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cs.secondaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.info, size: 20, color: cs.onSecondaryContainer),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          tr.service_policy_rebook,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                color: cs.onSecondaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -66,12 +95,12 @@ class ServiceSelectPage extends ConsumerWidget {
                     context.goNamed(RouteNames.calendar);
                   },
                   icon: const Icon(Icons.check),
-                  label: const Text('Elegir y continuar'),
+                  label: Text(tr.service_choose_and_continue),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancelar'),
+                  child: Text(tr.cancel),
                 ),
               ],
             ),
@@ -80,38 +109,87 @@ class ServiceSelectPage extends ConsumerWidget {
       );
     }
 
+  final StateProvider<ServiceCategory?> categoryFilterProvider = StateProvider<ServiceCategory?>((final Ref _) => null);
+    final ServiceCategory? selectedCat = ref.watch(categoryFilterProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Seleccionar Servicio')),
+      appBar: AppBar(title: Text(tr.home_title)),
       body: asyncServices.when(
         loading: () => const _ServicesGridSkeleton(),
         error: (final Object e, final StackTrace st) =>
             const Center(child: Text('Error cargando servicios')),
-        data: (final List<Service> services) => services.isEmpty
-            ? const Center(child: Text('No hay servicios disponibles'))
-            : GridView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                itemCount: services.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 0.95,
+        data: (final List<Service> services) {
+          final List<Service> filtered = selectedCat == null
+              ? services
+              : services.where((final Service s) => s.category == selectedCat).toList();
+          return Column(
+            children: <Widget>[
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
+                  children: <Widget>[
+                    _CategoryChip(
+                      label: tr.services_filter_all,
+                      selected: selectedCat == null,
+                      onTap: () => ref.read(categoryFilterProvider.notifier).state = null,
+                    ),
+                    const SizedBox(width: 8),
+                    _CategoryChip(
+                      label: tr.services_filter_hair,
+                      selected: selectedCat == ServiceCategory.hair,
+                      onTap: () => ref.read(categoryFilterProvider.notifier).state = ServiceCategory.hair,
+                    ),
+                    const SizedBox(width: 8),
+                    _CategoryChip(
+                      label: tr.services_filter_beard,
+                      selected: selectedCat == ServiceCategory.beard,
+                      onTap: () => ref.read(categoryFilterProvider.notifier).state = ServiceCategory.beard,
+                    ),
+                    const SizedBox(width: 8),
+                    _CategoryChip(
+                      label: tr.services_filter_combo,
+                      selected: selectedCat == ServiceCategory.combo,
+                      onTap: () => ref.read(categoryFilterProvider.notifier).state = ServiceCategory.combo,
+                    ),
+                  ],
                 ),
-                itemBuilder: (final BuildContext _, final int i) {
-                  final Service s = services[i];
-                  final bool isSelected = draft.service?.id == s.id;
-                  return ServiceCard(
-                    title: s.name,
-                    subtitle: '${s.durationMinutes} min',
-                    price: NumberFormat.currency(
-                      name: 'GTQ',
-                      symbol: 'Q',
-                    ).format(s.price),
-                    selected: isSelected,
-                    onTap: () => showDetails(s),
-                  );
-                },
               ),
+              const Divider(height: 0),
+              if (filtered.isEmpty)
+                const Expanded(
+                  child: Center(child: Text('No hay servicios disponibles')),
+                )
+              else
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    itemCount: filtered.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 0.95,
+                    ),
+                    itemBuilder: (final BuildContext _, final int i) {
+                      final Service s = filtered[i];
+                      final bool isSelected = draft.service?.id == s.id;
+                      return ServiceCard(
+                        title: s.name,
+                        subtitle: '${s.durationMinutes} min',
+                        price: NumberFormat.currency(
+                          name: 'GTQ',
+                          symbol: 'Q',
+                        ).format(s.price),
+                        selected: isSelected,
+                        onTap: () => showDetails(s),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -192,6 +270,38 @@ class _ServicesGridSkeletonState extends State<_ServicesGridSkeleton>
       borderRadius: BorderRadius.circular(6),
     ),
   );
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(final BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest.withValues(alpha: .3),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: selected ? cs.primary : cs.outlineVariant),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+              ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Basic manual shimmer (avoids external deps).

@@ -104,4 +104,49 @@ class SEn extends S {
 
   @override
   String get currency_symbol_gtq => 'Q';
+
+  @override
+  String get hero_title => 'Your style, your time';
+
+  @override
+  String get hero_subtitle => 'Book in 3 steps. No signup.';
+
+  @override
+  String get hero_cta_primary => 'Book now';
+
+  @override
+  String get hero_cta_secondary => 'View services';
+
+  @override
+  String get home_popular_title => 'Popular';
+
+  @override
+  String get price_from_prefix => 'From';
+
+  @override
+  String get hero_image_semantics => 'Illustrative shop image';
+
+  @override
+  String get see_all => 'See all';
+
+  @override
+  String get services_filter_all => 'All';
+
+  @override
+  String get services_filter_hair => 'Hair';
+
+  @override
+  String get services_filter_beard => 'Beard';
+
+  @override
+  String get services_filter_combo => 'Combo';
+
+  @override
+  String get service_policy_rebook => 'You can reschedule up to 3h before';
+
+  @override
+  String get service_choose_and_continue => 'Choose & continue';
+
+  @override
+  String get cancel => 'Cancel';
 }

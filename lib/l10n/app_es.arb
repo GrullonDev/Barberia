@@ -33,5 +33,20 @@
   "duration_label": "Duración",
   "client_label": "Cliente",
   "price_total": "Total",
-  "currency_symbol_gtq": "Q"
+  "currency_symbol_gtq": "Q",
+  "hero_title": "Tu corte, a tu hora",
+  "hero_subtitle": "Reserva en 3 pasos sin registro.",
+  "hero_cta_primary": "Reservar ahora",
+  "hero_cta_secondary": "Ver servicios",
+    "home_popular_title": "Populares",
+    "price_from_prefix": "Desde",
+    "hero_image_semantics": "Imagen ilustrativa del local",
+  "see_all": "Ver todos",
+  "services_filter_all": "Todo",
+  "services_filter_hair": "Cabello",
+  "services_filter_beard": "Barba",
+  "services_filter_combo": "Combo",
+  "service_policy_rebook": "Puedes reprogramar hasta 3 h antes",
+  "service_choose_and_continue": "Elegir y continuar",
+  "cancel": "Cancelar"
 }
