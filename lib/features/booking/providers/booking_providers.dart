@@ -37,15 +37,15 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
       state = state.copyWith(dateTime: dateTime);
   void setCustomerInfo({
     required final String name,
-    required final String phone,
+    final String? phone,
     final String? email,
     final String? notes,
   }) => state = state.copyWith(
-    name: name,
-    phone: phone,
-    email: email,
-    notes: notes,
-  );
+        name: name,
+        phone: phone,
+        email: email,
+        notes: notes,
+      );
 
   void reset() => state = BookingDraft.empty();
 }
@@ -61,6 +61,17 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   BookingsNotifier() : super(const <Booking>[]);
 
   void add(final Booking booking) => state = <Booking>[...state, booking];
+
+  bool hasConflict(DateTime start, Duration duration) {
+    final DateTime end = start.add(duration);
+    for (final Booking b in state) {
+      final DateTime bStart = b.dateTime;
+      final DateTime bEnd = bStart.add(Duration(minutes: b.service.durationMinutes));
+      final bool overlap = start.isBefore(bEnd) && end.isAfter(bStart);
+      if (overlap) return true;
+    }
+    return false;
+  }
 }
 
 final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =

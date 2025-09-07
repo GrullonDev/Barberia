@@ -14,9 +14,9 @@ class FormValidators {
     if (value == null || value.isEmpty) {
       return 'El teléfono es requerido';
     }
-    final RegExp phoneRegex = RegExp(r'^\+?[\d\s\-\(\)]+$');
-    if (!phoneRegex.hasMatch(value)) {
-      return 'Ingresa un teléfono válido';
+    final String digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 8) {
+      return 'Debe tener 8 dígitos';
     }
     return null;
   }
