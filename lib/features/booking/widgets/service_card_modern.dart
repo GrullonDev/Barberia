@@ -82,7 +82,9 @@ class ServiceCardModern extends StatelessWidget {
                       service.name,
                       // Permitir más líneas si está seleccionada para que se lea completo.
                       maxLines: selected ? 3 : 2,
-                      overflow: selected ? TextOverflow.visible : TextOverflow.ellipsis,
+                      overflow: selected
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
                       softWrap: true,
                     ),
                   ),

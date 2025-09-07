@@ -16,7 +16,9 @@ class ReminderPrefsNotifier extends StateNotifier<bool> {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       state = prefs.getBool(_key) ?? false;
-    } catch (_) {/* ignore */}
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   Future<void> set(bool value) async {
@@ -24,11 +26,13 @@ class ReminderPrefsNotifier extends StateNotifier<bool> {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, value);
-    } catch (_) {/* ignore */}
+    } catch (_) {
+      /* ignore */
+    }
   }
 }
 
 final StateNotifierProvider<ReminderPrefsNotifier, bool> reminderOptInProvider =
     StateNotifierProvider<ReminderPrefsNotifier, bool>(
-  (Ref ref) => ReminderPrefsNotifier(),
-);
+      (Ref ref) => ReminderPrefsNotifier(),
+    );

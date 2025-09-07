@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 /// Simple service summary card for grid selection.
 class ServiceCard extends StatelessWidget {
   const ServiceCard({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.price,
-    required this.onTap,
+    required this.title, required this.subtitle, required this.price, required this.onTap, super.key,
     this.selected = false,
   });
 
@@ -56,8 +52,9 @@ class ServiceCard extends StatelessWidget {
                       title,
                       // Permitir más líneas cuando está seleccionada.
                       maxLines: selected ? 3 : 2,
-                      overflow:
-                          selected ? TextOverflow.visible : TextOverflow.ellipsis,
+                      overflow: selected
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -65,9 +62,7 @@ class ServiceCard extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: txt.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const Spacer(),
                   AnimatedDefaultTextStyle(

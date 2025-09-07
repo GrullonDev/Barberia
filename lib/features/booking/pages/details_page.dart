@@ -90,8 +90,10 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         _emailMasked = true;
       }
       if (notes != null) _notesCtrl.text = notes;
-  setState(() {});
-    } catch (_) {/* ignore */}
+      setState(() {});
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   String _maskPhone(String raw) {
@@ -111,7 +113,8 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
   DateTime? _lastPersist;
   void _persistDebounced() {
     final DateTime now = DateTime.now();
-    if (_lastPersist != null && now.difference(_lastPersist!).inMilliseconds < 350) {
+    if (_lastPersist != null &&
+        now.difference(_lastPersist!).inMilliseconds < 350) {
       return; // throttle
     }
     _lastPersist = now;
@@ -124,10 +127,21 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kDraftName, _nameCtrl.text);
-      await prefs.setString(_kDraftPhone, _rawPhone ?? (_phoneMasked ? (_rawPhone ?? '') : _phoneCtrl.text.replaceAll(' ', '')));
-      await prefs.setString(_kDraftEmail, _rawEmail ?? (_emailMasked ? (_rawEmail ?? '') : _emailCtrl.text));
+      await prefs.setString(
+        _kDraftPhone,
+        _rawPhone ??
+            (_phoneMasked
+                ? (_rawPhone ?? '')
+                : _phoneCtrl.text.replaceAll(' ', '')),
+      );
+      await prefs.setString(
+        _kDraftEmail,
+        _rawEmail ?? (_emailMasked ? (_rawEmail ?? '') : _emailCtrl.text),
+      );
       await prefs.setString(_kDraftNotes, _notesCtrl.text);
-    } catch (_) {/* ignore */}
+    } catch (_) {
+      /* ignore */
+    }
     _saving = false;
   }
 
@@ -190,10 +204,14 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       final Service service = draft.service!;
       final DateTime start = draft.dateTime!;
       final Duration dur = Duration(minutes: service.durationMinutes);
-      final bool conflict = ref.read(bookingsProvider.notifier).hasConflict(start, dur);
+      final bool conflict = ref
+          .read(bookingsProvider.notifier)
+          .hasConflict(start, dur);
       if (conflict) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Horario no disponible, selecciona otra hora.')),
+          const SnackBar(
+            content: Text('Horario no disponible, selecciona otra hora.'),
+          ),
         );
         return;
       }
@@ -212,31 +230,53 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         barrierLabel: 'success',
         pageBuilder: (_, __, ___) => const SizedBox.shrink(),
         transitionDuration: const Duration(milliseconds: 480),
-        transitionBuilder: (BuildContext ctx, Animation<double> anim, _, Widget child) {
-          final CurvedAnimation curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
-          return Opacity(
-            opacity: anim.value,
-            child: ScaleTransition(
-              scale: curved,
-              child: AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                contentPadding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(Icons.check_circle, size: 72, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(height: 16),
-                    const Text('Reserva lista', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    const Text('Generando confirmación...', textAlign: TextAlign.center),
-                    const SizedBox(height: 20),
-                    LinearProgressIndicator(minHeight: 4, borderRadius: BorderRadius.circular(4)),
-                  ],
+        transitionBuilder:
+            (BuildContext ctx, Animation<double> anim, _, Widget child) {
+              final CurvedAnimation curved = CurvedAnimation(
+                parent: anim,
+                curve: Curves.easeOutBack,
+              );
+              return Opacity(
+                opacity: anim.value,
+                child: ScaleTransition(
+                  scale: curved,
+                  child: AlertDialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    contentPadding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          Icons.check_circle,
+                          size: 72,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Reserva lista',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Generando confirmación...',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        LinearProgressIndicator(
+                          minHeight: 4,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
       );
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) {
@@ -366,8 +406,9 @@ class _SummaryBlock extends StatelessWidget {
     final DateTime dt = draft.dateTime!;
     final String dateStr =
         '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-  final String timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  final double price = draft.service!.price;
+    final String timeStr =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final double price = draft.service!.price;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -390,9 +431,12 @@ class _SummaryBlock extends StatelessWidget {
                   style: txt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
-        Text('$dateStr • $timeStr', style: txt.bodySmall),
-        const SizedBox(height: 4),
-        Text('Total: \$${price.toStringAsFixed(2)}', style: txt.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                Text('$dateStr • $timeStr', style: txt.bodySmall),
+                const SizedBox(height: 4),
+                Text(
+                  'Total: \$${price.toStringAsFixed(2)}',
+                  style: txt.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ),

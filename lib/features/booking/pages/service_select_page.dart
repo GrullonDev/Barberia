@@ -14,7 +14,9 @@ class ServiceSelectPage extends ConsumerWidget {
 
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
-    final AsyncValue<List<Service>> asyncServices = ref.watch(servicesAsyncProvider);
+    final AsyncValue<List<Service>> asyncServices = ref.watch(
+      servicesAsyncProvider,
+    );
     final BookingDraft draft = ref.watch(bookingDraftProvider);
     final ColorScheme cs = Theme.of(context).colorScheme;
 
@@ -40,18 +42,20 @@ class ServiceSelectPage extends ConsumerWidget {
               children: <Widget>[
                 Text(
                   s.name,
-                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text('${s.durationMinutes} min · \$${s.price.toStringAsFixed(2)}'),
+                Text(
+                  '${s.durationMinutes} min · \$${s.price.toStringAsFixed(2)}',
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Descripción del servicio no disponible todavía. Aquí podrías agregar info adicional, recomendaciones o cuidados.',
-                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -79,9 +83,8 @@ class ServiceSelectPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('Seleccionar Servicio')),
       body: asyncServices.when(
         loading: () => const _ServicesGridSkeleton(),
-        error: (final Object e, final StackTrace st) => Center(
-          child: Text('Error cargando servicios'),
-        ),
+        error: (final Object e, final StackTrace st) =>
+            const Center(child: Text('Error cargando servicios')),
         data: (final List<Service> services) => services.isEmpty
             ? const Center(child: Text('No hay servicios disponibles'))
             : GridView.builder(
@@ -173,14 +176,18 @@ class _ServicesGridSkeletonState extends State<_ServicesGridSkeleton>
     );
   }
 
-  Widget _block({required final double height, required final double width, required final ColorScheme cs}) => Container(
-        height: height,
-        width: width,
-        decoration: BoxDecoration(
-          color: cs.onSurface.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(6),
-        ),
-      );
+  Widget _block({
+    required final double height,
+    required final double width,
+    required final ColorScheme cs,
+  }) => Container(
+    height: height,
+    width: width,
+    decoration: BoxDecoration(
+      color: cs.onSurface.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(6),
+    ),
+  );
 }
 
 /// Basic manual shimmer (avoids external deps).
@@ -208,7 +215,7 @@ class _Shimmer extends StatelessWidget {
             ).createShader(rect);
           },
           blendMode: BlendMode.srcATop,
-          child: w!,
+          child: w,
         );
       },
       child: child,

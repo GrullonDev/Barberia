@@ -49,7 +49,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     }
 
     final DateTime now = DateTime.now();
-    final bool isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+    final bool isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
 
     final Map<DateTime, SlotState> map = <DateTime, SlotState>{};
     for (final DateTime dt in slots) {
@@ -61,7 +62,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         state = SlotState.hold;
       }
       // Horario fuera del rango (seguridad extra) o pasado si es hoy.
-      if (dt.hour < _openHour || dt.hour >= _closeHour || (isToday && dt.isBefore(now))) {
+      if (dt.hour < _openHour ||
+          dt.hour >= _closeHour ||
+          (isToday && dt.isBefore(now))) {
         state = SlotState.disabled;
       }
       map[dt] = state;
@@ -73,10 +76,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final BookingDraft draft = ref.read(bookingDraftProvider);
     final Map<DateTime, SlotState> slots = _generateSlots(day);
     final List<MapEntry<DateTime, SlotState>> morning = slots.entries
-        .where((final e) => e.key.hour < 13)
+        .where((final MapEntry<DateTime, SlotState> e) => e.key.hour < 13)
         .toList();
     final List<MapEntry<DateTime, SlotState>> afternoon = slots.entries
-        .where((final e) => e.key.hour >= 13)
+        .where((final MapEntry<DateTime, SlotState> e) => e.key.hour >= 13)
         .toList();
 
     DateTime? picked;
@@ -104,7 +107,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   final String label =
                       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
                           .replaceAll(':00', ':00');
-                  final bool disabled = st == SlotState.disabled || st == SlotState.occupied;
+                  final bool disabled =
+                      st == SlotState.disabled || st == SlotState.occupied;
                   Color bg;
                   Color fg;
                   BorderSide? side;
@@ -114,11 +118,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       fg = cs.onPrimaryContainer;
                       break;
                     case SlotState.occupied:
-                      bg = cs.surfaceVariant;
+                      bg = cs.surfaceContainerHighest;
                       fg = cs.onSurfaceVariant;
                       break;
                     case SlotState.hold:
-                      bg = cs.surfaceVariant.withValues(alpha: 0.5);
+                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.5);
                       fg = cs.onSurfaceVariant;
                       side = BorderSide(
                         color: cs.outline,
@@ -127,7 +131,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       );
                       break;
                     case SlotState.disabled:
-                      bg = cs.surfaceVariant.withValues(alpha: 0.2);
+                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.2);
                       fg = cs.onSurfaceVariant.withValues(alpha: 0.4);
                       break;
                   }
@@ -152,7 +156,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                               picked = dt;
                               Navigator.of(ctx).pop();
                             },
-                      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -177,8 +184,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   Text(
                     'Slots para ${day.day}/${day.month} (Horario 08:00 - 19:00)',
                     style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   section('Mañana', morning),
@@ -216,7 +223,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             focusedDay: _focusedDay,
             currentDay: _today,
             availableGestures: AvailableGestures.horizontalSwipe,
-            selectedDayPredicate: (final DateTime d) => isSameDay(d, _selectedDay),
+            selectedDayPredicate: (final DateTime d) =>
+                isSameDay(d, _selectedDay),
             onPageChanged: (final DateTime f) => _focusedDay = f,
             onDaySelected: (final DateTime selected, final DateTime focused) {
               setState(() {
@@ -239,9 +247,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             headerStyle: HeaderStyle(
               titleCentered: true,
               formatButtonVisible: false,
-              titleTextStyle: Theme.of(context).textTheme.titleMedium!.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              titleTextStyle: Theme.of(
+                context,
+              ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(height: 12),
@@ -257,9 +265,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Selecciona una hora',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -303,22 +311,15 @@ class _SlotLegend extends StatelessWidget {
       spacing: 18,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
+        _LegendItem(color: cs.primaryContainer, label: 'Disponible'),
+        _LegendItem(color: cs.surfaceContainerHighest, label: 'Ocupado', opacity: 1),
         _LegendItem(
-          color: cs.primaryContainer,
-          label: 'Disponible',
-        ),
-        _LegendItem(
-          color: cs.surfaceVariant,
-          label: 'Ocupado',
-          opacity: 1,
-        ),
-        _LegendItem(
-          color: cs.surfaceVariant.withValues(alpha: 0.5),
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           label: 'Hold',
           border: Border.all(color: cs.outline, width: 1),
         ),
         _LegendItem(
-          color: cs.surfaceVariant.withValues(alpha: 0.2),
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
           label: 'Fuera de horario',
         ),
       ],
@@ -341,9 +342,9 @@ class _LegendItem extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
-    final TextStyle style = Theme.of(context).textTheme.labelSmall!.copyWith(
-          fontWeight: FontWeight.w500,
-        );
+    final TextStyle style = Theme.of(
+      context,
+    ).textTheme.labelSmall!.copyWith(fontWeight: FontWeight.w500);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[

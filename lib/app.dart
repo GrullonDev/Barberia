@@ -10,23 +10,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Consumer(
-    builder: (final BuildContext context, final WidgetRef ref, final Widget? _) {
-      final ThemePrefs prefs = ref.watch(themeControllerProvider);
-      return MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        title: 'Barbería App',
-        themeMode: prefs.mode,
-        theme: buildTheme(
-          brightness: Brightness.light,
-          seed: prefs.seed.color,
-        ),
-        darkTheme: buildTheme(
-          brightness: Brightness.dark,
-          seed: prefs.seed.color,
-        ),
-        routerConfig: appRouter,
-      );
-    },
+    builder:
+        (final BuildContext context, final WidgetRef ref, final Widget? _) {
+          final ThemePrefs prefs = ref.watch(themeControllerProvider);
+          return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            title: 'Barbería App',
+            themeMode: prefs.mode,
+            theme: buildTheme(
+              brightness: Brightness.light,
+              seed: prefs.seed.color,
+            ),
+            darkTheme: buildTheme(
+              brightness: Brightness.dark,
+              seed: prefs.seed.color,
+            ),
+            routerConfig: appRouter,
+          );
+        },
   );
 }
-

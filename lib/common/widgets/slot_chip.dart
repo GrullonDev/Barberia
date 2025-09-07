@@ -26,7 +26,7 @@ class SlotChip extends StatelessWidget {
       case SlotChipState.hold:
         return cs.secondaryContainer;
       case SlotChipState.disabled:
-  return cs.surfaceContainerHighest.withValues(alpha: 0.4);
+        return cs.surfaceContainerHighest.withValues(alpha: 0.4);
     }
   }
 
@@ -39,7 +39,7 @@ class SlotChip extends StatelessWidget {
       case SlotChipState.hold:
         return cs.onSecondaryContainer;
       case SlotChipState.disabled:
-  return cs.onSurface.withValues(alpha: 0.4);
+        return cs.onSurface.withValues(alpha: 0.4);
     }
   }
 
@@ -50,18 +50,17 @@ class SlotChip extends StatelessWidget {
       label: Text(label),
       selected: selected,
       showCheckmark: false,
-      onPressed: state == SlotChipState.disabled || state == SlotChipState.occupied
+      onPressed:
+          state == SlotChipState.disabled || state == SlotChipState.occupied
           ? null
           : onTap,
       backgroundColor: _background(cs),
       selectedColor: cs.primaryContainer,
       labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: selected ? cs.onPrimaryContainer : _labelColor(cs),
-            fontWeight: FontWeight.w500,
-          ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? cs.onPrimaryContainer : _labelColor(cs),
+        fontWeight: FontWeight.w500,
       ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     );

@@ -61,10 +61,9 @@ enum ThemeSeedOption { emerald, indigo, rose, amber }
 
 extension ThemeSeedColor on ThemeSeedOption {
   Color get color => switch (this) {
-        ThemeSeedOption.emerald => const Color(0xFF22C55E),
-        ThemeSeedOption.indigo => const Color(0xFF4F46E5),
-        ThemeSeedOption.rose => const Color(0xFFE11D48),
-        ThemeSeedOption.amber => const Color(0xFFF59E0B),
-      };
+    ThemeSeedOption.emerald => const Color(0xFF22C55E),
+    ThemeSeedOption.indigo => const Color(0xFF4F46E5),
+    ThemeSeedOption.rose => const Color(0xFFE11D48),
+    ThemeSeedOption.amber => const Color(0xFFF59E0B),
+  };
 }
-

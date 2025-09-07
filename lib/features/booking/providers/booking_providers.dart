@@ -41,11 +41,11 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
     final String? email,
     final String? notes,
   }) => state = state.copyWith(
-        name: name,
-        phone: phone,
-        email: email,
-        notes: notes,
-      );
+    name: name,
+    phone: phone,
+    email: email,
+    notes: notes,
+  );
 
   void reset() => state = BookingDraft.empty();
 }
@@ -66,9 +66,13 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     final DateTime end = start.add(duration);
     for (final Booking b in state) {
       final DateTime bStart = b.dateTime;
-      final DateTime bEnd = bStart.add(Duration(minutes: b.service.durationMinutes));
+      final DateTime bEnd = bStart.add(
+        Duration(minutes: b.service.durationMinutes),
+      );
       final bool overlap = start.isBefore(bEnd) && end.isAfter(bStart);
-      if (overlap) return true;
+      if (overlap) {
+        return true;
+      }
     }
     return false;
   }

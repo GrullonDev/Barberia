@@ -19,7 +19,8 @@ class ConfirmationPage extends ConsumerStatefulWidget {
 }
 
 class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
-  Booking? _booking; // Persist booking so it doesn't regenerate with new id on rebuilds.
+  Booking?
+  _booking; // Persist booking so it doesn't regenerate with new id on rebuilds.
   String? _qrData;
   bool _enqueued = false;
 
@@ -51,7 +52,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           service: draft.service!,
           dateTime: draft.dateTime!,
-            customerName: draft.name!,
+          customerName: draft.name!,
           customerPhone: draft.phone!,
           customerEmail: draft.email,
           notes: draft.notes,
@@ -91,7 +92,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
             const SizedBox(height: 16),
             QrImageView(data: qrData, size: 160),
             const SizedBox(height: 16),
-            Text('Cliente: ${booking.customerName}') ,
+            Text('Cliente: ${booking.customerName}'),
             if (booking.customerEmail != null)
               Text('Email: ${booking.customerEmail}'),
             const Spacer(),

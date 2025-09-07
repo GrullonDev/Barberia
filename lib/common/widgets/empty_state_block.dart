@@ -26,13 +26,13 @@ class EmptyStateBlock extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 72, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 20),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-              textAlign: TextAlign.center,
-            ),
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
           Text(
             message,
@@ -41,10 +41,7 @@ class EmptyStateBlock extends StatelessWidget {
           ),
           if (actionLabel != null && onAction != null) ...<Widget>[
             const SizedBox(height: 28),
-            FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel!),
-            ),
+            FilledButton(onPressed: onAction, child: Text(actionLabel!)),
           ],
         ],
       ),

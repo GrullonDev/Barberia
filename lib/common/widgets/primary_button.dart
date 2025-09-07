@@ -33,12 +33,7 @@ class PrimaryButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               if (icon != null) ...<Widget>[icon!, const SizedBox(width: 8)],
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
             ],
           );
 
