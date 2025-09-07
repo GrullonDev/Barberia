@@ -18,6 +18,14 @@ final Provider<List<Service>> servicesProvider = Provider<List<Service>>(
   ],
 );
 
+/// Versión asíncrona simulada para mostrar skeletons / animaciones de carga.
+final FutureProvider<List<Service>> servicesAsyncProvider =
+    FutureProvider<List<Service>>((final Ref ref) async {
+      // Delay intencional corto para mostrar estado de carga.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      return ref.read(servicesProvider);
+    });
+
 // Borrador de reserva en progreso.
 class BookingDraftNotifier extends StateNotifier<BookingDraft> {
   BookingDraftNotifier() : super(BookingDraft.empty());
