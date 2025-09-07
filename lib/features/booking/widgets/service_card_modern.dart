@@ -80,8 +80,10 @@ class ServiceCardModern extends StatelessWidget {
                     ),
                     child: Text(
                       service.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      // Permitir más líneas si está seleccionada para que se lea completo.
+                      maxLines: selected ? 3 : 2,
+                      overflow: selected ? TextOverflow.visible : TextOverflow.ellipsis,
+                      softWrap: true,
                     ),
                   ),
                   const SizedBox(height: 4),
