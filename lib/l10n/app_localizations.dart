@@ -552,6 +552,78 @@ abstract class S {
   /// In en, this message translates to:
   /// **'Version {version} • Updated {date}'**
   String privacy_version_label(String version, String date);
+
+  /// No description provided for @confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking Confirmation'**
+  String get confirm_title;
+
+  /// No description provided for @confirm_incomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Incomplete booking'**
+  String get confirm_incomplete;
+
+  /// No description provided for @confirm_copy_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get confirm_copy_link;
+
+  /// No description provided for @confirm_share_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get confirm_share_link;
+
+  /// No description provided for @confirm_link_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get confirm_link_copied;
+
+  /// No description provided for @confirm_open_in_maps.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Maps / Waze'**
+  String get confirm_open_in_maps;
+
+  /// No description provided for @confirm_home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get confirm_home;
+
+  /// No description provided for @confirm_add_calendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to calendar'**
+  String get confirm_add_calendar;
+
+  /// No description provided for @confirm_add_calendar_subject.
+  ///
+  /// In en, this message translates to:
+  /// **'Add appointment to calendar'**
+  String get confirm_add_calendar_subject;
+
+  /// No description provided for @confirm_add_calendar_body.
+  ///
+  /// In en, this message translates to:
+  /// **'.ics file attached with your appointment'**
+  String get confirm_add_calendar_body;
+
+  /// No description provided for @confirm_qr_semantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Location QR code with appointment metadata'**
+  String get confirm_qr_semantics;
+
+  /// No description provided for @confirm_code_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'{code}'**
+  String confirm_code_suffix(String code);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

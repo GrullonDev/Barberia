@@ -251,4 +251,43 @@ class SEs extends S {
   String privacy_version_label(String version, String date) {
     return 'Versión $version • Actualizado $date';
   }
+
+  @override
+  String get confirm_title => 'Confirmación de Reserva';
+
+  @override
+  String get confirm_incomplete => 'Reserva incompleta';
+
+  @override
+  String get confirm_copy_link => 'Copiar enlace';
+
+  @override
+  String get confirm_share_link => 'Compartir';
+
+  @override
+  String get confirm_link_copied => 'Enlace copiado';
+
+  @override
+  String get confirm_open_in_maps => 'Abrir en Maps / Waze';
+
+  @override
+  String get confirm_home => 'Inicio';
+
+  @override
+  String get confirm_add_calendar => 'Añadir al calendario';
+
+  @override
+  String get confirm_add_calendar_subject => 'Añadir cita al calendario';
+
+  @override
+  String get confirm_add_calendar_body => 'Adjuntamos archivo .ics con tu cita';
+
+  @override
+  String get confirm_qr_semantics =>
+      'Código QR de la ubicación con datos de la cita';
+
+  @override
+  String confirm_code_suffix(String code) {
+    return '$code';
+  }
 }

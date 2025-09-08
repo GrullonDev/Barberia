@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -243,6 +243,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
             notes: _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
           );
       // Animación de éxito antes de navegar.
+      // Capture navigators early.
+      final NavigatorState rootNav = Navigator.of(context, rootNavigator: true);
+      void goToConfirmation() => context.goNamed(RouteNames.confirmation);
       showGeneralDialog(
         context: context,
         barrierDismissible: false,
@@ -250,11 +253,13 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         pageBuilder: (_, __, ___) => const SizedBox.shrink(),
         transitionDuration: const Duration(milliseconds: 480),
         transitionBuilder:
-            (BuildContext ctx, Animation<double> anim, _, Widget child) {
+            (BuildContext dialogCtx, Animation<double> anim, _, Widget child) {
               final CurvedAnimation curved = CurvedAnimation(
                 parent: anim,
                 curve: Curves.easeOutBack,
               );
+              // Use dialogCtx instead of outer context to avoid accessing deactivated ancestor.
+              final ColorScheme cs = Theme.of(dialogCtx).colorScheme;
               return Opacity(
                 opacity: anim.value,
                 child: ScaleTransition(
@@ -267,11 +272,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Icon(
-                          Icons.check_circle,
-                          size: 72,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                        Icon(Icons.check_circle, size: 72, color: cs.primary),
                         const SizedBox(height: 16),
                         const Text(
                           'Reserva lista',
@@ -298,10 +299,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
             },
       );
       Future<void>.delayed(const Duration(milliseconds: 900), () {
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-          context.goNamed(RouteNames.confirmation);
-        }
+        if (!mounted) return; // still mounted; safe to use captured references
+        rootNav.pop();
+        goToConfirmation();
       });
     }
 
@@ -318,7 +318,10 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
               Row(
                 children: <Widget>[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(20),
@@ -326,24 +329,32 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
                     child: Text(
                       'Paso 3 de 3',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
                     ),
                   ),
                   const Spacer(),
                   // miniature visual progress bars
-                  _StepDot(done: true),
+                  const _StepDot(done: true),
                   const SizedBox(width: 4),
-                  _StepDot(done: true),
+                  const _StepDot(done: true),
                   const SizedBox(width: 4),
-                  _StepDot(done: true, current: true),
+                  const _StepDot(done: true, current: true),
                 ],
               ),
               const SizedBox(height: 16),
-              Text(tr.details_form_intro, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                tr.details_form_intro,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 4),
-              Text(tr.details_contact_hint, style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                tr.details_contact_hint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 20),
               _SummaryBlock(draft: draft),
               const SizedBox(height: 20),
@@ -464,7 +475,9 @@ class _StepDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final Color fill = done ? (current ? cs.primary : cs.primaryContainer) : cs.surfaceContainerHighest;
+    final Color fill = done
+        ? (current ? cs.primary : cs.primaryContainer)
+        : cs.surfaceContainerHighest;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       width: current ? 22 : 12,

@@ -251,4 +251,44 @@ class SEn extends S {
   String privacy_version_label(String version, String date) {
     return 'Version $version • Updated $date';
   }
+
+  @override
+  String get confirm_title => 'Booking Confirmation';
+
+  @override
+  String get confirm_incomplete => 'Incomplete booking';
+
+  @override
+  String get confirm_copy_link => 'Copy link';
+
+  @override
+  String get confirm_share_link => 'Share';
+
+  @override
+  String get confirm_link_copied => 'Link copied';
+
+  @override
+  String get confirm_open_in_maps => 'Open in Maps / Waze';
+
+  @override
+  String get confirm_home => 'Home';
+
+  @override
+  String get confirm_add_calendar => 'Add to calendar';
+
+  @override
+  String get confirm_add_calendar_subject => 'Add appointment to calendar';
+
+  @override
+  String get confirm_add_calendar_body =>
+      '.ics file attached with your appointment';
+
+  @override
+  String get confirm_qr_semantics =>
+      'Location QR code with appointment metadata';
+
+  @override
+  String confirm_code_suffix(String code) {
+    return '$code';
+  }
 }

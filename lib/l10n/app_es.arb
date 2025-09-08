@@ -88,4 +88,17 @@
   "details_reminders_label": "Recibir recordatorios ",
   "privacy_version_label": "Versión {version} • Actualizado {date}",
   "@privacy_version_label": {"placeholders": {"version": {"type": "String"}, "date": {"type": "String"}}}
+  ,"confirm_title": "Confirmación de Reserva"
+  ,"confirm_incomplete": "Reserva incompleta"
+  ,"confirm_copy_link": "Copiar enlace"
+  ,"confirm_share_link": "Compartir"
+  ,"confirm_link_copied": "Enlace copiado"
+  ,"confirm_open_in_maps": "Abrir en Maps / Waze"
+  ,"confirm_home": "Inicio"
+  ,"confirm_add_calendar": "Añadir al calendario"
+  ,"confirm_add_calendar_subject": "Añadir cita al calendario"
+  ,"confirm_add_calendar_body": "Adjuntamos archivo .ics con tu cita"
+  ,"confirm_qr_semantics": "Código QR de la ubicación con datos de la cita"
+  ,"confirm_code_suffix": "{code}"
+  ,"@confirm_code_suffix": {"placeholders": {"code": {"type": "String"}}}
 }

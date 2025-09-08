@@ -1,16 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:barberia/app/router.dart';
+import 'package:barberia/common/config/location_config.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/l10n/app_localizations.dart';
 
 class ConfirmationPage extends ConsumerStatefulWidget {
   const ConfirmationPage({super.key});
@@ -79,8 +84,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
 
   @override
   Widget build(final BuildContext context) {
+    final S tr = S.of(context);
     if (_booking == null) {
-      return const Scaffold(body: Center(child: Text('Reserva incompleta')));
+      return Scaffold(body: Center(child: Text(tr.confirm_incomplete)));
     }
     final Booking booking = _booking!;
     final String qrData = _qrData!; // maps link encoded in QR
@@ -94,196 +100,220 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     final int durMin = booking.service.durationMinutes;
 
     final ColorScheme cs = Theme.of(context).colorScheme;
-    const String address = 'Av. Principal 123, Ciudad';
-    const double lat = 14.503056; // Keep in sync with QR
-    const double lng = -90.577228;
-    final String mapsBase =
-        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}&ll=$lat,$lng';
-    final Uri mapsUri = Uri.parse(mapsBase);
+    const String address = LocationConfig.address;
+    final Uri mapsUri = LocationConfig.googleMapsUri();
+    final Uri wazeUri = LocationConfig.wazeUri();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Confirmación de Reserva')),
+      appBar: AppBar(title: Text(tr.confirm_title)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: cs.surfaceContainerHighest,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            booking.service.name,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
+          child: SingleChildScrollView(
+            child: Column(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: cs.surfaceContainerHighest,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              booking.service.name,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cs.primaryContainer,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            'APPT-${booking.id.substring(booking.id.length - 4)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: cs.onPrimaryContainer,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primaryContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              tr.confirm_code_suffix(
+                                'APPT-${booking.id.substring(booking.id.length - 4)}',
+                              ),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onPrimaryContainer,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$dateStr  $timeRange',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onLongPress: () async {
-                        await Share.share(
-                          qrData,
-                          subject: 'Ubicación Barbería',
-                        );
-                      },
-                      child: Center(
-                        child: Semantics(
-                          label:
-                              'Código QR de ubicación con metadatos de la cita. Escanea para abrir la dirección en Maps.',
-                          child: QrImageView(data: qrData, size: 180),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$dateStr  $timeRange',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onLongPress: () async {
+                          await Share.share(
+                            qrData,
+                            subject: 'Ubicación Barbería',
+                          );
+                        },
+                        child: Center(
+                          child: Semantics(
+                            label: tr.confirm_qr_semantics,
+                            child: QrImageView(data: qrData, size: 180),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.copy, size: 16),
-                          label: const Text('Copiar enlace'),
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: qrData),
-                            );
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Enlace copiado')),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: Text(tr.confirm_copy_link),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: qrData),
                               );
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 12),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.share, size: 16),
-                          label: const Text('Compartir'),
-                          onPressed: () async {
-                            await Share.share(
-                              qrData,
-                              subject: 'Ubicación Barbería',
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(tr.confirm_link_copied),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.share, size: 16),
+                            label: Text(tr.confirm_share_link),
+                            onPressed: () async {
+                              await Share.share(
+                                qrData,
+                                subject: 'Ubicación Barbería',
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
+                        children: <Widget>[
+                          _InfoChip(
+                            icon: Icons.person,
+                            label: booking.customerName,
+                          ),
+                          if (booking.customerPhone != null)
+                            _InfoChip(
+                              icon: Icons.phone,
+                              label: booking.customerPhone!,
+                            ),
+                          if (booking.customerEmail != null)
+                            _InfoChip(
+                              icon: Icons.email,
+                              label: booking.customerEmail!,
+                            ),
+                          _InfoChip(icon: Icons.schedule, label: '$durMin min'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.location_on),
+                        title: const Text(address),
+                        subtitle: Text(tr.confirm_open_in_maps),
+                        onTap: () async {
+                          // Try Google Maps first, fallback to Waze if available, else browser.
+                          if (await canLaunchUrl(mapsUri)) {
+                            await launchUrl(
+                              mapsUri,
+                              mode: LaunchMode.externalApplication,
                             );
-                          },
-                        ),
-                      ],
+                          } else if (await canLaunchUrl(wazeUri)) {
+                            await launchUrl(
+                              wazeUri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          } else {
+                            await launchUrl(
+                              mapsUri,
+                              mode: LaunchMode.platformDefault,
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: null, // deshabilitado en demo
+                        icon: const Icon(Icons.edit_calendar),
+                        label: Text(tr.appointment_rebook_soon),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: <Widget>[
-                        _InfoChip(
-                          icon: Icons.person,
-                          label: booking.customerName,
-                        ),
-                        if (booking.customerPhone != null)
-                          _InfoChip(
-                            icon: Icons.phone,
-                            label: booking.customerPhone!,
-                          ),
-                        if (booking.customerEmail != null)
-                          _InfoChip(
-                            icon: Icons.email,
-                            label: booking.customerEmail!,
-                          ),
-                        _InfoChip(icon: Icons.schedule, label: '$durMin min'),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.location_on),
-                      title: const Text(address),
-                      subtitle: const Text('Abrir en Maps'),
-                      onTap: () async {
-                        if (await canLaunchUrl(mapsUri)) {
-                          await launchUrl(
-                            mapsUri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        }
-                      },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: null, // deshabilitado en demo
+                        icon: const Icon(Icons.cancel),
+                        label: Text(tr.appointment_cancel_soon),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: null, // deshabilitado en demo
-                      icon: const Icon(Icons.edit_calendar),
-                      label: const Text('Reprogramar'),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => context.goNamed(RouteNames.home),
+                        icon: const Icon(Icons.home),
+                        label: Text(tr.confirm_home),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: null, // deshabilitado en demo
-                      icon: const Icon(Icons.cancel),
-                      label: const Text('Cancelar'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          // Avoid using BuildContext after awaits except for localization already captured.
+                          final String subject = tr.confirm_add_calendar_subject;
+                          final String body = tr.confirm_add_calendar_body;
+                          final String ics = booking.toIcsString();
+                          final Directory tempDir = await getTemporaryDirectory();
+                          final String path = '${tempDir.path}/cita-${booking.id}.ics';
+                          final File icsFile = File(path);
+                          await icsFile.writeAsString(ics);
+                          await Share.shareXFiles(
+                            <XFile>[XFile(path, mimeType: 'text/calendar', name: 'cita-${booking.id}.ics')],
+                            subject: subject,
+                            text: body,
+                          );
+                        },
+                        icon: const Icon(Icons.event_available),
+                        label: Text(tr.confirm_add_calendar),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => context.goNamed(RouteNames.home),
-                      icon: const Icon(Icons.home),
-                      label: const Text('Inicio'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        final String ics = booking.toIcsString();
-                        Share.share(ics, subject: 'Añadir a calendario (.ics)');
-                      },
-                      icon: const Icon(Icons.event_available),
-                      label: const Text('Añadir al calendario'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

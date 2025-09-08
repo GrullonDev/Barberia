@@ -65,6 +65,17 @@ class MyBookingsPage extends ConsumerWidget {
             }),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          if (bookings.isEmpty) {
+            context.go('/');
+          } else {
+            context.go('/services');
+          }
+        },
+        icon: Icon(bookings.isEmpty ? Icons.home : Icons.add),
+        label: Text(bookings.isEmpty ? tr.confirm_home : tr.select_service_cta),
+      ),
     );
   }
 }

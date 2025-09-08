@@ -88,4 +88,17 @@
   "details_reminders_label": "Receive reminders ",
   "privacy_version_label": "Version {version} • Updated {date}",
   "@privacy_version_label": {"placeholders": {"version": {"type": "String"}, "date": {"type": "String"}}}
+  ,"confirm_title": "Booking Confirmation"
+  ,"confirm_incomplete": "Incomplete booking"
+  ,"confirm_copy_link": "Copy link"
+  ,"confirm_share_link": "Share"
+  ,"confirm_link_copied": "Link copied"
+  ,"confirm_open_in_maps": "Open in Maps / Waze"
+  ,"confirm_home": "Home"
+  ,"confirm_add_calendar": "Add to calendar"
+  ,"confirm_add_calendar_subject": "Add appointment to calendar"
+  ,"confirm_add_calendar_body": ".ics file attached with your appointment"
+  ,"confirm_qr_semantics": "Location QR code with appointment metadata"
+  ,"confirm_code_suffix": "{code}"
+  ,"@confirm_code_suffix": {"placeholders": {"code": {"type": "String"}}}
 }

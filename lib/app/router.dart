@@ -1,7 +1,6 @@
 import 'package:go_router/go_router.dart';
 
 import '../features/booking/pages/pages.dart';
-import '../features/static/privacy_page.dart';
 
 /// Nombres centralizados de rutas para evitar strings mágicos.
 abstract final class RouteNames {
