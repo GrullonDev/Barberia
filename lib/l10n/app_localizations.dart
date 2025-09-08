@@ -462,6 +462,96 @@ abstract class S {
   /// In en, this message translates to:
   /// **'Summary: {service} on {date} at {time}'**
   String calendar_summary_semantics(String service, String date, String time);
+
+  /// No description provided for @privacy_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacy_title;
+
+  /// No description provided for @privacy_prelim_header.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy (preliminary)'**
+  String get privacy_prelim_header;
+
+  /// No description provided for @privacy_prelim_body.
+  ///
+  /// In en, this message translates to:
+  /// **'This preliminary version is a placeholder. It will describe how the company collects, uses and protects personal data: name, phone, email and booking preferences.\n\nBy continuing you accept the use of this data to manage bookings and reminders. It won\'t be shared with unauthorized third parties.\n\nComing soon: legal basis, retention times, user rights and contact details of the controller.\n\nLast update: pending.'**
+  String get privacy_prelim_body;
+
+  /// No description provided for @privacy_principles_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Key Principles'**
+  String get privacy_principles_title;
+
+  /// No description provided for @privacy_principle_minimum.
+  ///
+  /// In en, this message translates to:
+  /// **'We only ask for the minimum info to manage the booking.'**
+  String get privacy_principle_minimum;
+
+  /// No description provided for @privacy_principle_opt_in.
+  ///
+  /// In en, this message translates to:
+  /// **'You can opt in/out of reminders (preference stored).'**
+  String get privacy_principle_opt_in;
+
+  /// No description provided for @privacy_principle_erasure.
+  ///
+  /// In en, this message translates to:
+  /// **'You will be able to request deletion (future feature).'**
+  String get privacy_principle_erasure;
+
+  /// No description provided for @privacy_principle_security.
+  ///
+  /// In en, this message translates to:
+  /// **'Data will be transmitted securely (pending implementation).'**
+  String get privacy_principle_security;
+
+  /// No description provided for @privacy_note_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get privacy_note_title;
+
+  /// No description provided for @privacy_note_body.
+  ///
+  /// In en, this message translates to:
+  /// **'This screen is temporary and not legal advice. Final text must be reviewed and approved before publication.'**
+  String get privacy_note_body;
+
+  /// No description provided for @privacy_acknowledge.
+  ///
+  /// In en, this message translates to:
+  /// **'Understood'**
+  String get privacy_acknowledge;
+
+  /// No description provided for @details_form_intro.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete your details'**
+  String get details_form_intro;
+
+  /// No description provided for @details_contact_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Name and at least one contact method (phone or email).'**
+  String get details_contact_hint;
+
+  /// No description provided for @details_reminders_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive reminders '**
+  String get details_reminders_label;
+
+  /// No description provided for @privacy_version_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} • Updated {date}'**
+  String privacy_version_label(String version, String date);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

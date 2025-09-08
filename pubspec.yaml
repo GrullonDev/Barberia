@@ -1,5 +1,5 @@
 name: barberia
-description: "A new Flutter project."
+description: "Multi-platform barber shop booking app: browse services, select date & time, localized (es/en), reminders, themed & accessible UI."
 publish_to: 'none' 
 
 version: 1.0.1
@@ -23,6 +23,9 @@ dependencies:
   share_plus: ^10.0.2
   shared_preferences: ^2.3.2
   table_calendar: ^3.0.9
+  flutter_markdown: ^0.7.3+1
+  http: ^1.2.2
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_lints: ^5.0.0

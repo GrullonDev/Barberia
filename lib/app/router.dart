@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../features/booking/pages/pages.dart';
+import '../features/static/privacy_page.dart';
 
 /// Nombres centralizados de rutas para evitar strings mágicos.
 abstract final class RouteNames {
@@ -10,6 +11,7 @@ abstract final class RouteNames {
   static const String details = 'details';
   static const String confirmation = 'confirmation';
   static const String myBookings = 'my-bookings';
+  static const String privacy = 'privacy';
 }
 
 /// Configuración central de rutas para el flujo de reservas del cliente.
@@ -45,6 +47,11 @@ final GoRouter appRouter = GoRouter(
       path: '/my-bookings',
       name: RouteNames.myBookings,
       builder: (_, __) => const MyBookingsPage(),
+    ),
+    GoRoute(
+      path: '/privacy',
+      name: RouteNames.privacy,
+      builder: (_, __) => const PrivacyPage(),
     ),
   ],
 );

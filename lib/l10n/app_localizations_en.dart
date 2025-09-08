@@ -197,4 +197,58 @@ class SEn extends S {
   String calendar_summary_semantics(String service, String date, String time) {
     return 'Summary: $service on $date at $time';
   }
+
+  @override
+  String get privacy_title => 'Privacy';
+
+  @override
+  String get privacy_prelim_header => 'Privacy Policy (preliminary)';
+
+  @override
+  String get privacy_prelim_body =>
+      'This preliminary version is a placeholder. It will describe how the company collects, uses and protects personal data: name, phone, email and booking preferences.\n\nBy continuing you accept the use of this data to manage bookings and reminders. It won\'t be shared with unauthorized third parties.\n\nComing soon: legal basis, retention times, user rights and contact details of the controller.\n\nLast update: pending.';
+
+  @override
+  String get privacy_principles_title => 'Key Principles';
+
+  @override
+  String get privacy_principle_minimum =>
+      'We only ask for the minimum info to manage the booking.';
+
+  @override
+  String get privacy_principle_opt_in =>
+      'You can opt in/out of reminders (preference stored).';
+
+  @override
+  String get privacy_principle_erasure =>
+      'You will be able to request deletion (future feature).';
+
+  @override
+  String get privacy_principle_security =>
+      'Data will be transmitted securely (pending implementation).';
+
+  @override
+  String get privacy_note_title => 'Note';
+
+  @override
+  String get privacy_note_body =>
+      'This screen is temporary and not legal advice. Final text must be reviewed and approved before publication.';
+
+  @override
+  String get privacy_acknowledge => 'Understood';
+
+  @override
+  String get details_form_intro => 'Complete your details';
+
+  @override
+  String get details_contact_hint =>
+      'Name and at least one contact method (phone or email).';
+
+  @override
+  String get details_reminders_label => 'Receive reminders ';
+
+  @override
+  String privacy_version_label(String version, String date) {
+    return 'Version $version • Updated $date';
+  }
 }

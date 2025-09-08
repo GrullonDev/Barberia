@@ -71,5 +71,21 @@
   "calendar_summary_semantics": "Summary: {service} on {date} at {time}",
   "@calendar_summary_semantics": {
     "placeholders": {"service": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}}
-  }
+  },
+  "privacy_title": "Privacy",
+  "privacy_prelim_header": "Privacy Policy (preliminary)",
+  "privacy_prelim_body": "This preliminary version is a placeholder. It will describe how the company collects, uses and protects personal data: name, phone, email and booking preferences.\n\nBy continuing you accept the use of this data to manage bookings and reminders. It won't be shared with unauthorized third parties.\n\nComing soon: legal basis, retention times, user rights and contact details of the controller.\n\nLast update: pending.",
+  "privacy_principles_title": "Key Principles",
+  "privacy_principle_minimum": "We only ask for the minimum info to manage the booking.",
+  "privacy_principle_opt_in": "You can opt in/out of reminders (preference stored).",
+  "privacy_principle_erasure": "You will be able to request deletion (future feature).",
+  "privacy_principle_security": "Data will be transmitted securely (pending implementation).",
+  "privacy_note_title": "Note",
+  "privacy_note_body": "This screen is temporary and not legal advice. Final text must be reviewed and approved before publication.",
+  "privacy_acknowledge": "Understood"
+  ,"details_form_intro": "Complete your details",
+  "details_contact_hint": "Name and at least one contact method (phone or email).",
+  "details_reminders_label": "Receive reminders ",
+  "privacy_version_label": "Version {version} • Updated {date}",
+  "@privacy_version_label": {"placeholders": {"version": {"type": "String"}, "date": {"type": "String"}}}
 }

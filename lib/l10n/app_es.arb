@@ -71,5 +71,21 @@
   "calendar_summary_semantics": "Resumen: {service} el {date} a las {time}",
   "@calendar_summary_semantics": {
     "placeholders": {"service": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}}
-  }
+  },
+  "privacy_title": "Privacidad",
+  "privacy_prelim_header": "Política de Privacidad (versión preliminar)",
+  "privacy_prelim_body": "Esta versión preliminar sirve como marcador de posición. Aquí se describirá cómo la empresa recopila, utiliza y protege los datos personales de los usuarios: nombre, teléfono, email y preferencias de reserva.\n\nAl continuar aceptas que tu información será usada para gestionar reservas y recordatorios. No se compartirá con terceros no autorizados.\n\nPróximamente: base legal del tratamiento, tiempos de retención, derechos del usuario y datos de contacto del responsable.\n\nÚltima actualización: pendiente.",
+  "privacy_principles_title": "Principios Clave",
+  "privacy_principle_minimum": "Sólo pedimos la información mínima para gestionar la reserva.",
+  "privacy_principle_opt_in": "Puedes decidir si recibir recordatorios (se guarda tu preferencia).",
+  "privacy_principle_erasure": "Podrás solicitar la eliminación de tus datos (función futura).",
+  "privacy_principle_security": "La información se transmitirá de forma segura (pendiente).",
+  "privacy_note_title": "Nota",
+  "privacy_note_body": "Esta pantalla es temporal y no constituye asesoría legal. El texto definitivo debe ser revisado y aprobado antes de su publicación.",
+  "privacy_acknowledge": "Entendido"
+  ,"details_form_intro": "Completa tus datos",
+  "details_contact_hint": "Nombre y al menos un medio de contacto (teléfono o email).",
+  "details_reminders_label": "Recibir recordatorios ",
+  "privacy_version_label": "Versión {version} • Actualizado {date}",
+  "@privacy_version_label": {"placeholders": {"version": {"type": "String"}, "date": {"type": "String"}}}
 }

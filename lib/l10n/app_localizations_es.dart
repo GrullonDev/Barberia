@@ -196,4 +196,59 @@ class SEs extends S {
   String calendar_summary_semantics(String service, String date, String time) {
     return 'Resumen: $service el $date a las $time';
   }
+
+  @override
+  String get privacy_title => 'Privacidad';
+
+  @override
+  String get privacy_prelim_header =>
+      'Política de Privacidad (versión preliminar)';
+
+  @override
+  String get privacy_prelim_body =>
+      'Esta versión preliminar sirve como marcador de posición. Aquí se describirá cómo la empresa recopila, utiliza y protege los datos personales de los usuarios: nombre, teléfono, email y preferencias de reserva.\n\nAl continuar aceptas que tu información será usada para gestionar reservas y recordatorios. No se compartirá con terceros no autorizados.\n\nPróximamente: base legal del tratamiento, tiempos de retención, derechos del usuario y datos de contacto del responsable.\n\nÚltima actualización: pendiente.';
+
+  @override
+  String get privacy_principles_title => 'Principios Clave';
+
+  @override
+  String get privacy_principle_minimum =>
+      'Sólo pedimos la información mínima para gestionar la reserva.';
+
+  @override
+  String get privacy_principle_opt_in =>
+      'Puedes decidir si recibir recordatorios (se guarda tu preferencia).';
+
+  @override
+  String get privacy_principle_erasure =>
+      'Podrás solicitar la eliminación de tus datos (función futura).';
+
+  @override
+  String get privacy_principle_security =>
+      'La información se transmitirá de forma segura (pendiente).';
+
+  @override
+  String get privacy_note_title => 'Nota';
+
+  @override
+  String get privacy_note_body =>
+      'Esta pantalla es temporal y no constituye asesoría legal. El texto definitivo debe ser revisado y aprobado antes de su publicación.';
+
+  @override
+  String get privacy_acknowledge => 'Entendido';
+
+  @override
+  String get details_form_intro => 'Completa tus datos';
+
+  @override
+  String get details_contact_hint =>
+      'Nombre y al menos un medio de contacto (teléfono o email).';
+
+  @override
+  String get details_reminders_label => 'Recibir recordatorios ';
+
+  @override
+  String privacy_version_label(String version, String date) {
+    return 'Versión $version • Actualizado $date';
+  }
 }

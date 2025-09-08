@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import 'package:barberia/common/utils/gt_phone_formatter.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/l10n/app_localizations.dart';
 
 class DetailsPage extends ConsumerStatefulWidget {
   const DetailsPage({super.key});
@@ -303,25 +305,45 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       });
     }
 
+    final S tr = S.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Datos del Cliente')),
+      appBar: AppBar(title: Text(tr.details_client_title)),
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: <Widget>[
-              Text(
-                'Completa tus datos',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              // Progress indicator (Step 3 of 3)
+              Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Paso 3 de 3',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                    ),
+                  ),
+                  const Spacer(),
+                  // miniature visual progress bars
+                  _StepDot(done: true),
+                  const SizedBox(width: 4),
+                  _StepDot(done: true),
+                  const SizedBox(width: 4),
+                  _StepDot(done: true, current: true),
+                ],
               ),
+              const SizedBox(height: 16),
+              Text(tr.details_form_intro, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
-              Text(
-                'Nombre y al menos un medio de contacto (teléfono o email).',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(tr.details_contact_hint, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 20),
               _SummaryBlock(draft: draft),
               const SizedBox(height: 20),
@@ -384,27 +406,72 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
                 maxLines: 4,
               ),
               const SizedBox(height: 18),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Acepto recibir recordatorios'),
-                value: _acceptRemindersCache ?? false,
-                onChanged: (final bool? v) {
-                  setState(() => _acceptRemindersCache = v ?? false);
-                  ref.read(reminderOptInProvider.notifier).set(v ?? false);
-                },
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Checkbox(
+                    value: _acceptRemindersCache ?? false,
+                    onChanged: (final bool? v) {
+                      setState(() => _acceptRemindersCache = v ?? false);
+                      ref.read(reminderOptInProvider.notifier).set(v ?? false);
+                    },
+                  ),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: <TextSpan>[
+                          TextSpan(text: tr.details_reminders_label),
+                          TextSpan(
+                            text: tr.privacy_title,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                context.pushNamed(RouteNames.privacy);
+                              },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 28),
               Tooltip(
-                message: disabledReason ?? 'Confirmar',
+                message: disabledReason ?? tr.details_confirm,
                 waitDuration: const Duration(milliseconds: 400),
                 child: FilledButton(
                   onPressed: ready ? submit : null,
-                  child: const Text('Confirmar Reserva'),
+                  child: Text(tr.details_confirm),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StepDot extends StatelessWidget {
+  const _StepDot({required this.done, this.current = false});
+  final bool done;
+  final bool current;
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final Color fill = done ? (current ? cs.primary : cs.primaryContainer) : cs.surfaceContainerHighest;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      width: current ? 22 : 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(8),
       ),
     );
   }
