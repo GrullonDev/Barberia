@@ -1,0 +1,104 @@
+{
+  "@@locale": "es",
+  "home_title": "Descubre nuestros servicios",
+  "select_service_cta": "Reservar ahora",
+  "my_bookings_title": "Mis Citas",
+  "my_bookings_empty": "No tienes citas aún",
+  "my_bookings_empty_cta": "Reservar ahora",
+  "service_duration_label": "Duración",
+  "appointment_rebook": "Reprogramar",
+  "appointment_cancel": "Cancelar",
+  "appointment_status_past": "Pasada",
+  "appointment_status_upcoming": "Próxima",
+  "details_client_title": "Datos del Cliente",
+  "details_confirm": "Confirmar Reserva",
+  "calendar_title": "Seleccionar Fecha y Hora",
+  "my_bookings_heading": "Tus citas programadas",
+  "empty_no_bookings": "No tienes citas aún",
+  "empty_bookings_cta": "Reservar ahora",
+  "appointment_badge_past": "Pasada",
+  "appointment_badge_upcoming": "Próxima",
+  "appointment_badge_canceled": "Cancelada",
+  "appointment_rebook": "Reprogramar",
+  "appointment_cancel": "Cancelar",
+  "appointment_rebook_soon": "Reprogramar (próximamente)",
+  "appointment_cancel_soon": "Cancelar (próximamente)",
+  "confirm_cancel_title": "Cancelar cita",
+  "confirm_cancel_msg": "¿Seguro que deseas cancelar esta cita?",
+  "confirm_cancel_yes": "Sí, cancelar",
+  "confirm_cancel_no": "No",
+  "rebook_sheet_title": "Reprogramar cita",
+  "rebook_pick_day": "Elige un día",
+  "rebook_pick_time": "Selecciona una hora",
+  "duration_label": "Duración",
+  "client_label": "Cliente",
+  "price_total": "Total",
+  "currency_symbol_gtq": "Q",
+  "hero_title": "Tu corte, a tu hora",
+  "hero_subtitle": "Reserva en 3 pasos sin registro.",
+  "hero_cta_primary": "Reservar ahora",
+  "hero_cta_secondary": "Ver servicios",
+    "home_popular_title": "Populares",
+    "price_from_prefix": "Desde",
+    "hero_image_semantics": "Imagen ilustrativa del local",
+  "see_all": "Ver todos",
+  "services_filter_all": "Todo",
+  "services_filter_hair": "Cabello",
+  "services_filter_beard": "Barba",
+  "services_filter_combo": "Combo",
+  "service_policy_rebook": "Puedes reprogramar hasta 3 h antes",
+  "service_choose_and_continue": "Elegir y continuar",
+  "cancel": "Cancelar",
+  "calendar_schedule_range": "Horario {open}–{close}",
+  "@calendar_schedule_range": {
+    "placeholders": {"open": {"type": "String"}, "close": {"type": "String"}}
+  },
+  "calendar_quick_today": "Hoy",
+  "calendar_quick_tomorrow": "Mañana",
+  "calendar_quick_next_sat": "Próx. Sáb",
+  "calendar_slots_title": "Slots {date} • {range}",
+  "@calendar_slots_title": {
+    "placeholders": {"date": {"type": "String"}, "range": {"type": "String"}}
+  },
+  "calendar_morning": "Mañana",
+  "calendar_afternoon": "Tarde",
+  "calendar_legend_available": "Disponible",
+  "calendar_legend_occupied": "Ocupado",
+  "calendar_legend_hold": "Hold",
+  "calendar_legend_off": "Fuera de horario",
+  "calendar_select_hour_label": "Selecciona una hora",
+  "calendar_continue": "Continuar",
+  "calendar_summary_semantics": "Resumen: {service} el {date} a las {time}",
+  "@calendar_summary_semantics": {
+    "placeholders": {"service": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}}
+  },
+  "privacy_title": "Privacidad",
+  "privacy_prelim_header": "Política de Privacidad (versión preliminar)",
+  "privacy_prelim_body": "Esta versión preliminar sirve como marcador de posición. Aquí se describirá cómo la empresa recopila, utiliza y protege los datos personales de los usuarios: nombre, teléfono, email y preferencias de reserva.\n\nAl continuar aceptas que tu información será usada para gestionar reservas y recordatorios. No se compartirá con terceros no autorizados.\n\nPróximamente: base legal del tratamiento, tiempos de retención, derechos del usuario y datos de contacto del responsable.\n\nÚltima actualización: pendiente.",
+  "privacy_principles_title": "Principios Clave",
+  "privacy_principle_minimum": "Sólo pedimos la información mínima para gestionar la reserva.",
+  "privacy_principle_opt_in": "Puedes decidir si recibir recordatorios (se guarda tu preferencia).",
+  "privacy_principle_erasure": "Podrás solicitar la eliminación de tus datos (función futura).",
+  "privacy_principle_security": "La información se transmitirá de forma segura (pendiente).",
+  "privacy_note_title": "Nota",
+  "privacy_note_body": "Esta pantalla es temporal y no constituye asesoría legal. El texto definitivo debe ser revisado y aprobado antes de su publicación.",
+  "privacy_acknowledge": "Entendido"
+  ,"details_form_intro": "Completa tus datos",
+  "details_contact_hint": "Nombre y al menos un medio de contacto (teléfono o email).",
+  "details_reminders_label": "Recibir recordatorios ",
+  "privacy_version_label": "Versión {version} • Actualizado {date}",
+  "@privacy_version_label": {"placeholders": {"version": {"type": "String"}, "date": {"type": "String"}}}
+  ,"confirm_title": "Confirmación de Reserva"
+  ,"confirm_incomplete": "Reserva incompleta"
+  ,"confirm_copy_link": "Copiar enlace"
+  ,"confirm_share_link": "Compartir"
+  ,"confirm_link_copied": "Enlace copiado"
+  ,"confirm_open_in_maps": "Abrir en Maps / Waze"
+  ,"confirm_home": "Inicio"
+  ,"confirm_add_calendar": "Añadir al calendario"
+  ,"confirm_add_calendar_subject": "Añadir cita al calendario"
+  ,"confirm_add_calendar_body": "Adjuntamos archivo .ics con tu cita"
+  ,"confirm_qr_semantics": "Código QR de la ubicación con datos de la cita"
+  ,"confirm_code_suffix": "{code}"
+  ,"@confirm_code_suffix": {"placeholders": {"code": {"type": "String"}}}
+}

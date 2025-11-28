@@ -1,28 +1,84 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
-#
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
-
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # ===== IMPORTS =====
+    # Usamos la extensión dart-import-sorter para ordenar y agrupar con líneas en blanco.
+    # Se desactiva directives_ordering para no entrar en conflicto con el estilo deseado.
+    directives_ordering: false
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+    # ===== ESTILO Y FORMATO =====
+    always_declare_return_types: true
+    always_put_control_body_on_new_line: true
+    always_put_required_named_parameters_first: true
+    always_require_non_null_named_parameters: true
+    always_specify_types: true
+    require_trailing_commas: true
+    prefer_single_quotes: true
+
+    # ===== CLASES Y MIEMBROS =====
+    avoid_classes_with_only_static_members: true
+
+    # ===== EFICIENCIA Y CALIDAD =====
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    unnecessary_const: true
+    prefer_final_fields: true
+    unnecessary_final: false
+    avoid_final_parameters: false
+
+    # ===== SEGURIDAD Y BUENAS PRÁCTICAS =====
+    avoid_print: true
+    use_build_context_synchronously: true
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    unnecessary_null_checks: true
+    unnecessary_nullable_for_final_variable_declarations: true
+
+    # ===== FLUTTER ESPECÍFICO =====
+    no_logic_in_create_state: true
+    sized_box_for_whitespace: true
+    sized_box_shrink_expand: true
+
+analyzer:
+  # Configuración del analizador
+  enable-experiment:
+    - macros
+  errors:
+    # Tratar warnings críticos como errores
+    missing_return: error
+    dead_code: error
+    unused_import: error
+    unused_local_variable: error
+    unused_element: error
+    invalid_assignment: error
+    argument_type_not_assignable: error
+    return_of_invalid_type: error
+    await_only_futures: error
+    invocation_of_non_function: error
+    duplicate_constructor: error
+    duplicate_named_argument: error
+    extra_positional_arguments: error
+    field_initializer_not_assignable: error
+    final_not_initialized: error
+    implicit_this_reference_in_initializer: error
+    inconsistent_inheritance: error
+    invalid_constructor_name: error
+    missing_required_param: error
+    not_a_type: error
+    undefined_class: error
+    undefined_function: error
+    undefined_getter: error
+    undefined_setter: error
+    undefined_method: error
+    undefined_named_parameter: error
+    not_enough_positional_arguments: error
+    not_initialized_non_nullable_instance_field: error
+    not_initialized_non_nullable_variable: error
+    null_argument_to_non_null_type: error
+    static_access_to_instance_member: error
+    type_argument_not_matching_bounds: error
+    unchecked_use_of_nullable_value: error
+    avoid_classes_with_only_static_members: ignore
