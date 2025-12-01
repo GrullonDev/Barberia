@@ -10,6 +10,7 @@ import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/service_card.dart';
 import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/common/design_tokens.dart';
 
 class ServiceSelectPage extends ConsumerWidget {
   const ServiceSelectPage({super.key});
@@ -21,23 +22,26 @@ class ServiceSelectPage extends ConsumerWidget {
       servicesAsyncProvider,
     );
     final BookingDraft draft = ref.watch(bookingDraftProvider);
-    final ColorScheme cs = Theme.of(context).colorScheme;
 
     Future<void> showDetails(final Service s) async {
+      final bool isDark = Theme.of(context).brightness == Brightness.dark;
       await showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.xl),
+          ),
         ),
         builder: (final BuildContext ctx) {
           return Padding(
             padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 12,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              left: AppSpacing.l,
+              right: AppSpacing.l,
+              top: AppSpacing.s,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xl,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -45,42 +49,55 @@ class ServiceSelectPage extends ConsumerWidget {
               children: <Widget>[
                 Text(
                   s.name,
-                  style: Theme.of(
-                    ctx,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTypography.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDark
+                        ? AppColors.onSurfaceDark
+                        : AppColors.onSurface,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.s),
                 Text(
                   '${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}',
+                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.m),
                 if (s.extendedDescription != null)
                   Text(
                     s.extendedDescription!,
-                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
+                    style: AppTypography.textTheme.bodyLarge?.copyWith(
+                      color: isDark ? AppColors.secondary : AppColors.secondary,
+                      height: 1.5,
                     ),
                   ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.l),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSpacing.m),
                   decoration: BoxDecoration(
-                    color: cs.secondaryContainer,
-                    borderRadius: BorderRadius.circular(16),
+                    color: isDark
+                        ? AppColors.secondaryContainer
+                        : AppColors.secondaryContainer,
+                    borderRadius: BorderRadius.circular(AppRadius.m),
+                    border: Border.all(
+                      color: isDark ? AppColors.outlineDark : AppColors.outline,
+                    ),
                   ),
                   child: Row(
                     children: <Widget>[
                       Icon(
-                        Icons.info,
+                        Icons.info_outline_rounded,
                         size: 20,
-                        color: cs.onSecondaryContainer,
+                        color: AppColors.onSecondaryContainer,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.s),
                       Expanded(
                         child: Text(
                           tr.service_policy_rebook,
-                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                            color: cs.onSecondaryContainer,
+                          style: AppTypography.textTheme.bodySmall?.copyWith(
+                            color: AppColors.onSecondaryContainer,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -88,27 +105,56 @@ class ServiceSelectPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Descripción del servicio no disponible todavía. Aquí podrías agregar info adicional, recomendaciones o cuidados.',
-                  style: Theme.of(
-                    ctx,
-                  ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                const SizedBox(height: AppSpacing.l),
+                if (s.extendedDescription == null) ...[
+                  Text(
+                    'Descripción del servicio no disponible todavía. Aquí podrías agregar info adicional, recomendaciones o cuidados.',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: isDark ? AppColors.secondary : AppColors.secondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                ],
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ref.read(bookingDraftProvider.notifier).setService(s);
+                      Navigator.of(ctx).pop();
+                      context.goNamed(RouteNames.calendar);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.l),
+                      ),
+                    ),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: Text(
+                      tr.service_choose_and_continue,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () {
-                    ref.read(bookingDraftProvider.notifier).setService(s);
-                    Navigator.of(ctx).pop();
-                    context.goNamed(RouteNames.calendar);
-                  },
-                  icon: const Icon(Icons.check),
-                  label: Text(tr.service_choose_and_continue),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: Text(tr.cancel),
+                const SizedBox(height: AppSpacing.s),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: isDark
+                          ? AppColors.secondary
+                          : AppColors.secondary,
+                    ),
+                    child: Text(tr.cancel),
+                  ),
                 ),
               ],
             ),
@@ -265,7 +311,7 @@ class _ServicesGridSkeletonState extends State<_ServicesGridSkeleton>
         controller: _controller,
         child: Container(
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.25),
+            color: cs.surfaceContainerHighest.withAlpha(64),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: cs.outlineVariant),
           ),
@@ -293,7 +339,7 @@ class _ServicesGridSkeletonState extends State<_ServicesGridSkeleton>
     height: height,
     width: width,
     decoration: BoxDecoration(
-      color: cs.onSurface.withValues(alpha: 0.07),
+      color: cs.onSurface.withAlpha(18),
       borderRadius: BorderRadius.circular(6),
     ),
   );
@@ -311,25 +357,35 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadius.l),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.m,
+          vertical: AppSpacing.s + 2,
+        ),
         decoration: BoxDecoration(
           color: selected
-              ? cs.primaryContainer
-              : cs.surfaceContainerHighest.withValues(alpha: .3),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: selected ? cs.primary : cs.outlineVariant),
+              ? AppColors.primary
+              : (isDark ? AppColors.surfaceDark : AppColors.surface),
+          borderRadius: BorderRadius.circular(AppRadius.l),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary
+                : (isDark ? AppColors.outlineDark : AppColors.outline),
+          ),
+          boxShadow: selected ? AppShadows.soft : [],
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          style: AppTypography.textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
-            color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+            color: selected
+                ? AppColors.onPrimary
+                : (isDark ? AppColors.onSurfaceDark : AppColors.onSurface),
           ),
         ),
       ),

@@ -6,18 +6,19 @@ import 'package:go_router/go_router.dart';
 import 'package:barberia/app/router.dart';
 import 'package:barberia/app/theme.dart';
 import 'package:barberia/app/theme_controller.dart';
-import 'package:barberia/common/widgets/primary_button.dart';
+
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:intl/intl.dart';
 import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/common/design_tokens.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
-  final AsyncValue<List<Service>> asyncServices = ref.watch(
+    final AsyncValue<List<Service>> asyncServices = ref.watch(
       servicesAsyncProvider,
     );
     final List<Service> popular =
@@ -104,8 +105,8 @@ class HomePage extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-                Text(
-                  S.of(context).home_popular_title,
+              Text(
+                S.of(context).home_popular_title,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -195,139 +196,147 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final TextTheme txt = Theme.of(context).textTheme;
     final S tr = S.of(context);
-    return LayoutBuilder(
-      builder: (BuildContext ctx, BoxConstraints c) {
-        final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
-        final Widget image = Semantics(
-               label: tr.hero_image_semantics,
-          image: true,
-          child: Container(
-            width: wide ? double.infinity : 110,
-            height: wide ? 200 : 130,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(wide ? 32 : 24),
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    cs.primaryContainer,
-                    cs.primaryContainer.withValues(alpha: .6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-              child: Icon(Icons.image, size: wide ? 90 : 54, color: cs.onPrimaryContainer.withValues(alpha: 0.9)),
-          ),
-        );
-        final Widget text = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-                 tr.hero_title,
-              style: txt.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            Text(
-                 tr.hero_subtitle,
-              style: txt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                PrimaryButton(label: tr.hero_cta_primary, onPressed: onPrimary),
-                OutlinedButton(
-                  onPressed: onSecondary,
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                  child: Text(tr.hero_cta_secondary),
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.l),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        gradient: LinearGradient(
+          colors: isDark
+              ? [
+                  AppColors.primary.withAlpha(51),
+                  AppColors.surfaceDark,
+                ]
+              : [AppColors.primaryContainer, AppColors.surface],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: AppShadows.soft,
+        border: Border.all(
+          color: isDark ? AppColors.outlineDark : AppColors.outline,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.s),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withAlpha(25),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
-          ],
-        );
-        if (wide) {
-          return Stack(
-            children: <Widget>[
-              Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(40), child: image)),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(40),
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        Colors.black.withValues(alpha: 0.45),
-                        Colors.black.withValues(alpha: 0.15),
-                      ],
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                    ),
-                  ),
+                child: const Icon(
+                  Icons.content_cut_rounded,
+                  color: AppColors.primary,
                 ),
               ),
-              Positioned(
-                left: 24,
-                top: 24,
-                right: 24,
-                child: DefaultTextStyle(
-                  style: txt.bodyMedium!,
-                  child: text,
+              const SizedBox(width: AppSpacing.s),
+              Text(
+                'Clipz Premium',
+                style: AppTypography.textTheme.labelMedium?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
               ),
             ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(child: text),
-            const SizedBox(width: 16),
-            image,
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: AppSpacing.m),
+          Text(
+            tr.hero_title,
+            style: AppTypography.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+              color: isDark ? AppColors.onSurfaceDark : AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            tr.hero_subtitle,
+            style: AppTypography.textTheme.bodyLarge?.copyWith(
+              color: isDark ? AppColors.secondary : AppColors.secondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.l),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: onPrimary,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
+                  ),
+                  child: Text(tr.hero_cta_primary),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.m),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onSecondary,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: AppColors.primary),
+                  ),
+                  child: Text(tr.hero_cta_secondary),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _PopularServiceCard extends StatelessWidget {
-  const _PopularServiceCard({required this.service, required this.onTap, required this.selected});
+  const _PopularServiceCard({
+    required this.service,
+    required this.onTap,
+    required this.selected,
+  });
   final Service service;
   final VoidCallback onTap;
   final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final TextTheme txt = Theme.of(context).textTheme;
-  final S tr = S.of(context);
-  final String price = NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(service.price);
+    final S tr = S.of(context);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final String price = NumberFormat.currency(
+      name: 'GTQ',
+      symbol: 'Q',
+    ).format(service.price);
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadius.l),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
         width: 230,
-        padding: EdgeInsets.all(selected ? 18 : 16),
+        padding: EdgeInsets.all(selected ? AppSpacing.m + 2 : AppSpacing.m),
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? cs.primary : cs.outlineVariant,
+            color: selected
+                ? AppColors.primary
+                : (isDark ? AppColors.outlineDark : AppColors.outline),
             width: selected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(24),
-          color: cs.surfaceContainerHighest.withValues(alpha: selected ? 0.35 : 0.25),
-          boxShadow: selected
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.22),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
+          borderRadius: BorderRadius.circular(AppRadius.l),
+          color: selected
+              ? AppColors.primary.withAlpha(12)
+              : (isDark ? AppColors.surfaceDark : AppColors.surface),
+          boxShadow: selected ? AppShadows.medium : AppShadows.soft,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,19 +344,29 @@ class _PopularServiceCard extends StatelessWidget {
             Row(
               children: <Widget>[
                 Container(
-                  height: 52,
-                  width: 52,
+                  height: 48,
+                  width: 48,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(AppRadius.m),
+                    color: AppColors.primaryContainer,
                   ),
-                  child: Icon(Icons.cut, color: cs.onPrimaryContainer, size: 30),
+                  child: const Icon(
+                    Icons.content_cut_rounded,
+                    color: AppColors.onPrimaryContainer,
+                    size: 24,
+                  ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: AppSpacing.s),
                 Expanded(
                   child: Text(
                     service.name,
-                    style: txt.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: selected ? 18 : 16),
+                    style: AppTypography.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: selected ? 18 : 16,
+                      color: isDark
+                          ? AppColors.onSurfaceDark
+                          : AppColors.onSurface,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -355,20 +374,40 @@ class _PopularServiceCard extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            Text('${service.durationMinutes} min', style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: isDark ? AppColors.secondary : AppColors.secondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${service.durationMinutes} min',
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: isDark ? AppColors.secondary : AppColors.secondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.s),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: cs.secondaryContainer,
-                borderRadius: BorderRadius.circular(14),
+                color: isDark
+                    ? AppColors.secondaryContainer
+                    : AppColors.secondaryContainer,
+                borderRadius: BorderRadius.circular(AppRadius.s),
               ),
               child: Text(
-                  '${tr.price_from_prefix} $price',
-                style: txt.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSecondaryContainer,
-                  letterSpacing: .3,
+                '${tr.price_from_prefix} $price',
+                style: AppTypography.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark
+                      ? AppColors.onSecondaryContainer
+                      : AppColors.onSecondaryContainer,
+                  letterSpacing: .5,
                 ),
               ),
             ),
@@ -384,13 +423,17 @@ class _ShimmerCarousel extends StatefulWidget {
   State<_ShimmerCarousel> createState() => _ShimmerCarouselState();
 }
 
-class _ShimmerCarouselState extends State<_ShimmerCarousel> with SingleTickerProviderStateMixin {
+class _ShimmerCarouselState extends State<_ShimmerCarousel>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
   }
 
   @override
@@ -407,11 +450,14 @@ class _ShimmerCarouselState extends State<_ShimmerCarousel> with SingleTickerPro
       builder: (_, __) {
         return ListView.separated(
           scrollDirection: Axis.horizontal,
-            itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
-            itemBuilder: (_, int i) {
-              return _ShimmerBlock(progress: (_ctrl.value + i * 0.33) % 1, color: cs.primary);
-            },
+          itemCount: 3,
+          separatorBuilder: (_, __) => const SizedBox(width: 14),
+          itemBuilder: (_, int i) {
+            return _ShimmerBlock(
+              progress: (_ctrl.value + i * 0.33) % 1,
+              color: cs.primary,
+            );
+          },
         );
       },
     );
@@ -430,7 +476,7 @@ class _ShimmerBlock extends StatelessWidget {
       width: 230,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-  color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
+        color: cs.surfaceContainerHighest.withAlpha(51),
         border: Border.all(color: cs.outlineVariant),
       ),
       padding: const EdgeInsets.all(16),
@@ -444,7 +490,7 @@ class _ShimmerBlock extends StatelessWidget {
                 width: 120,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(6),
-                  color: cs.onSurface.withValues(alpha: .07),
+                  color: cs.onSurface.withAlpha(18),
                 ),
               ),
               const SizedBox(height: 14),
@@ -453,7 +499,7 @@ class _ShimmerBlock extends StatelessWidget {
                 width: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(6),
-                  color: cs.onSurface.withValues(alpha: .06),
+                  color: cs.onSurface.withAlpha(15),
                 ),
               ),
               const Spacer(),
@@ -464,7 +510,7 @@ class _ShimmerBlock extends StatelessWidget {
                   width: 100,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    color: cs.onSurface.withValues(alpha: .06),
+                    color: cs.onSurface.withAlpha(15),
                   ),
                 ),
               ),
@@ -473,7 +519,11 @@ class _ShimmerBlock extends StatelessWidget {
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _ShimmerPainter(progress: progress, base: cs.surfaceContainerHighest, highlight: color.withValues(alpha: 0.25)),
+                painter: _ShimmerPainter(
+                  progress: progress,
+                  base: cs.surfaceContainerHighest,
+                  highlight: color.withAlpha(64),
+                ),
               ),
             ),
           ),
@@ -484,28 +534,33 @@ class _ShimmerBlock extends StatelessWidget {
 }
 
 class _ShimmerPainter extends CustomPainter {
-  _ShimmerPainter({required this.progress, required this.base, required this.highlight});
+  _ShimmerPainter({
+    required this.progress,
+    required this.base,
+    required this.highlight,
+  });
   final double progress;
   final Color base;
   final Color highlight;
 
   @override
   void paint(Canvas canvas, Size size) {
-  final Paint p = Paint()..shader = LinearGradient(
-      colors: <Color>[
-        base,
-        highlight,
-        base,
-      ],
-      stops: const <double>[0, 0.5, 1],
-      begin: Alignment(-1 + progress * 2, -1),
-      end: Alignment(1 + progress * 2, 1),
-    ).createShader(Offset.zero & size);
-    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(24)), p);
+    final Paint p = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[base, highlight, base],
+        stops: const <double>[0, 0.5, 1],
+        begin: Alignment(-1 + progress * 2, -1),
+        end: Alignment(1 + progress * 2, 1),
+      ).createShader(Offset.zero & size);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(24)),
+      p,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _ShimmerPainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _ShimmerPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // Shimmer replaces old skeleton implementation.

@@ -515,7 +515,7 @@ class _SummaryBlock extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         color: Theme.of(
           context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        ).colorScheme.surfaceContainerHighest.withAlpha(90),
       ),
       padding: const EdgeInsets.all(16),
       child: Row(

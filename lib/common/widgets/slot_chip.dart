@@ -26,7 +26,7 @@ class SlotChip extends StatelessWidget {
       case SlotChipState.hold:
         return cs.secondaryContainer;
       case SlotChipState.disabled:
-        return cs.surfaceContainerHighest.withValues(alpha: 0.4);
+        return cs.surfaceContainerHighest.withAlpha(102);
     }
   }
 
@@ -39,7 +39,7 @@ class SlotChip extends StatelessWidget {
       case SlotChipState.hold:
         return cs.onSecondaryContainer;
       case SlotChipState.disabled:
-        return cs.onSurface.withValues(alpha: 0.4);
+        return cs.onSurface.withAlpha(102);
     }
   }
 

@@ -36,13 +36,13 @@ class ServiceCardModern extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: border, width: selected ? 2 : 1),
           borderRadius: BorderRadius.circular(24),
-          color: cs.surfaceContainerHighest.withValues(
-            alpha: selected ? 0.35 : 0.25,
+          color: cs.surfaceContainerHighest.withAlpha(
+            selected ? 90 : 64,
           ),
           boxShadow: selected
               ? <BoxShadow>[
                   BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.25),
+                    color: cs.primary.withAlpha(64),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                     spreadRadius: 1,

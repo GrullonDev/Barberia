@@ -293,15 +293,20 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           // Avoid using BuildContext after awaits except for localization already captured.
-                          final String subject = tr.confirm_add_calendar_subject;
+                          final String subject =
+                              tr.confirm_add_calendar_subject;
                           final String body = tr.confirm_add_calendar_body;
                           final String ics = booking.toIcsString();
-                          final Directory tempDir = await getTemporaryDirectory();
-                          final String path = '${tempDir.path}/cita-${booking.id}.ics';
+                          final Directory tempDir =
+                              await getTemporaryDirectory();
+                          final String path =
+                              '${tempDir.path}/cita-${booking.id}.ics';
                           final File icsFile = File(path);
-                          await icsFile.writeAsString(ics);
+                          await icsFile.writeAsString(
+                            ics,
+                          ); // mimeTypes is not a valid parameter for shareXFiles
                           await Share.shareXFiles(
-                            <XFile>[XFile(path, mimeType: 'text/calendar', name: 'cita-${booking.id}.ics')],
+                            <XFile>[XFile(path)],
                             subject: subject,
                             text: body,
                           );
@@ -331,7 +336,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: .4),
+        color: cs.surfaceContainerHighest.withAlpha(102),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(

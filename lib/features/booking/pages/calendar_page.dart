@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'package:barberia/app/router.dart';
+import 'package:barberia/common/design_tokens.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
@@ -77,8 +78,17 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     return map;
   }
 
+  DateTime _nextSaturday(final DateTime day) {
+    DateTime result = day.add(const Duration(days: 1));
+    while (result.weekday != DateTime.saturday) {
+      result = result.add(const Duration(days: 1));
+    }
+    return result;
+  }
+
   Future<void> _openSlotsSheet(final DateTime day) async {
     final BookingDraft draft = ref.read(bookingDraftProvider);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     // Pre-generate slots (would be fetched from backend in real app)
     final Map<DateTime, SlotState> slots = _generateSlots(day);
     final List<MapEntry<DateTime, SlotState>> morning = slots.entries
@@ -93,11 +103,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (final BuildContext ctx) {
-        final ColorScheme cs = Theme.of(ctx).colorScheme;
         final S tr = S.of(ctx);
         final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
         // Simulated loading future for skeleton (shimmer could be added later)
@@ -108,11 +118,17 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(title, style: Theme.of(ctx).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              Text(
+                title,
+                style: AppTypography.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.onSurfaceDark : AppColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.s,
+                runSpacing: AppSpacing.s,
                 children: list.map((final MapEntry<DateTime, SlotState> e) {
                   final DateTime dt = e.key;
                   final SlotState st = e.value;
@@ -120,32 +136,43 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
                           .replaceAll(':00', ':00');
                   final bool disabled =
-                      st == SlotState.disabled || st == SlotState.occupied;
+                      st == SlotState.disabled ||
+                      st == SlotState.occupied ||
+                      st == SlotState.hold;
                   Color bg;
                   Color fg;
                   BorderSide? side;
                   switch (st) {
                     case SlotState.available:
-                      bg = cs.primaryContainer;
-                      fg = cs.onPrimaryContainer;
+                      bg = AppColors.primaryContainer;
+                      fg = AppColors.onPrimaryContainer;
                       break;
                     case SlotState.occupied:
-                      bg = cs.surfaceContainerHighest;
-                      fg = cs.onSurfaceVariant;
+                      bg = isDark
+                          ? AppColors.surfaceContainerDark
+                          : AppColors.surfaceContainer;
+                      fg = isDark
+                          ? AppColors.onSurfaceVariantDark
+                          : AppColors.onSurfaceVariant;
                       break;
                     case SlotState.hold:
-                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.5);
-                      fg = cs.onSurfaceVariant;
+                      bg = AppColors.secondaryContainer;
+                      fg = AppColors.onSecondaryContainer;
                       side = BorderSide(
-                        color: cs.outline,
-                        style: BorderStyle.solid,
-                        width: 1,
+                        color:
+                            (isDark
+                                    ? AppColors.onBackground
+                                    : AppColors.onPrimaryContainer)
+                                .withAlpha(128),
                       );
                       break;
                     case SlotState.disabled:
-                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.2);
-                      fg = cs.onSurfaceVariant.withValues(alpha: 0.4);
-                      break;
+                      bg = isDark
+                          ? AppColors.surfaceContainerDark
+                          : AppColors.surfaceContainer;
+                      fg = isDark
+                          ? AppColors.onSurfaceVariantDark
+                          : AppColors.onSurfaceVariant;
                   }
                   return Opacity(
                     opacity: disabled ? 0.55 : 1,
@@ -153,13 +180,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       style: OutlinedButton.styleFrom(
                         backgroundColor: bg,
                         foregroundColor: fg,
-                        side: side,
+                        side: side ?? BorderSide.none,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(AppRadius.m),
                         ),
                       ),
                       onPressed: disabled
@@ -177,7 +204,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.l),
             ],
           );
         }
@@ -186,19 +213,29 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           width: w,
           height: 36,
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: .35),
-            borderRadius: BorderRadius.circular(14),
+            color:
+                (isDark
+                        ? AppColors.surfaceContainerDark
+                        : AppColors.surfaceContainer)
+                    .withAlpha(90),
+            borderRadius: BorderRadius.circular(AppRadius.m),
           ),
         );
 
         Widget skeletonSection(String title) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(title, style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 8),
+            Text(
+              title,
+              style: AppTypography.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.onSurfaceDark : AppColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.s),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: AppSpacing.s,
+              runSpacing: AppSpacing.s,
               children: <Widget>[
                 skeletonPill(),
                 skeletonPill(w: 64),
@@ -207,17 +244,17 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 skeletonPill(w: 60),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.l),
           ],
         );
 
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 8,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
+              left: AppSpacing.l,
+              right: AppSpacing.l,
+              top: AppSpacing.s,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xl,
             ),
             child: FutureBuilder<void>(
               future: loadFuture,
@@ -233,11 +270,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                           '${day.day}/${day.month}',
                           headerRange,
                         ),
-                        style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        style: AppTypography.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.onSurfaceDark
+                              : AppColors.onSurface,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.m),
                       if (!loaded) ...<Widget>[
                         skeletonSection(tr.calendar_morning),
                         skeletonSection(tr.calendar_afternoon),
@@ -357,7 +397,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             },
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.15),
+                color: cs.primary.withAlpha(38),
                 shape: BoxShape.circle,
               ),
               selectedDecoration: BoxDecoration(
@@ -376,8 +416,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           ),
           const SizedBox(height: 12),
           // Leyenda de estados de slots
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
             child: _SlotLegend(),
           ),
           const SizedBox(height: 8),
@@ -469,30 +509,38 @@ class _QuickDateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Semantics(
       label: label,
       button: true,
       selected: selected,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.l),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.m,
+            vertical: AppSpacing.s,
+          ),
           decoration: BoxDecoration(
             color: selected
-                ? cs.primaryContainer
-                : cs.surfaceContainerHighest.withValues(alpha: .4),
-            borderRadius: BorderRadius.circular(18),
+                ? AppColors.primary
+                : (isDark ? AppColors.surfaceDark : AppColors.surface),
+            borderRadius: BorderRadius.circular(AppRadius.l),
             border: Border.all(
-              color: selected ? cs.primary : cs.outlineVariant,
+              color: selected
+                  ? AppColors.primary
+                  : (isDark ? AppColors.outlineDark : AppColors.outline),
             ),
+            boxShadow: selected ? AppShadows.soft : <BoxShadow>[],
           ),
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+            style: AppTypography.textTheme.labelMedium?.copyWith(
+              color: selected
+                  ? AppColors.onPrimary
+                  : (isDark ? AppColors.onSurfaceDark : AppColors.onSurface),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -502,39 +550,40 @@ class _QuickDateChip extends StatelessWidget {
   }
 }
 
-DateTime _nextSaturday(DateTime from) {
-  int add = (DateTime.saturday - from.weekday) % 7;
-  if (add == 0) add = 7; // next, not today if today is Saturday
-  return DateTime(from.year, from.month, from.day).add(Duration(days: add));
-}
-
 class _SlotLegend extends StatelessWidget {
+  const _SlotLegend();
+
   @override
-  Widget build(final BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final S tr = S.of(context);
     return Wrap(
-      runSpacing: 6,
-      spacing: 18,
-      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AppSpacing.l,
+      runSpacing: AppSpacing.s,
       children: <Widget>[
         _LegendItem(
-          color: cs.primaryContainer,
           label: tr.calendar_legend_available,
+          color: AppColors.primaryContainer,
+          textColor: AppColors.onPrimaryContainer,
         ),
         _LegendItem(
-          color: cs.surfaceContainerHighest,
           label: tr.calendar_legend_occupied,
-          opacity: 1,
+          color: isDark
+              ? AppColors.surfaceContainerDark
+              : AppColors.surfaceContainer,
+          textColor: isDark
+              ? AppColors.onSurfaceVariantDark
+              : AppColors.onSurfaceVariant,
         ),
         _LegendItem(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           label: tr.calendar_legend_hold,
-          border: Border.all(color: cs.outline, width: 1),
-        ),
-        _LegendItem(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-          label: tr.calendar_legend_off,
+          color: AppColors.secondaryContainer,
+          textColor: AppColors.onSecondaryContainer,
+          border: Border.all(
+            color: isDark
+                ? AppColors.onBackground
+                : AppColors.onPrimaryContainer,
+          ),
         ),
       ],
     );
@@ -543,22 +592,18 @@ class _SlotLegend extends StatelessWidget {
 
 class _LegendItem extends StatelessWidget {
   const _LegendItem({
-    required this.color,
     required this.label,
-    this.opacity = 1,
+    required this.color,
+    required this.textColor,
     this.border,
   });
-
-  final Color color;
   final String label;
-  final double opacity;
+  final Color color;
+  final Color textColor;
   final BoxBorder? border;
 
   @override
-  Widget build(final BuildContext context) {
-    final TextStyle style = Theme.of(
-      context,
-    ).textTheme.labelSmall!.copyWith(fontWeight: FontWeight.w500);
+  Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -566,13 +611,19 @@ class _LegendItem extends StatelessWidget {
           height: 14,
           width: 14,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: opacity),
-            borderRadius: BorderRadius.circular(4),
+            color: color,
+            borderRadius: BorderRadius.circular(AppRadius.s),
             border: border,
           ),
         ),
-        const SizedBox(width: 6),
-        Text(label, style: style),
+        const SizedBox(width: AppSpacing.s),
+        Text(
+          label,
+          style: AppTypography.textTheme.labelSmall!.copyWith(
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
       ],
     );
   }
