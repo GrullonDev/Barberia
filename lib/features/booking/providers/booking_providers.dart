@@ -1,3 +1,4 @@
+import 'package:barberia/common/database_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/features/booking/models/booking.dart';
@@ -5,53 +6,19 @@ import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 
 // Servicios mockeados.
-final Provider<List<Service>> servicesProvider = Provider<List<Service>>(
-  (final Ref ref) => const <Service>[
-    Service(
-      id: 'cut',
-      name: 'Corte',
-      durationMinutes: 30,
-      price: 12,
-      category: ServiceCategory.hair,
-      extendedDescription:
-          'Bloque de 30 min · incluye lavado rápido · buffer 5 min',
-    ),
-    Service(
-      id: 'cut-beard',
-      name: 'Corte + Barba',
-      durationMinutes: 45,
-      price: 18,
-      category: ServiceCategory.combo,
-      extendedDescription:
-          'Bloque de 45 min · incluye lavado · perfilado de barba · buffer 10 min',
-    ),
-    Service(
-      id: 'beard',
-      name: 'Barba',
-      durationMinutes: 20,
-      price: 10,
-      category: ServiceCategory.beard,
-      extendedDescription:
-          'Bloque de 20 min · incluye toalla caliente · buffer 5 min',
-    ),
-    Service(
-      id: 'facial',
-      name: 'Cuidado Facial',
-      durationMinutes: 20,
-      price: 35,
-      category: ServiceCategory.facial,
-      extendedDescription:
-          'Bloque de 20 min · incluye toalla caliente · buffer 5 min',
-    ),
-  ],
-);
+final FutureProvider<List<Service>> servicesProvider =
+    FutureProvider<List<Service>>((final Ref ref) async {
+  final db = await DatabaseHelper.instance.database;
+  final result = await db.query('services');
+  return result.map((json) => Service.fromJson(json)).toList();
+});
 
 /// Versión asíncrona simulada para mostrar skeletons / animaciones de carga.
 final FutureProvider<List<Service>> servicesAsyncProvider =
     FutureProvider<List<Service>>((final Ref ref) async {
       // Delay intencional corto para mostrar estado de carga.
       await Future<void>.delayed(const Duration(milliseconds: 600));
-      return ref.read(servicesProvider);
+      return ref.watch(servicesProvider.future);
     });
 
 // Borrador de reserva en progreso.

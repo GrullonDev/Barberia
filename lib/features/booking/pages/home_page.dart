@@ -33,6 +33,10 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Clipz'),
         actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => context.goNamed(RouteNames.addService),
+          ),
           PopupMenuButton<String>(
             onSelected: (final String v) {
               if (v.startsWith('mode:')) {
