@@ -361,6 +361,12 @@ abstract class S {
   /// **'Combo'**
   String get services_filter_combo;
 
+  /// No description provided for @services_filter_facial.
+  ///
+  /// In en, this message translates to:
+  /// **'Facial'**
+  String get services_filter_facial;
+
   /// No description provided for @service_policy_rebook.
   ///
   /// In en, this message translates to:

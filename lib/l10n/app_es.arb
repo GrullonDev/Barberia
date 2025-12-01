@@ -38,27 +38,42 @@
   "hero_subtitle": "Reserva en 3 pasos sin registro.",
   "hero_cta_primary": "Reservar ahora",
   "hero_cta_secondary": "Ver servicios",
-    "home_popular_title": "Populares",
-    "price_from_prefix": "Desde",
-    "hero_image_semantics": "Imagen ilustrativa del local",
+  "home_popular_title": "Populares",
+  "price_from_prefix": "Desde",
+  "hero_image_semantics": "Imagen ilustrativa del local",
   "see_all": "Ver todos",
   "services_filter_all": "Todo",
   "services_filter_hair": "Cabello",
   "services_filter_beard": "Barba",
   "services_filter_combo": "Combo",
+  "services_filter_facial": "Cuidado Facial",
   "service_policy_rebook": "Puedes reprogramar hasta 3 h antes",
   "service_choose_and_continue": "Elegir y continuar",
   "cancel": "Cancelar",
   "calendar_schedule_range": "Horario {open}–{close}",
   "@calendar_schedule_range": {
-    "placeholders": {"open": {"type": "String"}, "close": {"type": "String"}}
+    "placeholders": {
+      "open": {
+        "type": "String"
+      },
+      "close": {
+        "type": "String"
+      }
+    }
   },
   "calendar_quick_today": "Hoy",
   "calendar_quick_tomorrow": "Mañana",
   "calendar_quick_next_sat": "Próx. Sáb",
   "calendar_slots_title": "Slots {date} • {range}",
   "@calendar_slots_title": {
-    "placeholders": {"date": {"type": "String"}, "range": {"type": "String"}}
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "range": {
+        "type": "String"
+      }
+    }
   },
   "calendar_morning": "Mañana",
   "calendar_afternoon": "Tarde",
@@ -70,7 +85,17 @@
   "calendar_continue": "Continuar",
   "calendar_summary_semantics": "Resumen: {service} el {date} a las {time}",
   "@calendar_summary_semantics": {
-    "placeholders": {"service": {"type": "String"}, "date": {"type": "String"}, "time": {"type": "String"}}
+    "placeholders": {
+      "service": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "privacy_title": "Privacidad",
   "privacy_prelim_header": "Política de Privacidad (versión preliminar)",
@@ -82,23 +107,38 @@
   "privacy_principle_security": "La información se transmitirá de forma segura (pendiente).",
   "privacy_note_title": "Nota",
   "privacy_note_body": "Esta pantalla es temporal y no constituye asesoría legal. El texto definitivo debe ser revisado y aprobado antes de su publicación.",
-  "privacy_acknowledge": "Entendido"
-  ,"details_form_intro": "Completa tus datos",
+  "privacy_acknowledge": "Entendido",
+  "details_form_intro": "Completa tus datos",
   "details_contact_hint": "Nombre y al menos un medio de contacto (teléfono o email).",
   "details_reminders_label": "Recibir recordatorios ",
   "privacy_version_label": "Versión {version} • Actualizado {date}",
-  "@privacy_version_label": {"placeholders": {"version": {"type": "String"}, "date": {"type": "String"}}}
-  ,"confirm_title": "Confirmación de Reserva"
-  ,"confirm_incomplete": "Reserva incompleta"
-  ,"confirm_copy_link": "Copiar enlace"
-  ,"confirm_share_link": "Compartir"
-  ,"confirm_link_copied": "Enlace copiado"
-  ,"confirm_open_in_maps": "Abrir en Maps / Waze"
-  ,"confirm_home": "Inicio"
-  ,"confirm_add_calendar": "Añadir al calendario"
-  ,"confirm_add_calendar_subject": "Añadir cita al calendario"
-  ,"confirm_add_calendar_body": "Adjuntamos archivo .ics con tu cita"
-  ,"confirm_qr_semantics": "Código QR de la ubicación con datos de la cita"
-  ,"confirm_code_suffix": "{code}"
-  ,"@confirm_code_suffix": {"placeholders": {"code": {"type": "String"}}}
+  "@privacy_version_label": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "confirm_title": "Confirmación de Reserva",
+  "confirm_incomplete": "Reserva incompleta",
+  "confirm_copy_link": "Copiar enlace",
+  "confirm_share_link": "Compartir",
+  "confirm_link_copied": "Enlace copiado",
+  "confirm_open_in_maps": "Abrir en Maps / Waze",
+  "confirm_home": "Inicio",
+  "confirm_add_calendar": "Añadir al calendario",
+  "confirm_add_calendar_subject": "Añadir cita al calendario",
+  "confirm_add_calendar_body": "Adjuntamos archivo .ics con tu cita",
+  "confirm_qr_semantics": "Código QR de la ubicación con datos de la cita",
+  "confirm_code_suffix": "{code}",
+  "@confirm_code_suffix": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  }
 }

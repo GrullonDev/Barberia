@@ -141,6 +141,9 @@ class SEs extends S {
   String get services_filter_combo => 'Combo';
 
   @override
+  String get services_filter_facial => 'Cuidado Facial';
+
+  @override
   String get service_policy_rebook => 'Puedes reprogramar hasta 3 h antes';
 
   @override

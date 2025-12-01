@@ -16,4 +16,4 @@ class Service {
   });
 }
 
-enum ServiceCategory { hair, beard, combo }
+enum ServiceCategory { hair, beard, combo, facial }

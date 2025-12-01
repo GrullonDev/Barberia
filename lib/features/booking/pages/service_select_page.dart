@@ -16,7 +16,7 @@ class ServiceSelectPage extends ConsumerWidget {
 
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
-  final S tr = S.of(context);
+    final S tr = S.of(context);
     final AsyncValue<List<Service>> asyncServices = ref.watch(
       servicesAsyncProvider,
     );
@@ -50,12 +50,16 @@ class ServiceSelectPage extends ConsumerWidget {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                Text('${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}'),
+                Text(
+                  '${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}',
+                ),
                 const SizedBox(height: 12),
                 if (s.extendedDescription != null)
                   Text(
                     s.extendedDescription!,
-                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 const SizedBox(height: 16),
                 Container(
@@ -66,15 +70,19 @@ class ServiceSelectPage extends ConsumerWidget {
                   ),
                   child: Row(
                     children: <Widget>[
-                      Icon(Icons.info, size: 20, color: cs.onSecondaryContainer),
+                      Icon(
+                        Icons.info,
+                        size: 20,
+                        color: cs.onSecondaryContainer,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           tr.service_policy_rebook,
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                                color: cs.onSecondaryContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            color: cs.onSecondaryContainer,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -109,7 +117,8 @@ class ServiceSelectPage extends ConsumerWidget {
       );
     }
 
-  final StateProvider<ServiceCategory?> categoryFilterProvider = StateProvider<ServiceCategory?>((final Ref _) => null);
+    final StateProvider<ServiceCategory?> categoryFilterProvider =
+        StateProvider<ServiceCategory?>((final Ref _) => null);
     final ServiceCategory? selectedCat = ref.watch(categoryFilterProvider);
 
     return Scaffold(
@@ -121,7 +130,9 @@ class ServiceSelectPage extends ConsumerWidget {
         data: (final List<Service> services) {
           final List<Service> filtered = selectedCat == null
               ? services
-              : services.where((final Service s) => s.category == selectedCat).toList();
+              : services
+                    .where((final Service s) => s.category == selectedCat)
+                    .toList();
           return Column(
             children: <Widget>[
               SingleChildScrollView(
@@ -132,25 +143,40 @@ class ServiceSelectPage extends ConsumerWidget {
                     _CategoryChip(
                       label: tr.services_filter_all,
                       selected: selectedCat == null,
-                      onTap: () => ref.read(categoryFilterProvider.notifier).state = null,
+                      onTap: () =>
+                          ref.read(categoryFilterProvider.notifier).state =
+                              null,
                     ),
                     const SizedBox(width: 8),
                     _CategoryChip(
                       label: tr.services_filter_hair,
                       selected: selectedCat == ServiceCategory.hair,
-                      onTap: () => ref.read(categoryFilterProvider.notifier).state = ServiceCategory.hair,
+                      onTap: () =>
+                          ref.read(categoryFilterProvider.notifier).state =
+                              ServiceCategory.hair,
                     ),
                     const SizedBox(width: 8),
                     _CategoryChip(
                       label: tr.services_filter_beard,
                       selected: selectedCat == ServiceCategory.beard,
-                      onTap: () => ref.read(categoryFilterProvider.notifier).state = ServiceCategory.beard,
+                      onTap: () =>
+                          ref.read(categoryFilterProvider.notifier).state =
+                              ServiceCategory.beard,
                     ),
                     const SizedBox(width: 8),
                     _CategoryChip(
                       label: tr.services_filter_combo,
                       selected: selectedCat == ServiceCategory.combo,
-                      onTap: () => ref.read(categoryFilterProvider.notifier).state = ServiceCategory.combo,
+                      onTap: () =>
+                          ref.read(categoryFilterProvider.notifier).state =
+                              ServiceCategory.combo,
+                    ),
+                    _CategoryChip(
+                      label: tr.services_filter_facial,
+                      selected: selectedCat == ServiceCategory.facial,
+                      onTap: () =>
+                          ref.read(categoryFilterProvider.notifier).state =
+                              ServiceCategory.facial,
                     ),
                   ],
                 ),
@@ -165,12 +191,13 @@ class ServiceSelectPage extends ConsumerWidget {
                   child: GridView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     itemCount: filtered.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: 0.95,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.95,
+                        ),
                     itemBuilder: (final BuildContext _, final int i) {
                       final Service s = filtered[i];
                       final bool isSelected = draft.service?.id == s.id;
@@ -273,7 +300,11 @@ class _ServicesGridSkeletonState extends State<_ServicesGridSkeleton>
 }
 
 class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({required this.label, required this.selected, required this.onTap});
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -288,16 +319,18 @@ class _CategoryChip extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest.withValues(alpha: .3),
+          color: selected
+              ? cs.primaryContainer
+              : cs.surfaceContainerHighest.withValues(alpha: .3),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: selected ? cs.primary : cs.outlineVariant),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-              ),
+            fontWeight: FontWeight.w600,
+            color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+          ),
         ),
       ),
     );

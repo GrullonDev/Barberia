@@ -142,6 +142,9 @@ class SEn extends S {
   String get services_filter_combo => 'Combo';
 
   @override
+  String get services_filter_facial => 'Facial';
+
+  @override
   String get service_policy_rebook => 'You can reschedule up to 3h before';
 
   @override
