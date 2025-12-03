@@ -21,7 +21,18 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createUsersTable(db);
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -84,7 +95,7 @@ CREATE TABLE users (
 ''');
 
     // Create admin user
-    final adminPassword = sha256.convert(utf8.encode('admin')).toString();
+    final adminPassword = sha256.convert(utf8.encode('barberia_admin')).toString();
     await db.insert('users', {
       'username': 'admin',
       'password': adminPassword,

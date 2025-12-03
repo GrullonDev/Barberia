@@ -133,6 +133,8 @@
   "confirm_add_calendar_subject": "Add appointment to calendar",
   "confirm_add_calendar_body": ".ics file attached with your appointment",
   "confirm_qr_semantics": "Location QR code with appointment metadata",
+  "confirm_scan_qr_for_directions": "Scan QR for directions",
+  "confirm_get_directions": "Get directions",
   "confirm_code_suffix": "{code}",
   "@confirm_code_suffix": {
     "placeholders": {

@@ -625,6 +625,18 @@ abstract class S {
   /// **'Location QR code with appointment metadata'**
   String get confirm_qr_semantics;
 
+  /// No description provided for @confirm_scan_qr_for_directions.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR for directions'**
+  String get confirm_scan_qr_for_directions;
+
+  /// No description provided for @confirm_get_directions.
+  ///
+  /// In en, this message translates to:
+  /// **'Get directions'**
+  String get confirm_get_directions;
+
   /// No description provided for @confirm_code_suffix.
   ///
   /// In en, this message translates to:

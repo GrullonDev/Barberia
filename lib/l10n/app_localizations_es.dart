@@ -290,6 +290,12 @@ class SEs extends S {
       'Código QR de la ubicación con datos de la cita';
 
   @override
+  String get confirm_scan_qr_for_directions => 'Escanea el QR para llegar';
+
+  @override
+  String get confirm_get_directions => 'Cómo llegar';
+
+  @override
   String confirm_code_suffix(String code) {
     return '$code';
   }

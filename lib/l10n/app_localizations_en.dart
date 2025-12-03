@@ -291,6 +291,12 @@ class SEn extends S {
       'Location QR code with appointment metadata';
 
   @override
+  String get confirm_scan_qr_for_directions => 'Scan QR for directions';
+
+  @override
+  String get confirm_get_directions => 'Get directions';
+
+  @override
   String confirm_code_suffix(String code) {
     return '$code';
   }

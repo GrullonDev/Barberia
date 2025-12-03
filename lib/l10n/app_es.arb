@@ -133,6 +133,8 @@
   "confirm_add_calendar_subject": "Añadir cita al calendario",
   "confirm_add_calendar_body": "Adjuntamos archivo .ics con tu cita",
   "confirm_qr_semantics": "Código QR de la ubicación con datos de la cita",
+  "confirm_scan_qr_for_directions": "Escanea el QR para llegar",
+  "confirm_get_directions": "Cómo llegar",
   "confirm_code_suffix": "{code}",
   "@confirm_code_suffix": {
     "placeholders": {

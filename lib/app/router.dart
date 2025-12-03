@@ -1,11 +1,14 @@
-import 'package:barberia/features/booking/pages/add_service_page.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/src/widgets/framework.dart';
 
-import '../features/booking/pages/pages.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:barberia/features/booking/pages/add_service_page.dart';
+
 import '../features/auth/pages/login_page.dart';
 import '../features/auth/pages/register_page.dart';
 import '../features/auth/providers/auth_providers.dart';
+import '../features/booking/pages/pages.dart';
 
 /// Nombres centralizados de rutas para evitar strings mágicos.
 abstract final class RouteNames {
@@ -24,13 +27,13 @@ abstract final class RouteNames {
 /// Configuración central de rutas para el flujo de reservas del cliente.
 final GoRouter appRouter = GoRouter(
   initialLocation: '/login',
-  redirect: (context, state) {
-    final ref = ProviderScope.containerOf(context);
-    final authState = ref.watch(authProvider);
-    final isAuthenticated = authState.isSignedIn;
+  redirect: (BuildContext context, GoRouterState state) {
+    final ProviderContainer ref = ProviderScope.containerOf(context);
+    final AuthState authState = ref.read(authProvider);
+    final bool isAuthenticated = authState.isSignedIn;
 
-    final isLoggingIn = state.matchedLocation == '/login';
-    final isRegistering = state.matchedLocation == '/register';
+    final bool isLoggingIn = state.matchedLocation == '/login';
+    final bool isRegistering = state.matchedLocation == '/register';
 
     if (!isAuthenticated && !isLoggingIn && !isRegistering) {
       return '/login';
@@ -95,4 +98,3 @@ final GoRouter appRouter = GoRouter(
     ),
   ],
 );
-
