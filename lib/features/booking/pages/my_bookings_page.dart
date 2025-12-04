@@ -55,7 +55,7 @@ class MyBookingsPage extends ConsumerWidget {
                           Text(tr.empty_no_bookings),
                           const SizedBox(height: 12),
                           FilledButton(
-                            onPressed: () => context.go('/services'),
+                            onPressed: () => context.push('/services'),
                             child: Text(tr.empty_bookings_cta),
                           ),
                         ],
@@ -79,7 +79,7 @@ class MyBookingsPage extends ConsumerWidget {
           if (bookings.isEmpty) {
             context.go('/');
           } else {
-            context.go('/services');
+            context.push('/services');
           }
         },
         icon: Icon(bookings.isEmpty ? Icons.home : Icons.add),

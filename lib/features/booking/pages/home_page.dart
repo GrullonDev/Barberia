@@ -9,6 +9,7 @@ import 'package:barberia/app/theme_controller.dart';
 
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:intl/intl.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 import 'package:barberia/common/design_tokens.dart';
@@ -33,13 +34,21 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Clipz'),
         actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.goNamed(RouteNames.addService),
-          ),
+          if (ref.watch(authProvider).currentUser?.role == 'admin')
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => context.pushNamed(RouteNames.addService),
+            ),
+          if (ref.watch(authProvider).currentUser?.role == 'admin')
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              onPressed: () => context.pushNamed(RouteNames.admin),
+            ),
           PopupMenuButton<String>(
             onSelected: (final String v) {
-              if (v.startsWith('mode:')) {
+              if (v == 'profile') {
+                context.pushNamed(RouteNames.profile);
+              } else if (v.startsWith('mode:')) {
                 final String m = v.split(':')[1];
                 ref.read(themeControllerProvider.notifier).setMode(switch (m) {
                   'light' => ThemeMode.light,
@@ -57,6 +66,17 @@ class HomePage extends ConsumerWidget {
               }
             },
             itemBuilder: (final BuildContext _) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text('Mi Perfil'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
               const PopupMenuItem<String>(
                 value: 'mode:light',
                 child: Text('Modo Claro'),
@@ -210,11 +230,8 @@ class _HeroSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.xl),
         gradient: LinearGradient(
           colors: isDark
-              ? [
-                  AppColors.primary.withAlpha(51),
-                  AppColors.surfaceDark,
-                ]
-              : [AppColors.primaryContainer, AppColors.surface],
+              ? <Color>[AppColors.primary.withAlpha(51), AppColors.surfaceDark]
+              : <Color>[AppColors.primaryContainer, AppColors.surface],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -228,7 +245,7 @@ class _HeroSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
-            children: [
+            children: <Widget>[
               Container(
                 padding: const EdgeInsets.all(AppSpacing.s),
                 decoration: BoxDecoration(
@@ -289,7 +306,7 @@ class _HeroSection extends StatelessWidget {
                   onPressed: onSecondary,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: BorderSide(color: AppColors.primary),
+                    side: const BorderSide(color: AppColors.primary),
                   ),
                   child: Text(tr.hero_cta_secondary),
                 ),
@@ -379,7 +396,7 @@ class _PopularServiceCard extends StatelessWidget {
             ),
             const Spacer(),
             Row(
-              children: [
+              children: <Widget>[
                 Icon(
                   Icons.schedule,
                   size: 16,

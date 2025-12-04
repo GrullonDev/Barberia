@@ -245,7 +245,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       // Animación de éxito antes de navegar.
       // Capture navigators early.
       final NavigatorState rootNav = Navigator.of(context, rootNavigator: true);
-      void goToConfirmation() => context.goNamed(RouteNames.confirmation);
+      void goToConfirmation() => context.pushNamed(RouteNames.confirmation);
       showGeneralDialog(
         context: context,
         barrierDismissible: false,

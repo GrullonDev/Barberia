@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:barberia/features/booking/pages/add_service_page.dart';
+import 'package:barberia/features/booking/pages/admin_dashboard_page.dart';
 
 import '../features/auth/pages/login_page.dart';
 import '../features/auth/pages/register_page.dart';
+import '../features/auth/pages/profile_page.dart';
 import '../features/auth/providers/auth_providers.dart';
 import '../features/booking/pages/pages.dart';
 
@@ -22,6 +24,8 @@ abstract final class RouteNames {
   static const String addService = 'add-service';
   static const String login = 'login';
   static const String register = 'register';
+  static const String admin = 'admin';
+  static const String profile = 'profile';
 }
 
 /// Configuración central de rutas para el flujo de reservas del cliente.
@@ -31,15 +35,21 @@ final GoRouter appRouter = GoRouter(
     final ProviderContainer ref = ProviderScope.containerOf(context);
     final AuthState authState = ref.read(authProvider);
     final bool isAuthenticated = authState.isSignedIn;
+    final bool isAdmin = authState.currentUser?.role == 'admin';
 
     final bool isLoggingIn = state.matchedLocation == '/login';
     final bool isRegistering = state.matchedLocation == '/register';
+    final bool isAdminRoute = state.matchedLocation == '/admin';
 
     if (!isAuthenticated && !isLoggingIn && !isRegistering) {
       return '/login';
     }
 
     if (isAuthenticated && (isLoggingIn || isRegistering)) {
+      return '/';
+    }
+
+    if (isAdminRoute && !isAdmin) {
       return '/';
     }
 
@@ -95,6 +105,16 @@ final GoRouter appRouter = GoRouter(
       path: '/register',
       name: RouteNames.register,
       builder: (_, __) => const RegisterPage(),
+    ),
+    GoRoute(
+      path: '/profile',
+      name: RouteNames.profile,
+      builder: (_, __) => const ProfilePage(),
+    ),
+    GoRoute(
+      path: '/admin',
+      name: RouteNames.admin,
+      builder: (_, __) => const AdminDashboardPage(),
     ),
   ],
 );

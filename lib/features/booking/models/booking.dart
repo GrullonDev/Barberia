@@ -56,6 +56,35 @@ class Booking {
       .replaceAll(';', '\\;')
       .replaceAll(',', '\\,')
       .replaceAll('\n', '\\n');
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'id': id,
+      'serviceId': service.id,
+      'dateTime': dateTime.millisecondsSinceEpoch,
+      'customerName': customerName,
+      'customerPhone': customerPhone,
+      'customerEmail': customerEmail,
+      'notes': notes,
+      'status': status.name,
+    };
+  }
+
+  static Booking fromMap(Map<String, dynamic> map, Service service) {
+    return Booking(
+      id: map['id'],
+      service: service,
+      dateTime: DateTime.fromMillisecondsSinceEpoch(map['dateTime']),
+      customerName: map['customerName'],
+      customerPhone: map['customerPhone'],
+      customerEmail: map['customerEmail'],
+      notes: map['notes'],
+      status: BookingStatus.values.firstWhere(
+        (BookingStatus e) => e.name == map['status'],
+        orElse: () => BookingStatus.active,
+      ),
+    );
+  }
 }
 
 enum BookingStatus { active, canceled }

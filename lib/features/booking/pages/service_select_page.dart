@@ -122,7 +122,7 @@ class ServiceSelectPage extends ConsumerWidget {
                     onPressed: () {
                       ref.read(bookingDraftProvider.notifier).setService(s);
                       Navigator.of(ctx).pop();
-                      context.goNamed(RouteNames.calendar);
+                      context.pushNamed(RouteNames.calendar);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,

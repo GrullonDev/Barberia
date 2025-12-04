@@ -298,7 +298,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     if (picked != null) {
       ref.read(bookingDraftProvider.notifier).setDate(day);
       ref.read(bookingDraftProvider.notifier).setDateTime(picked!);
-      if (mounted) context.goNamed(RouteNames.details);
+      if (mounted) context.pushNamed(RouteNames.details);
     } else if (draft.date == null) {
       // Si el usuario cierra sin elegir, mantenemos la fecha seleccionada anterior.
       setState(() {});
@@ -483,7 +483,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
-                      onPressed: () => context.goNamed(RouteNames.details),
+                      onPressed: () => context.pushNamed(RouteNames.details),
                       child: Text(tr.calendar_continue),
                     ),
                   ],
