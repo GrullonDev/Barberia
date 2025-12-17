@@ -403,9 +403,9 @@ class _Shimmer extends StatelessWidget {
               begin: Alignment(-1 - 0.3 + controller.value * 2, 0),
               end: const Alignment(1, 0),
               colors: <Color>[
-                Colors.white.withOpacity(0.05),
-                Colors.white.withOpacity(0.25),
-                Colors.white.withOpacity(0.05),
+                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.25),
+                Colors.white.withValues(alpha: 0.05),
               ],
               stops: const <double>[0.1, 0.5, 0.9],
             ).createShader(rect);

@@ -125,9 +125,9 @@ class SettingsPage extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withOpacity(0.3),
+        color: cs.surfaceContainerHigh.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: ListTile(
         onTap: onTap,
@@ -136,7 +136,7 @@ class SettingsPage extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: (iconColor ?? cs.primary).withOpacity(0.1),
+            color: (iconColor ?? cs.primary).withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: iconColor ?? cs.primary, size: 22),

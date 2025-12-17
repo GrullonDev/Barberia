@@ -58,6 +58,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           (draft.phone != null || draft.email != null)) {
         _booking = Booking(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: 'guest_01', // Placeholder until Auth is implemented
+          serviceId: draft.service!.id,
+          serviceName: draft.service!.name,
           service: draft.service!,
           dateTime: draft.dateTime!,
           customerName: draft.name!,
@@ -75,7 +78,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
         final String baseMapsUrl =
             'https://www.google.com/maps/search/?api=1&query=$encodedAddress&ll=$lat,$lng';
         final String fragment =
-            'appt=${_booking!.id}&svc=${Uri.encodeComponent(_booking!.service.name)}&dt=${Uri.encodeComponent(_booking!.dateTime.toIso8601String())}';
+            'appt=${_booking!.id}&svc=${Uri.encodeComponent(_booking!.serviceName)}&dt=${Uri.encodeComponent(_booking!.dateTime.toIso8601String())}';
         _qrData = '$baseMapsUrl#$fragment';
         _ensureBookingScheduled();
       }
@@ -97,7 +100,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
         '${two(start.day)}/${two(start.month)}/${start.year}';
     final String timeRange =
         '${two(start.hour)}:${two(start.minute)} - ${two(end.hour)}:${two(end.minute)}';
-    final int durMin = booking.service.durationMinutes;
+    final int durMin = booking.service?.durationMinutes ?? 30;
 
     final ColorScheme cs = Theme.of(context).colorScheme;
     const String address = LocationConfig.address;
@@ -125,7 +128,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              booking.service.name,
+                              booking.serviceName,
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
@@ -293,15 +296,24 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           // Avoid using BuildContext after awaits except for localization already captured.
-                          final String subject = tr.confirm_add_calendar_subject;
+                          final String subject =
+                              tr.confirm_add_calendar_subject;
                           final String body = tr.confirm_add_calendar_body;
                           final String ics = booking.toIcsString();
-                          final Directory tempDir = await getTemporaryDirectory();
-                          final String path = '${tempDir.path}/cita-${booking.id}.ics';
+                          final Directory tempDir =
+                              await getTemporaryDirectory();
+                          final String path =
+                              '${tempDir.path}/cita-${booking.id}.ics';
                           final File icsFile = File(path);
                           await icsFile.writeAsString(ics);
                           await Share.shareXFiles(
-                            <XFile>[XFile(path, mimeType: 'text/calendar', name: 'cita-${booking.id}.ics')],
+                            <XFile>[
+                              XFile(
+                                path,
+                                mimeType: 'text/calendar',
+                                name: 'cita-${booking.id}.ics',
+                              ),
+                            ],
                             subject: subject,
                             text: body,
                           );

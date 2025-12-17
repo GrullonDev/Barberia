@@ -136,8 +136,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       fg = cs.onSurface;
                       break;
                     case SlotState.occupied:
-                      bg = cs.surfaceContainerHighest.withOpacity(0.5);
-                      fg = cs.onSurfaceVariant.withOpacity(0.5);
+                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.5);
+                      fg = cs.onSurfaceVariant.withValues(alpha: 0.5);
                       break;
                     case SlotState.hold:
                       bg = cs.tertiaryContainer;
@@ -145,9 +145,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       break;
                     case SlotState.disabled:
                       bg = Colors.transparent;
-                      fg = cs.onSurfaceVariant.withOpacity(0.3);
+                      fg = cs.onSurfaceVariant.withValues(alpha: 0.3);
                       border = Border.all(
-                        color: cs.outlineVariant.withOpacity(0.5),
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
                       );
                       break;
                   }
@@ -565,13 +565,11 @@ class _LegendItem extends StatelessWidget {
     required this.color,
     required this.label,
     this.opacity = 1,
-    this.border,
   });
 
   final Color color;
   final String label;
   final double opacity;
-  final BoxBorder? border;
 
   @override
   Widget build(final BuildContext context) {
@@ -587,7 +585,6 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(
             color: color.withValues(alpha: opacity),
             shape: BoxShape.circle,
-            border: border,
           ),
         ),
         const SizedBox(width: 8),
