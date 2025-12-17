@@ -4,6 +4,7 @@ import 'package:barberia/features/booking/pages/confirmation_page.dart';
 import 'package:barberia/features/booking/pages/details_page.dart';
 import 'package:barberia/features/booking/pages/home_page.dart';
 import 'package:barberia/features/booking/pages/my_bookings_page.dart';
+import 'package:barberia/features/booking/pages/profile_page.dart';
 import 'package:barberia/features/booking/pages/service_select_page.dart';
 import 'package:barberia/features/booking/pages/settings_page.dart';
 import 'package:barberia/features/static/privacy_page.dart';
@@ -19,6 +20,7 @@ abstract final class RouteNames {
   static const String confirmation = 'confirmation';
   static const String myBookings = 'my-bookings';
   static const String privacy = 'privacy';
+  static const String profile = 'profile';
 }
 
 /// Configuración central de rutas para el flujo de reservas del cliente.
@@ -93,6 +95,16 @@ final GoRouter appRouter = GoRouter(
               path: '/settings',
               name: 'settings', // Add to RouteNames later if needed
               builder: (_, __) => const SettingsPage(),
+            ),
+          ],
+        ),
+
+        StatefulShellBranch(
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/profile',
+              name: RouteNames.profile,
+              builder: (_, __) => const ProfilePage(),
             ),
           ],
         ),

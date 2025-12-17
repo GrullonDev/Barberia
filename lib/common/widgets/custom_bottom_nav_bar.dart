@@ -72,8 +72,8 @@ class CustomBottomNavBar extends StatelessWidget {
                 ),
                 _NavBarIcon(
                   icon: Icons.person_outline,
-                  isSelected: false, // Placeholder
-                  onTap: () {},
+                  isSelected: navigationShell.currentIndex == 3,
+                  onTap: () => _onTap(context, 3),
                   activeColor: cs.primary,
                 ),
               ],
