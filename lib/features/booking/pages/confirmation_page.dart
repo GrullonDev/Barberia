@@ -61,7 +61,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           userId: 'guest_01', // Placeholder until Auth is implemented
           serviceId: draft.service!.id,
           serviceName: draft.service!.name,
-          service: draft.service!,
+          service: draft.service,
           dateTime: draft.dateTime!,
           customerName: draft.name!,
           customerPhone: draft.phone,

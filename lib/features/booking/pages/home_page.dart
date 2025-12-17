@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:barberia/app/router.dart';
 import 'package:barberia/app/theme.dart';
@@ -9,7 +10,6 @@ import 'package:barberia/app/theme_controller.dart';
 import 'package:barberia/common/widgets/primary_button.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
-import 'package:intl/intl.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 
 class HomePage extends ConsumerWidget {
@@ -17,7 +17,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
-  final AsyncValue<List<Service>> asyncServices = ref.watch(
+    final AsyncValue<List<Service>> asyncServices = ref.watch(
       servicesAsyncProvider,
     );
     final List<Service> popular =
@@ -104,8 +104,8 @@ class HomePage extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-                Text(
-                  S.of(context).home_popular_title,
+              Text(
+                S.of(context).home_popular_title,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -202,35 +202,39 @@ class _HeroSection extends StatelessWidget {
       builder: (BuildContext ctx, BoxConstraints c) {
         final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
         final Widget image = Semantics(
-               label: tr.hero_image_semantics,
+          label: tr.hero_image_semantics,
           image: true,
           child: Container(
             width: wide ? double.infinity : 110,
             height: wide ? 200 : 130,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(wide ? 32 : 24),
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    cs.primaryContainer,
-                    cs.primaryContainer.withValues(alpha: .6),
+              gradient: LinearGradient(
+                colors: <Color>[
+                  cs.primaryContainer,
+                  cs.primaryContainer.withValues(alpha: .6),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
-              child: Icon(Icons.image, size: wide ? 90 : 54, color: cs.onPrimaryContainer.withValues(alpha: 0.9)),
+            child: Icon(
+              Icons.image,
+              size: wide ? 90 : 54,
+              color: cs.onPrimaryContainer.withValues(alpha: 0.9),
+            ),
           ),
         );
         final Widget text = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-                 tr.hero_title,
+              tr.hero_title,
               style: txt.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             Text(
-                 tr.hero_subtitle,
+              tr.hero_subtitle,
               style: txt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 18),
@@ -241,7 +245,12 @@ class _HeroSection extends StatelessWidget {
                 PrimaryButton(label: tr.hero_cta_primary, onPressed: onPrimary),
                 OutlinedButton(
                   onPressed: onSecondary,
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                  ),
                   child: Text(tr.hero_cta_secondary),
                 ),
               ],
@@ -251,7 +260,12 @@ class _HeroSection extends StatelessWidget {
         if (wide) {
           return Stack(
             children: <Widget>[
-              Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(40), child: image)),
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(40),
+                  child: image,
+                ),
+              ),
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
@@ -271,10 +285,7 @@ class _HeroSection extends StatelessWidget {
                 left: 24,
                 top: 24,
                 right: 24,
-                child: DefaultTextStyle(
-                  style: txt.bodyMedium!,
-                  child: text,
-                ),
+                child: DefaultTextStyle(style: txt.bodyMedium!, child: text),
               ),
             ],
           );
@@ -293,7 +304,11 @@ class _HeroSection extends StatelessWidget {
 }
 
 class _PopularServiceCard extends StatelessWidget {
-  const _PopularServiceCard({required this.service, required this.onTap, required this.selected});
+  const _PopularServiceCard({
+    required this.service,
+    required this.onTap,
+    required this.selected,
+  });
   final Service service;
   final VoidCallback onTap;
   final bool selected;
@@ -302,8 +317,11 @@ class _PopularServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
-  final S tr = S.of(context);
-  final String price = NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(service.price);
+    final S tr = S.of(context);
+    final String price = NumberFormat.currency(
+      name: 'GTQ',
+      symbol: 'Q',
+    ).format(service.price);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -318,7 +336,9 @@ class _PopularServiceCard extends StatelessWidget {
             width: selected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(24),
-          color: cs.surfaceContainerHighest.withValues(alpha: selected ? 0.35 : 0.25),
+          color: cs.surfaceContainerHighest.withValues(
+            alpha: selected ? 0.35 : 0.25,
+          ),
           boxShadow: selected
               ? <BoxShadow>[
                   BoxShadow(
@@ -341,13 +361,20 @@ class _PopularServiceCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     color: cs.primaryContainer,
                   ),
-                  child: Icon(Icons.cut, color: cs.onPrimaryContainer, size: 30),
+                  child: Icon(
+                    Icons.cut,
+                    color: cs.onPrimaryContainer,
+                    size: 30,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     service.name,
-                    style: txt.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: selected ? 18 : 16),
+                    style: txt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: selected ? 18 : 16,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -355,7 +382,10 @@ class _PopularServiceCard extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            Text('${service.durationMinutes} min', style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            Text(
+              '${service.durationMinutes} min',
+              style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -364,7 +394,7 @@ class _PopularServiceCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                  '${tr.price_from_prefix} $price',
+                '${tr.price_from_prefix} $price',
                 style: txt.labelSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: cs.onSecondaryContainer,
@@ -384,13 +414,17 @@ class _ShimmerCarousel extends StatefulWidget {
   State<_ShimmerCarousel> createState() => _ShimmerCarouselState();
 }
 
-class _ShimmerCarouselState extends State<_ShimmerCarousel> with SingleTickerProviderStateMixin {
+class _ShimmerCarouselState extends State<_ShimmerCarousel>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
   }
 
   @override
@@ -407,11 +441,14 @@ class _ShimmerCarouselState extends State<_ShimmerCarousel> with SingleTickerPro
       builder: (_, __) {
         return ListView.separated(
           scrollDirection: Axis.horizontal,
-            itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
-            itemBuilder: (_, int i) {
-              return _ShimmerBlock(progress: (_ctrl.value + i * 0.33) % 1, color: cs.primary);
-            },
+          itemCount: 3,
+          separatorBuilder: (_, __) => const SizedBox(width: 14),
+          itemBuilder: (_, int i) {
+            return _ShimmerBlock(
+              progress: (_ctrl.value + i * 0.33) % 1,
+              color: cs.primary,
+            );
+          },
         );
       },
     );
@@ -430,7 +467,7 @@ class _ShimmerBlock extends StatelessWidget {
       width: 230,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-  color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
         border: Border.all(color: cs.outlineVariant),
       ),
       padding: const EdgeInsets.all(16),
@@ -473,7 +510,11 @@ class _ShimmerBlock extends StatelessWidget {
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _ShimmerPainter(progress: progress, base: cs.surfaceContainerHighest, highlight: color.withValues(alpha: 0.25)),
+                painter: _ShimmerPainter(
+                  progress: progress,
+                  base: cs.surfaceContainerHighest,
+                  highlight: color.withValues(alpha: 0.25),
+                ),
               ),
             ),
           ),
@@ -484,28 +525,33 @@ class _ShimmerBlock extends StatelessWidget {
 }
 
 class _ShimmerPainter extends CustomPainter {
-  _ShimmerPainter({required this.progress, required this.base, required this.highlight});
+  _ShimmerPainter({
+    required this.progress,
+    required this.base,
+    required this.highlight,
+  });
   final double progress;
   final Color base;
   final Color highlight;
 
   @override
   void paint(Canvas canvas, Size size) {
-  final Paint p = Paint()..shader = LinearGradient(
-      colors: <Color>[
-        base,
-        highlight,
-        base,
-      ],
-      stops: const <double>[0, 0.5, 1],
-      begin: Alignment(-1 + progress * 2, -1),
-      end: Alignment(1 + progress * 2, 1),
-    ).createShader(Offset.zero & size);
-    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(24)), p);
+    final Paint p = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[base, highlight, base],
+        stops: const <double>[0, 0.5, 1],
+        begin: Alignment(-1 + progress * 2, -1),
+        end: Alignment(1 + progress * 2, 1),
+      ).createShader(Offset.zero & size);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(24)),
+      p,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _ShimmerPainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _ShimmerPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // Shimmer replaces old skeleton implementation.

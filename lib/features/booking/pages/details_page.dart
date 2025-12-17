@@ -299,7 +299,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
             },
       );
       Future<void>.delayed(const Duration(milliseconds: 900), () {
-        if (!mounted) return; // still mounted; safe to use captured references
+        if (!mounted) {
+          return; // still mounted; safe to use captured references
+        }
         rootNav.pop();
         goToConfirmation();
       });

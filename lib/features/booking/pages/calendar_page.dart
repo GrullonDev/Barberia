@@ -212,10 +212,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     children: <Widget>[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                        children: <Widget>[
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                            children: <Widget>[
                               Text(
                                 '${day.day}/${day.month}',
                                 style: Theme.of(ctx).textTheme.headlineMedium
@@ -335,7 +335,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           Expanded(
             child: SingleChildScrollView(
               child: Column(
-                children: [
+                children: <Widget>[
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
@@ -372,7 +372,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         selectedDecoration: BoxDecoration(
                           color: cs.primary,
                           shape: BoxShape.circle,
-                          boxShadow: [
+                          boxShadow: <BoxShadow>[
                             BoxShadow(
                               color: cs.primary.withValues(alpha: 0.3),
                               blurRadius: 8,
@@ -425,7 +425,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: cs.surface,
-                boxShadow: [
+                boxShadow: <BoxShadow>[
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
@@ -455,7 +455,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        children: <Widget>[
                           Text(
                             tr.calendar_continue,
                             style: Theme.of(context).textTheme.labelSmall

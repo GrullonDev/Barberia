@@ -1,5 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -10,8 +13,11 @@ class DatabaseHelper {
   DatabaseHelper._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('barberia.db');
+    if (_database != null) {
+      return _database!;
+    }
+    final String dbName = dotenv.env['DB_NAME'] ?? 'default_barberia.db';
+    _database = await _initDB(dbName);
     return _database!;
   }
 

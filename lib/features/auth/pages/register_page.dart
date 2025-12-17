@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
@@ -17,7 +19,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   bool _isLoading = false;
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     setState(() => _isLoading = true);
 
     await ref
