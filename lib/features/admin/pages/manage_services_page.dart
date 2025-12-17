@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:barberia/features/booking/providers/booking_providers.dart';
+
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
+import 'package:barberia/features/booking/models/service.dart';
+import 'package:barberia/features/booking/providers/booking_providers.dart';
 
 class ManageServicesPage extends ConsumerWidget {
   const ManageServicesPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final servicesAsync = ref.watch(servicesAsyncProvider);
+    final AsyncValue<List<Service>> servicesAsync = ref.watch(
+      servicesAsyncProvider,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Gestionar Servicios')),
@@ -21,14 +26,14 @@ class ManageServicesPage extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: servicesAsync.when(
-        data: (services) {
+        data: (List<Service> services) {
           if (services.isEmpty) {
             return const Center(child: Text('No hay servicios.'));
           }
           return ListView.builder(
             itemCount: services.length,
-            itemBuilder: (context, index) {
-              final service = services[index];
+            itemBuilder: (BuildContext context, int index) {
+              final Service service = services[index];
               return ListTile(
                 title: Text(service.name),
                 subtitle: Text(
@@ -36,7 +41,7 @@ class ManageServicesPage extends ConsumerWidget {
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
+                  children: <Widget>[
                     IconButton(
                       icon: const Icon(Icons.edit),
                       onPressed: () {
@@ -51,14 +56,14 @@ class ManageServicesPage extends ConsumerWidget {
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () async {
-                        final confirm = await showDialog<bool>(
+                        final bool? confirm = await showDialog<bool>(
                           context: context,
-                          builder: (ctx) => AlertDialog(
+                          builder: (BuildContext ctx) => AlertDialog(
                             title: const Text('Eliminar Servicio'),
                             content: Text(
                               '¿Seguro que deseas eliminar "${service.name}"?',
                             ),
-                            actions: [
+                            actions: <Widget>[
                               TextButton(
                                 child: const Text('Cancelar'),
                                 onPressed: () => Navigator.pop(ctx, false),
@@ -85,7 +90,8 @@ class ManageServicesPage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (Object err, StackTrace stack) =>
+            Center(child: Text('Error: $err')),
       ),
     );
   }

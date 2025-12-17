@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
+
 import 'package:barberia/features/admin/pages/manage_services_page.dart';
+import 'package:barberia/features/auth/models/user.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
 
 class AdminDashboardPage extends ConsumerWidget {
   const AdminDashboardPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authStateProvider);
+    final User? user = ref.watch(authStateProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Panel de Administración'),
-        actions: [
+        actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
@@ -22,7 +25,7 @@ class AdminDashboardPage extends ConsumerWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: [
+        children: <Widget>[
           if (user != null)
             Text(
               'Bienvenido, ${user.name}',

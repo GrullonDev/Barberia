@@ -26,13 +26,28 @@ class AuthRepository {
 
   Future<User> register(User user) async {
     final Database db = await _dbHelper.database;
+
+    // Determine role: first user is admin, others are clients.
+    final List<Map<String, dynamic>> users = await db.query('users');
+    final bool isFirstUser = users.isEmpty;
+    final UserRole role = isFirstUser ? UserRole.admin : UserRole.client;
+
+    final User newUser = User(
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: user.password,
+      role: role, // Assign determined role
+      phone: user.phone,
+    );
+
     await db.insert(
       'users',
-      user.toMap(),
+      newUser.toMap(),
       conflictAlgorithm: ConflictAlgorithm.fail,
     );
-    _currentUser = user;
-    return user;
+    _currentUser = newUser;
+    return newUser;
   }
 
   Future<void> logout() async {

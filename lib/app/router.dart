@@ -39,21 +39,31 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
     refreshListenable: ValueNotifier(authState), // Simple refresh trigger
     redirect: (BuildContext context, GoRouterState state) {
       final bool loggedIn = authState != null;
-      final bool loggingIn =
-          state.uri.path == '/login' || state.uri.path == '/register';
+      final bool isLoginPage = state.uri.path == '/login';
+      final bool isRegisterPage = state.uri.path == '/register';
+      final bool isAuthRoute = isLoginPage || isRegisterPage;
 
+      // Handle unauthenticated users
       if (!loggedIn) {
-        if (!loggingIn) {
-          return '/login';
-        }
-      } else {
-        if (loggingIn) {
-          if (authState.role == UserRole.admin) {
-            return '/admin';
-          }
-          return '/';
-        }
+        return isAuthRoute ? null : '/login';
       }
+
+      // Handle authenticated users
+      final bool isAdmin = authState.role == UserRole.admin;
+      final bool isAdminPath = state.uri.path.startsWith('/admin');
+
+      if (isAuthRoute) {
+        return isAdmin ? '/admin' : '/';
+      }
+
+      if (isAdmin && !isAdminPath) {
+        return '/admin'; // Force admin to admin section
+      }
+
+      if (!isAdmin && isAdminPath) {
+        return '/'; // Block client from admin section
+      }
+
       return null;
     },
     routes: <RouteBase>[

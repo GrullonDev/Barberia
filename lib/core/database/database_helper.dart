@@ -147,6 +147,36 @@ class DatabaseHelper {
     }
   }
 
+  Future<int> updateUserRole(String email, String newRole) async {
+    final db = await instance.database;
+    return await db.update(
+      'users',
+      {'role': newRole},
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllBookings() async {
+    final db = await instance.database;
+    final result = await db.query(
+      'bookings',
+      orderBy: 'date DESC',
+    );
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> getBookingsByUserId(String userId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'bookings',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      orderBy: 'date DESC',
+    );
+    return result;
+  }
+
   Future<void> close() async {
     final Database db = await instance.database;
     db.close();

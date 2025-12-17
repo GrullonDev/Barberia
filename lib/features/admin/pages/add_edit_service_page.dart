@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/booking/repositories/service_repository.dart';
 
 class AddEditServicePage extends ConsumerStatefulWidget {
   final Service? service; // If null, adding new service
@@ -13,7 +16,7 @@ class AddEditServicePage extends ConsumerStatefulWidget {
 }
 
 class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
-  final _formKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
   late TextEditingController _priceCtrl;
   late TextEditingController _durationCtrl;
@@ -53,12 +56,14 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
     setState(() => _isLoading = true);
 
     try {
-      final name = _nameCtrl.text.trim();
-      final price = double.parse(_priceCtrl.text);
-      final duration = int.parse(_durationCtrl.text);
-      final desc = _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim();
+      final String name = _nameCtrl.text.trim();
+      final double price = double.parse(_priceCtrl.text);
+      final int duration = int.parse(_durationCtrl.text);
+      final String? desc = _descCtrl.text.trim().isEmpty
+          ? null
+          : _descCtrl.text.trim();
 
-      final newService = Service(
+      final Service newService = Service(
         id:
             widget.service?.id ??
             DateTime.now().millisecondsSinceEpoch.toString(),
@@ -70,7 +75,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
         isActive: true, // Default active
       );
 
-      final repo = ref.read(serviceRepositoryProvider);
+      final ServiceRepository repo = ref.read(serviceRepositoryProvider);
 
       if (widget.service == null) {
         await repo.addService(newService);
@@ -96,7 +101,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.service != null;
+    final bool isEditing = widget.service != null;
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Editar Servicio' : 'Nuevo Servicio'),
@@ -106,15 +111,15 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
         child: Form(
           key: _formKey,
           child: Column(
-            children: [
+            children: <Widget>[
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(labelText: 'Nombre Servicio'),
-                validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
               ),
               const SizedBox(height: 12),
               Row(
-                children: [
+                children: <Widget>[
                   Expanded(
                     child: TextFormField(
                       controller: _priceCtrl,
@@ -124,7 +129,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      validator: (v) =>
+                      validator: (String? v) =>
                           double.tryParse(v!) == null ? 'Inválido' : null,
                     ),
                   ),
@@ -136,7 +141,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
                         labelText: 'Duración (min)',
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) =>
+                      validator: (String? v) =>
                           int.tryParse(v!) == null ? 'Inválido' : null,
                     ),
                   ),
@@ -144,15 +149,15 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<ServiceCategory>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: const InputDecoration(labelText: 'Categoría'),
-                items: ServiceCategory.values.map((c) {
+                items: ServiceCategory.values.map((ServiceCategory c) {
                   return DropdownMenuItem(
                     value: c,
                     child: Text(c.name.toUpperCase()),
                   );
                 }).toList(),
-                onChanged: (v) {
+                onChanged: (ServiceCategory? v) {
                   if (v != null) setState(() => _selectedCategory = v);
                 },
               ),
@@ -183,7 +188,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
 }
 
 class ResultText extends StatelessWidget {
-  const ResultText({super.key, required this.isEditing});
+  const ResultText({required this.isEditing, super.key});
 
   final bool isEditing;
 
