@@ -11,25 +11,21 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
 
-  // --- TAREA TEMPORAL: ACTUALIZAR ROL DE USUARIO ---
-  // Reemplaza 'correo@ejemplo.com' con el email del usuario a modificar.
-  // Después de ejecutar la app UNA VEZ, BORRA este bloque de código.
+  // --- TAREA TEMPORAL: VERIFICAR USUARIOS ---
   final DatabaseHelper dbHelper = DatabaseHelper.instance;
-  const String emailToUpdate = 'jorgegrullon369@gmail.com';
-  final int rowsAffected = await dbHelper.updateUserRole(
-    emailToUpdate,
-    'admin',
-  );
+  final db = await dbHelper.database;
+  final users = await db.query('users');
   if (kDebugMode) {
-    print('--- Actualización de Rol ---');
-    if (rowsAffected > 0) {
-      print('Éxito: Se actualizó el rol para el usuario $emailToUpdate.');
-    } else {
+    print('--- USUARIOS REGISTRADOS EN BD ---');
+    for (var u in users) {
       print(
-        'Aviso: No se encontró ningún usuario con el email $emailToUpdate.',
+        'ID: ${u['id']}, Email: ${u['email']}, Nombre: ${u['name']}, Rol: ${u['role']}, Password: ${u['password']}',
       );
     }
-    print('--- Fin del script ---');
+    if (users.isEmpty) {
+      print('No hay usuarios registrados.');
+    }
+    print('----------------------------------');
   }
   // --- FIN DE LA TAREA TEMPORAL ---
 
