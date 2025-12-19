@@ -25,7 +25,67 @@ class DatabaseHelper {
     final String dbPath = await getDatabasesPath();
     final String path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  FutureOr<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Migration to Int IDs for Services
+      await db.execute('DROP TABLE IF EXISTS bookings');
+      await db.execute('DROP TABLE IF EXISTS services');
+
+      // Re-create tables with new schema
+      // We need to copy the creation logic or refactor.
+      // For simplicity/safety in this specific context, we duplicate the creation SQL here
+      // or we could extract methods. Extracting is cleaner but risky with multi_replace context
+      // if I miss-align lines. I will duplicate strictly the needed parts to ensure it works.
+
+      const String idType = 'TEXT PRIMARY KEY';
+      const String textType = 'TEXT NOT NULL';
+      const String textNullable = 'TEXT';
+      const String intType = 'INTEGER NOT NULL';
+      const String realType = 'REAL NOT NULL';
+      const String boolType = 'INTEGER NOT NULL';
+
+      // 2. Services Table (New Schema)
+      await db.execute('''
+        CREATE TABLE services (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name $textType,
+          price $realType,
+          durationMinutes $intType,
+          category $textType,
+          extendedDescription $textNullable,
+          isActive $boolType
+        )
+      ''');
+
+      // 3. Bookings Table (New Schema with int serviceId)
+      await db.execute('''
+        CREATE TABLE bookings (
+          id $idType,
+          userId $textType,
+          serviceId $intType,
+          serviceName $textType,
+          date $textType,
+          status $textType,
+          customerName $textType,
+          customerEmail $textNullable,
+          customerPhone $textNullable,
+          notes $textNullable,
+          FOREIGN KEY (userId) REFERENCES users (id),
+          FOREIGN KEY (serviceId) REFERENCES services (id)
+        )
+      ''');
+
+      // Re-seed services
+      await _seedServices(db);
+    }
   }
 
   FutureOr<void> _createDB(Database db, int version) async {
@@ -94,7 +154,16 @@ class DatabaseHelper {
       'phone': '555-0000',
     });
 
-    // Seed Initial Services
+    // Seed Initial Services - moved to _seedServices
+    // Keep admin creation here
+    await _seedServices(db);
+
+    if (kDebugMode) {
+      print('Database seeded with Admin user and initial Services.');
+    }
+  }
+
+  Future<void> _seedServices(Database db) async {
     final List<Map<String, dynamic>> services = <Map<String, dynamic>>[
       <String, dynamic>{
         // id autoincremented or manual
