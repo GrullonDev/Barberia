@@ -17,9 +17,11 @@ class MyBookingsPage extends ConsumerWidget {
     final List<Booking> bookings = ref.watch(bookingsProvider);
     final bool canPop = context.canPop();
     final S tr = S.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(tr.my_bookings_title),
+        centerTitle: true,
         automaticallyImplyLeading: canPop,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -32,59 +34,56 @@ class MyBookingsPage extends ConsumerWidget {
           },
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Text(
-            tr.my_bookings_heading,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          if (bookings.isEmpty)
-            Center(
-              child:
-                  Column(
-                        children: <Widget>[
-                          const SizedBox(height: 40),
-                          Icon(
-                            Icons.event_busy,
-                            size: 64,
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(tr.empty_no_bookings),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: () => context.push('/services'),
-                            child: Text(tr.empty_bookings_cta),
-                          ),
-                        ],
-                      )
-                      .animate()
-                      .fadeIn(duration: 350.ms, delay: 80.ms)
-                      .slideY(begin: .1, curve: Curves.easeOutCubic),
+      body: bookings.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.calendar_today_outlined,
+                      size: 48,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    tr.empty_no_bookings,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.tonalIcon(
+                    onPressed: () => context.go('/services'),
+                    icon: const Icon(Icons.add),
+                    label: Text(tr.empty_bookings_cta),
+                  ),
+                ],
+              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
             )
-          else
-            ...List<Widget>.generate(bookings.length, (int i) {
-              final Booking b = bookings[i];
-              return AppointmentCard(booking: b)
-                  .animate()
-                  .fadeIn(duration: 280.ms, delay: (60 * i).ms)
-                  .slideY(begin: .08, curve: Curves.easeOut);
-            }),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          if (bookings.isEmpty) {
-            context.go('/');
-          } else {
-            context.push('/services');
-          }
-        },
-        icon: Icon(bookings.isEmpty ? Icons.home : Icons.add),
-        label: Text(bookings.isEmpty ? tr.confirm_home : tr.select_service_cta),
-      ),
+          : ListView.separated(
+              padding: const EdgeInsets.all(20),
+              itemCount: bookings.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (final BuildContext _, final int i) {
+                final Booking b = bookings[i];
+                return AppointmentCard(booking: b)
+                    .animate()
+                    .fadeIn(duration: 300.ms, delay: (50 * i).ms)
+                    .slideX(begin: 0.05, curve: Curves.easeOut);
+              },
+            ),
     );
   }
 }

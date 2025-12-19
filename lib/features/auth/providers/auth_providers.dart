@@ -1,69 +1,45 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:barberia/features/auth/models/user.dart';
-import 'package:barberia/common/database_helper.dart';
+import 'package:barberia/features/auth/repositories/auth_repository.dart';
 
-class AuthState {
-  final User? currentUser;
-  final bool isSignedIn;
+final Provider<AuthRepository> authRepositoryProvider =
+    Provider<AuthRepository>((Ref ref) {
+      return AuthRepository();
+    });
 
-  AuthState({this.currentUser, this.isSignedIn = false});
+final StateNotifierProvider<AuthNotifier, User?> authStateProvider =
+    StateNotifierProvider<AuthNotifier, User?>((Ref ref) {
+      return AuthNotifier(ref.read(authRepositoryProvider));
+    });
 
-  AuthState copyWith({
-    User? currentUser,
-    bool? isSignedIn,
-  }) {
-    return AuthState(
-      currentUser: currentUser ?? this.currentUser,
-      isSignedIn: isSignedIn ?? this.isSignedIn,
-    );
-  }
-}
+class AuthNotifier extends StateNotifier<User?> {
+  AuthNotifier(this._repository) : super(null);
 
-class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(AuthState()) {
-    _init();
-  }
+  final AuthRepository _repository;
 
-  Future<void> _init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final username = prefs.getString('username');
-    if (username != null) {
-      final user = await DatabaseHelper.instance.readUserByUsername(username);
-      if (user != null) {
-        state = AuthState(currentUser: user, isSignedIn: true);
-      }
-    }
-  }
-
-  Future<bool> login(String username, String password) async {
-    final user = await DatabaseHelper.instance.authenticateUser(username, password);
+  Future<bool> login(String email, String password) async {
+    final user = await _repository.login(email, password);
     if (user != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('username', user.username);
-      state = AuthState(currentUser: user, isSignedIn: true);
+      state = user;
       return true;
     }
     return false;
   }
 
-  Future<bool> register(String username, String password) async {
-    final existingUser = await DatabaseHelper.instance.readUserByUsername(username);
-    if (existingUser != null) {
-      return false; // User already exists
-    }
-    final newUser = User(username: username, password: password, role: UserRole.client);
-    await DatabaseHelper.instance.createUser(newUser);
-    return true;
+  Future<void> register(String name, String email, String password) async {
+    final user = User(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      email: email,
+      password: password,
+      role: UserRole.client, // Default to client
+    );
+    await _repository.register(user);
+    state = user;
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('username');
-    state = AuthState(currentUser: null, isSignedIn: false);
+    await _repository.logout();
+    state = null;
   }
 }
-
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier();
-});

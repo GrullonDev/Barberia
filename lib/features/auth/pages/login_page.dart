@@ -13,111 +13,102 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _isPasswordObscured = true;
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _passCtrl = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  String? _error;
 
-  @override
-  void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final bool success = await ref
+        .read(authStateProvider.notifier)
+        .login(_emailCtrl.text.trim(), _passCtrl.text);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        // GoRouter redirect will handle navigation based on auth state
+        // or we can manually go home. Redirect is better.
+      } else {
+        setState(() => _error = 'Credenciales inválidas');
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AuthState>(authProvider, (AuthState? previous, AuthState next) {
-      if (next.isSignedIn) {
-        context.go('/');
-      }
-    });
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Card(
-            elevation: 4.0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15.0),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Icon(Icons.lock_outline, size: 60),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Bienvenido',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Usuario',
-                      prefixIcon: Icon(Icons.person_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordObscured
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordObscured = !_isPasswordObscured;
-                          });
-                        },
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const Icon(Icons.content_cut, size: 64),
+                const SizedBox(height: 16),
+                Text(
+                  'Barbería App',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 32),
+                if (_error != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
                       ),
                     ),
-                    obscureText: _isPasswordObscured,
                   ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: () async {
-                        final bool success = await ref
-                            .read(authProvider.notifier)
-                            .login(
-                              _usernameController.text,
-                              _passwordController.text,
-                            );
-                        if (!success && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Credenciales inválidas'),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('Login'),
-                    ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      context.push('/register');
-                    },
-                    child: const Text('¿No tienes una cuenta? Regístrate'),
+                  validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Contraseña',
+                    border: OutlineInputBorder(),
                   ),
-                ],
-              ),
+                  obscureText: true,
+                  validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _isLoading ? null : _submit,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Iniciar Sesión'),
+                ),
+                TextButton(
+                  onPressed: () => context.pushNamed('register'),
+                  child: const Text('¿No tienes cuenta? Regístrate'),
+                ),
+              ],
             ),
           ),
         ),

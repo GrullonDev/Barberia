@@ -1,18 +1,22 @@
-import 'package:flutter/src/widgets/framework.dart';
-
+import 'package:barberia/features/auth/models/user.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:barberia/common/widgets/scaffold_with_nav_bar.dart';
+import 'package:barberia/features/booking/pages/calendar_page.dart';
+import 'package:barberia/features/booking/pages/confirmation_page.dart';
+import 'package:barberia/features/booking/pages/details_page.dart';
+import 'package:barberia/features/booking/pages/home_page.dart';
+import 'package:barberia/features/booking/pages/my_bookings_page.dart';
+import 'package:barberia/features/booking/pages/profile_page.dart';
+import 'package:barberia/features/booking/pages/service_select_page.dart';
+import 'package:barberia/features/booking/pages/settings_page.dart';
+import 'package:barberia/features/auth/pages/login_page.dart';
+import 'package:barberia/features/auth/pages/register_page.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
+import 'package:barberia/features/static/privacy_page.dart';
 
-import 'package:barberia/features/booking/pages/add_service_page.dart';
-import 'package:barberia/features/booking/pages/admin_dashboard_page.dart';
-
-import '../features/auth/pages/login_page.dart';
-import '../features/auth/pages/register_page.dart';
-import '../features/auth/pages/profile_page.dart';
-import '../features/auth/providers/auth_providers.dart';
-import '../features/booking/pages/pages.dart';
-
-/// Nombres centralizados de rutas para evitar strings mágicos.
 abstract final class RouteNames {
   static const String home = 'home';
   static const String services = 'services';
@@ -21,100 +25,148 @@ abstract final class RouteNames {
   static const String confirmation = 'confirmation';
   static const String myBookings = 'my-bookings';
   static const String privacy = 'privacy';
-  static const String addService = 'add-service';
+  static const String profile = 'profile';
   static const String login = 'login';
   static const String register = 'register';
   static const String admin = 'admin';
-  static const String profile = 'profile';
 }
 
-/// Configuración central de rutas para el flujo de reservas del cliente.
-final GoRouter appRouter = GoRouter(
-  initialLocation: '/login',
-  redirect: (BuildContext context, GoRouterState state) {
-    final ProviderContainer ref = ProviderScope.containerOf(context);
-    final AuthState authState = ref.read(authProvider);
-    final bool isAuthenticated = authState.isSignedIn;
-    final bool isAdmin = authState.currentUser?.role == 'admin';
+final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
+  final User? authState = ref.watch(authStateProvider);
 
-    final bool isLoggingIn = state.matchedLocation == '/login';
-    final bool isRegistering = state.matchedLocation == '/register';
-    final bool isAdminRoute = state.matchedLocation == '/admin';
+  return GoRouter(
+    initialLocation: '/',
+    refreshListenable: ValueNotifier(authState), // Simple refresh trigger
+    redirect: (BuildContext context, GoRouterState state) {
+      final bool loggedIn = authState != null;
+      final bool isLoginPage = state.uri.path == '/login';
+      final bool isRegisterPage = state.uri.path == '/register';
+      final bool isAuthRoute = isLoginPage || isRegisterPage;
 
-    if (!isAuthenticated && !isLoggingIn && !isRegistering) {
-      return '/login';
-    }
+      // Handle unauthenticated users
+      if (!loggedIn) {
+        return isAuthRoute ? null : '/login';
+      }
 
-    if (isAuthenticated && (isLoggingIn || isRegistering)) {
-      return '/';
-    }
+      // Handle authenticated users
+      final bool isAdmin = authState.role == UserRole.admin;
+      final bool isAdminPath = state.uri.path.startsWith('/admin');
 
-    if (isAdminRoute && !isAdmin) {
-      return '/';
-    }
+      if (isAuthRoute) {
+        return isAdmin ? '/admin' : '/';
+      }
 
-    return null;
-  },
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/',
-      name: RouteNames.home,
-      builder: (_, __) => const HomePage(),
-    ),
-    GoRoute(
-      path: '/services',
-      name: RouteNames.services,
-      builder: (_, __) => const ServiceSelectPage(),
-    ),
-    GoRoute(
-      path: '/calendar',
-      name: RouteNames.calendar,
-      builder: (_, __) => const CalendarPage(),
-    ),
-    GoRoute(
-      path: '/details',
-      name: RouteNames.details,
-      builder: (_, __) => const DetailsPage(),
-    ),
-    GoRoute(
-      path: '/confirmation',
-      name: RouteNames.confirmation,
-      builder: (_, __) => const ConfirmationPage(),
-    ),
-    GoRoute(
-      path: '/my-bookings',
-      name: RouteNames.myBookings,
-      builder: (_, __) => const MyBookingsPage(),
-    ),
-    GoRoute(
-      path: '/privacy',
-      name: RouteNames.privacy,
-      builder: (_, __) => const PrivacyPage(),
-    ),
-    GoRoute(
-      path: '/add-service',
-      name: RouteNames.addService,
-      builder: (_, __) => const AddServicePage(),
-    ),
-    GoRoute(
-      path: '/login',
-      name: RouteNames.login,
-      builder: (_, __) => const LoginPage(),
-    ),
-    GoRoute(
-      path: '/register',
-      name: RouteNames.register,
-      builder: (_, __) => const RegisterPage(),
-    ),
-    GoRoute(
-      path: '/profile',
-      name: RouteNames.profile,
-      builder: (_, __) => const ProfilePage(),
-    ),
-    GoRoute(
-      path: '/admin',
-      name: RouteNames.admin,
-      builder: (_, __) => const AdminDashboardPage(),
-    ),
-  ],
-);
+      if (isAdmin && !isAdminPath) {
+        return '/admin'; // Force admin to admin section
+      }
+
+      if (!isAdmin && isAdminPath) {
+        return '/'; // Block client from admin section
+      }
+
+      return null;
+    },
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/login',
+        name: RouteNames.login,
+        builder: (_, __) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/register',
+        name: RouteNames.register,
+        builder: (_, __) => const RegisterPage(),
+      ),
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) {
+              return ScaffoldWithNavBar(navigationShell: navigationShell);
+            },
+        branches: <StatefulShellBranch>[
+          // Branch Home
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/',
+                name: RouteNames.home,
+                builder: (_, __) => const HomePage(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'services',
+                    name: RouteNames.services,
+                    builder: (_, __) => const ServiceSelectPage(),
+                    routes: <RouteBase>[
+                      GoRoute(
+                        path: 'calendar',
+                        name: RouteNames.calendar,
+                        builder: (_, __) => const CalendarPage(),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'details',
+                    name: RouteNames.details,
+                    builder: (_, __) => const DetailsPage(),
+                  ),
+                  GoRoute(
+                    path: 'confirmation',
+                    name: RouteNames.confirmation,
+                    builder: (_, __) => const ConfirmationPage(),
+                  ),
+                  GoRoute(
+                    path: 'privacy',
+                    name: RouteNames.privacy,
+                    builder: (_, __) => const PrivacyPage(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Branch My Bookings
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/my-bookings',
+                name: RouteNames.myBookings,
+                builder: (_, __) => const MyBookingsPage(),
+              ),
+            ],
+          ),
+
+          // Branch Settings
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/settings',
+                name: 'settings',
+                builder: (_, __) => const SettingsPage(),
+              ),
+            ],
+          ),
+
+          // Branch Profile
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/profile',
+                name: RouteNames.profile,
+                builder: (_, __) => const ProfilePage(),
+              ),
+            ],
+          ),
+        ],
+      ),
+      // Admin Routes
+      GoRoute(
+        path: '/admin',
+        name: RouteNames.admin,
+        builder: (_, __) => const AdminDashboardPage(),
+      ),
+    ],
+  );
+});

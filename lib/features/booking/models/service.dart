@@ -3,8 +3,9 @@ class Service {
   final String name;
   final int durationMinutes;
   final double price;
-  final String? extendedDescription; // microcopy detallada
+  final String? extendedDescription;
   final ServiceCategory category;
+  final bool isActive;
 
   const Service({
     this.id,
@@ -13,43 +14,35 @@ class Service {
     required this.price,
     required this.category,
     this.extendedDescription,
+    this.isActive = true,
   });
 
-  Service copyWith({
-    int? id,
-    String? name,
-    int? durationMinutes,
-    double? price,
-    ServiceCategory? category,
-    String? extendedDescription,
-  }) =>
-      Service(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        durationMinutes: durationMinutes ?? this.durationMinutes,
-        price: price ?? this.price,
-        category: category ?? this.category,
-        extendedDescription: extendedDescription ?? this.extendedDescription,
-      );
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'durationMinutes': durationMinutes,
+      'price': price,
+      'extendedDescription': extendedDescription,
+      'category': category.name,
+      'isActive': isActive ? 1 : 0,
+    };
+  }
 
-  factory Service.fromJson(Map<String, dynamic> json) => Service(
-        id: json['id'] as int?,
-        name: json['name'] as String,
-        durationMinutes: json['durationMinutes'] as int,
-        price: json['price'] as double,
-        category: ServiceCategory.values.firstWhere(
-            (e) => e.toString() == 'ServiceCategory.${json['category']}'),
-        extendedDescription: json['description'] as String?,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'durationMinutes': durationMinutes,
-        'price': price,
-        'category': category.toString().split('.').last,
-        'description': extendedDescription,
-      };
+  factory Service.fromMap(Map<String, dynamic> map) {
+    return Service(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      durationMinutes: map['durationMinutes'] as int,
+      price: (map['price'] as num).toDouble(),
+      category: ServiceCategory.values.firstWhere(
+        (e) => e.name == (map['category'] as String),
+        orElse: () => ServiceCategory.hair,
+      ),
+      extendedDescription: map['extendedDescription'] as String?,
+      isActive: (map['isActive'] as int) == 1,
+    );
+  }
 }
 
-enum ServiceCategory { hair, beard, combo, facial }
+enum ServiceCategory { hair, beard, combo }

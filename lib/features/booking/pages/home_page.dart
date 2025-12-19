@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:barberia/app/router.dart';
 import 'package:barberia/app/theme.dart';
@@ -9,8 +10,6 @@ import 'package:barberia/app/theme_controller.dart';
 
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
-import 'package:intl/intl.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 import 'package:barberia/common/design_tokens.dart';
 
@@ -221,95 +220,94 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final S tr = S.of(context);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.l),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        gradient: LinearGradient(
-          colors: isDark
-              ? <Color>[AppColors.primary.withAlpha(51), AppColors.surfaceDark]
-              : <Color>[AppColors.primaryContainer, AppColors.surface],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: AppShadows.soft,
-        border: Border.all(
-          color: isDark ? AppColors.outlineDark : AppColors.outline,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.s),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withAlpha(25),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.content_cut_rounded,
-                  color: AppColors.primary,
-                ),
+    return LayoutBuilder(
+      builder: (BuildContext ctx, BoxConstraints c) {
+        final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
+        final Widget image = Semantics(
+          label: tr.hero_image_semantics,
+          image: true,
+          child: Container(
+            width: wide ? double.infinity : 110,
+            height: wide ? 200 : 130,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(wide ? 32 : 24),
+              gradient: LinearGradient(
+                colors: <Color>[
+                  cs.primaryContainer,
+                  cs.primaryContainer.withValues(alpha: .6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: AppSpacing.s),
-              Text(
-                'Clipz Premium',
-                style: AppTypography.textTheme.labelMedium?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.m),
-          Text(
-            tr.hero_title,
-            style: AppTypography.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-              color: isDark ? AppColors.onSurfaceDark : AppColors.onSurface,
+            ),
+            child: Icon(
+              Icons.image,
+              size: wide ? 90 : 54,
+              color: cs.onPrimaryContainer.withValues(alpha: 0.9),
             ),
           ),
-          const SizedBox(height: AppSpacing.s),
-          Text(
-            tr.hero_subtitle,
-            style: AppTypography.textTheme.bodyLarge?.copyWith(
-              color: isDark ? AppColors.secondary : AppColors.secondary,
+        );
+        final Widget text = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              tr.hero_title,
+              style: txt.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-          ),
-          const SizedBox(height: AppSpacing.l),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onPrimary,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 0,
-                    shadowColor: Colors.transparent,
-                  ),
-                  child: Text(tr.hero_cta_primary),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.m),
-              Expanded(
-                child: OutlinedButton(
+            const SizedBox(height: 10),
+            Text(
+              tr.hero_subtitle,
+              style: txt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: <Widget>[
+                PrimaryButton(label: tr.hero_cta_primary, onPressed: onPrimary),
+                OutlinedButton(
                   onPressed: onSecondary,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                   ),
                   child: Text(tr.hero_cta_secondary),
                 ),
+              ],
+            ),
+          ],
+        );
+        if (wide) {
+          return Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(40),
+                  child: image,
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(40),
+                    gradient: LinearGradient(
+                      colors: <Color>[
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.black.withValues(alpha: 0.15),
+                      ],
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                top: 24,
+                right: 24,
+                child: DefaultTextStyle(style: txt.bodyMedium!, child: text),
               ),
             ],
           ),
@@ -331,13 +329,13 @@ class _PopularServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
     final S tr = S.of(context);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String price = NumberFormat.currency(
       name: 'GTQ',
       symbol: 'Q',
     ).format(service.price);
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.l),
@@ -353,11 +351,19 @@ class _PopularServiceCard extends StatelessWidget {
                 : (isDark ? AppColors.outlineDark : AppColors.outline),
             width: selected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(AppRadius.l),
-          color: selected
-              ? AppColors.primary.withAlpha(12)
-              : (isDark ? AppColors.surfaceDark : AppColors.surface),
-          boxShadow: selected ? AppShadows.medium : AppShadows.soft,
+          borderRadius: BorderRadius.circular(24),
+          color: cs.surfaceContainerHighest.withValues(
+            alpha: selected ? 0.35 : 0.25,
+          ),
+          boxShadow: selected
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: cs.primary.withValues(alpha: 0.22),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,22 +377,19 @@ class _PopularServiceCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.m),
                     color: AppColors.primaryContainer,
                   ),
-                  child: const Icon(
-                    Icons.content_cut_rounded,
-                    color: AppColors.onPrimaryContainer,
-                    size: 24,
+                  child: Icon(
+                    Icons.cut,
+                    color: cs.onPrimaryContainer,
+                    size: 30,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.s),
                 Expanded(
                   child: Text(
                     service.name,
-                    style: AppTypography.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: txt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                       fontSize: selected ? 18 : 16,
-                      color: isDark
-                          ? AppColors.onSurfaceDark
-                          : AppColors.onSurface,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -395,24 +398,11 @@ class _PopularServiceCard extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            Row(
-              children: <Widget>[
-                Icon(
-                  Icons.schedule,
-                  size: 16,
-                  color: isDark ? AppColors.secondary : AppColors.secondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${service.durationMinutes} min',
-                  style: AppTypography.textTheme.bodySmall?.copyWith(
-                    color: isDark ? AppColors.secondary : AppColors.secondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            Text(
+              '${service.durationMinutes} min',
+              style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
-            const SizedBox(height: AppSpacing.s),
+            const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -423,12 +413,10 @@ class _PopularServiceCard extends StatelessWidget {
               ),
               child: Text(
                 '${tr.price_from_prefix} $price',
-                style: AppTypography.textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isDark
-                      ? AppColors.onSecondaryContainer
-                      : AppColors.onSecondaryContainer,
-                  letterSpacing: .5,
+                style: txt.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSecondaryContainer,
+                  letterSpacing: .3,
                 ),
               ),
             ),
@@ -497,7 +485,7 @@ class _ShimmerBlock extends StatelessWidget {
       width: 230,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: cs.surfaceContainerHighest.withAlpha(51),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
         border: Border.all(color: cs.outlineVariant),
       ),
       padding: const EdgeInsets.all(16),
@@ -543,7 +531,7 @@ class _ShimmerBlock extends StatelessWidget {
                 painter: _ShimmerPainter(
                   progress: progress,
                   base: cs.surfaceContainerHighest,
-                  highlight: color.withAlpha(64),
+                  highlight: color.withValues(alpha: 0.25),
                 ),
               ),
             ),

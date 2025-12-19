@@ -29,112 +29,116 @@ class ServiceSelectPage extends ConsumerWidget {
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
-        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        backgroundColor: cs.surface,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.xl),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
         builder: (final BuildContext ctx) {
           return Padding(
             padding: EdgeInsets.only(
-              left: AppSpacing.l,
-              right: AppSpacing.l,
-              top: AppSpacing.s,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xl,
+              left: 24,
+              right: 24,
+              top: 8,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  s.name,
-                  style: AppTypography.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isDark
-                        ? AppColors.onSurfaceDark
-                        : AppColors.onSurface,
-                  ),
+                Row(
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(Icons.cut, color: cs.onPrimaryContainer),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            s.name,
+                            style: Theme.of(ctx).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${s.durationMinutes} min • ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}',
+                            style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.s),
-                Text(
-                  '${s.durationMinutes} min · ${NumberFormat.currency(name: 'GTQ', symbol: 'Q').format(s.price)}',
-                  style: AppTypography.textTheme.titleMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 24),
+                if (s.extendedDescription != null) ...<Widget>[
+                  Text(
+                    'Detalles',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.m),
-                if (s.extendedDescription != null)
+                  const SizedBox(height: 8),
                   Text(
                     s.extendedDescription!,
-                    style: AppTypography.textTheme.bodyLarge?.copyWith(
-                      color: isDark ? AppColors.secondary : AppColors.secondary,
+                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
                       height: 1.5,
                     ),
                   ),
-                const SizedBox(height: AppSpacing.l),
+                  const SizedBox(height: 24),
+                ],
                 Container(
-                  padding: const EdgeInsets.all(AppSpacing.m),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.secondaryContainer
-                        : AppColors.secondaryContainer,
-                    borderRadius: BorderRadius.circular(AppRadius.m),
-                    border: Border.all(
-                      color: isDark ? AppColors.outlineDark : AppColors.outline,
-                    ),
+                    color: cs.secondaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: cs.secondaryContainer),
                   ),
                   child: Row(
                     children: <Widget>[
                       Icon(
-                        Icons.info_outline_rounded,
-                        size: 20,
-                        color: AppColors.onSecondaryContainer,
+                        Icons.info_outline,
+                        size: 24,
+                        color: cs.onSecondaryContainer,
                       ),
-                      const SizedBox(width: AppSpacing.s),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           tr.service_policy_rebook,
-                          style: AppTypography.textTheme.bodySmall?.copyWith(
-                            color: AppColors.onSecondaryContainer,
+                          style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: cs.onSecondaryContainer,
                             fontWeight: FontWeight.w600,
+                            height: 1.3,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: AppSpacing.l),
-                if (s.extendedDescription == null) ...[
-                  Text(
-                    'Descripción del servicio no disponible todavía. Aquí podrías agregar info adicional, recomendaciones o cuidados.',
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: isDark ? AppColors.secondary : AppColors.secondary,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                ],
+                const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  height: 54,
+                  child: FilledButton(
                     onPressed: () {
                       ref.read(bookingDraftProvider.notifier).setService(s);
                       Navigator.of(ctx).pop();
-                      context.pushNamed(RouteNames.calendar);
+                      context.goNamed(RouteNames.calendar);
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 0,
+                    style: FilledButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.l),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: Text(
+                    child: Text(
                       tr.service_choose_and_continue,
                       style: const TextStyle(
                         fontSize: 16,
@@ -143,17 +147,14 @@ class ServiceSelectPage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.s),
-                SizedBox(
-                  width: double.infinity,
+                const SizedBox(height: 12),
+                Center(
                   child: TextButton(
                     onPressed: () => Navigator.of(ctx).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: isDark
-                          ? AppColors.secondary
-                          : AppColors.secondary,
+                    child: Text(
+                      tr.cancel,
+                      style: TextStyle(color: cs.secondary),
                     ),
-                    child: Text(tr.cancel),
                   ),
                 ),
               ],
@@ -216,13 +217,6 @@ class ServiceSelectPage extends ConsumerWidget {
                       onTap: () =>
                           ref.read(categoryFilterProvider.notifier).state =
                               ServiceCategory.combo,
-                    ),
-                    _CategoryChip(
-                      label: tr.services_filter_facial,
-                      selected: selectedCat == ServiceCategory.facial,
-                      onTap: () =>
-                          ref.read(categoryFilterProvider.notifier).state =
-                              ServiceCategory.facial,
                     ),
                   ],
                 ),
@@ -357,35 +351,35 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.l),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.m,
-          vertical: AppSpacing.s + 2,
-        ),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary
-              : (isDark ? AppColors.surfaceDark : AppColors.surface),
-          borderRadius: BorderRadius.circular(AppRadius.l),
+          color: selected ? cs.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: selected
-                ? AppColors.primary
-                : (isDark ? AppColors.outlineDark : AppColors.outline),
+            color: selected ? cs.primary : cs.outlineVariant,
+            width: 1.5,
           ),
-          boxShadow: selected ? AppShadows.soft : [],
+          boxShadow: selected
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: cs.primary.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
-          style: AppTypography.textTheme.labelMedium?.copyWith(
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
-            color: selected
-                ? AppColors.onPrimary
-                : (isDark ? AppColors.onSurfaceDark : AppColors.onSurface),
+            color: selected ? cs.onPrimary : cs.onSurfaceVariant,
           ),
         ),
       ),
@@ -410,9 +404,9 @@ class _Shimmer extends StatelessWidget {
               begin: Alignment(-1 - 0.3 + controller.value * 2, 0),
               end: const Alignment(1, 0),
               colors: <Color>[
-                Colors.white.withOpacity(0.05),
-                Colors.white.withOpacity(0.25),
-                Colors.white.withOpacity(0.05),
+                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.25),
+                Colors.white.withValues(alpha: 0.05),
               ],
               stops: const <double>[0.1, 0.5, 0.9],
             ).createShader(rect);

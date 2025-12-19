@@ -13,111 +13,119 @@ class ServiceCard extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle; // e.g. "30 min"
-  final String price; // formatted price
+  final String subtitle;
+  final String price;
   final VoidCallback onTap;
   final bool selected;
 
   @override
   Widget build(final BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
 
     return AnimatedScale(
       scale: selected ? 1.02 : 1.0,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      child: InkWell(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.l),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            color: selected
-                ? AppColors.primary.withAlpha(12)
-                : (isDark ? AppColors.surfaceDark : AppColors.surface),
-            borderRadius: BorderRadius.circular(AppRadius.l),
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: selected
+                  ? <Color>[
+                      cs.primary.withValues(alpha: 0.15),
+                      cs.primary.withValues(alpha: 0.05),
+                    ]
+                  : <Color>[
+                      cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                      cs.surfaceContainerHighest.withValues(alpha: 0.1),
+                    ],
+            ),
             border: Border.all(
               color: selected
-                  ? AppColors.primary
-                  : (isDark ? AppColors.outlineDark : AppColors.outline),
-              width: selected ? 2 : 1,
+                  ? cs.primary
+                  : cs.outlineVariant.withValues(alpha: 0.5),
+              width: selected ? 1.5 : 1,
             ),
-            boxShadow: selected ? AppShadows.medium : AppShadows.soft,
+            boxShadow: selected
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
-          padding: EdgeInsets.all(selected ? AppSpacing.m : AppSpacing.m - 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: selected ? 17 : 16,
-                        color: isDark
-                            ? AppColors.onSurfaceDark
-                            : AppColors.onSurface,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? cs.primary
+                            : cs.surfaceContainerHighest,
+                        shape: BoxShape.circle,
                       ),
-                    ),
-                  ),
-                  if (selected)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
                       child: Icon(
-                        Icons.check_circle,
-                        color: AppColors.primary,
-                        size: 20,
+                        Icons.cut,
+                        size: 18,
+                        color: selected ? cs.onPrimary : cs.onSurfaceVariant,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.s),
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule,
-                    size: 14,
-                    color: isDark ? AppColors.secondary : AppColors.secondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.textTheme.bodySmall?.copyWith(
-                      color: isDark ? AppColors.secondary : AppColors.secondary,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
+                    if (selected)
+                      Icon(Icons.check_circle, size: 20, color: cs.primary),
+                  ],
                 ),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.secondaryContainer
-                      : AppColors.secondaryContainer,
-                  borderRadius: BorderRadius.circular(AppRadius.s),
-                ),
-                child: Text(
-                  price,
-                  style: AppTypography.textTheme.labelMedium?.copyWith(
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: txt.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: isDark
-                        ? AppColors.onSecondaryContainer
-                        : AppColors.onSecondaryContainer,
+                    height: 1.2,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Text(
+                      subtitle,
+                      style: txt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      price,
+                      style: txt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

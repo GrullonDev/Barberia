@@ -105,7 +105,7 @@ class AppointmentCard extends ConsumerWidget {
     );
 
     return Semantics(
-      label: 'Cita ${booking.service.name} ${past ? 'pasada' : 'próxima'}',
+      label: 'Cita ${booking.serviceName} ${past ? 'pasada' : 'próxima'}',
       child: AnimatedOpacity(
         opacity: past ? .55 : 1,
         duration: const Duration(milliseconds: 300),
@@ -131,7 +131,7 @@ class AppointmentCard extends ConsumerWidget {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              booking.service.name,
+                              booking.serviceName,
                               style: txt.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -163,17 +163,17 @@ class AppointmentCard extends ConsumerWidget {
                       Text('$date  ·  $range', style: txt.bodySmall),
                       const SizedBox(height: 4),
                       Text(
-                        'Duración: ${booking.service.durationMinutes} min',
+                        'Duración: ${booking.service?.durationMinutes ?? 30} min',
                         style: txt.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                           fontSize: 11,
                         ),
                       ),
-                      if (booking.service.extendedDescription != null)
+                      if (booking.service?.extendedDescription != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            booking.service.extendedDescription!,
+                            booking.service!.extendedDescription!,
                             style: txt.bodySmall?.copyWith(
                               fontSize: 11,
                               color: cs.onSurfaceVariant,

@@ -103,14 +103,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (final BuildContext ctx) {
         final S tr = S.of(ctx);
         final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
-        // Simulated loading future for skeleton (shimmer could be added later)
+        // Simulated loading future
         final Future<void> loadFuture = Future<void>.delayed(
           const Duration(milliseconds: 600),
         );
@@ -120,15 +120,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             children: <Widget>[
               Text(
                 title,
-                style: AppTypography.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? AppColors.onSurfaceDark : AppColors.onSurface,
-                ),
+                style: Theme.of(
+                  ctx,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: AppSpacing.s),
+              const SizedBox(height: 12),
               Wrap(
-                spacing: AppSpacing.s,
-                runSpacing: AppSpacing.s,
+                spacing: 12,
+                runSpacing: 12,
                 children: list.map((final MapEntry<DateTime, SlotState> e) {
                   final DateTime dt = e.key;
                   final SlotState st = e.value;
@@ -141,120 +140,77 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       st == SlotState.hold;
                   Color bg;
                   Color fg;
-                  BorderSide? side;
+                  BoxBorder? border;
                   switch (st) {
                     case SlotState.available:
-                      bg = AppColors.primaryContainer;
-                      fg = AppColors.onPrimaryContainer;
+                      bg = cs.surfaceContainerHigh;
+                      fg = cs.onSurface;
                       break;
                     case SlotState.occupied:
-                      bg = isDark
-                          ? AppColors.surfaceContainerDark
-                          : AppColors.surfaceContainer;
-                      fg = isDark
-                          ? AppColors.onSurfaceVariantDark
-                          : AppColors.onSurfaceVariant;
+                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.5);
+                      fg = cs.onSurfaceVariant.withValues(alpha: 0.5);
                       break;
                     case SlotState.hold:
-                      bg = AppColors.secondaryContainer;
-                      fg = AppColors.onSecondaryContainer;
-                      side = BorderSide(
-                        color:
-                            (isDark
-                                    ? AppColors.onBackground
-                                    : AppColors.onPrimaryContainer)
-                                .withAlpha(128),
-                      );
+                      bg = cs.tertiaryContainer;
+                      fg = cs.onTertiaryContainer;
                       break;
                     case SlotState.disabled:
-                      bg = isDark
-                          ? AppColors.surfaceContainerDark
-                          : AppColors.surfaceContainer;
-                      fg = isDark
-                          ? AppColors.onSurfaceVariantDark
-                          : AppColors.onSurfaceVariant;
+                      bg = Colors.transparent;
+                      fg = cs.onSurfaceVariant.withValues(alpha: 0.3);
+                      border = Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                      );
+                      break;
                   }
+
+                  // Highlight selection during this session if needed,
+                  // but here 'picked' is local to method.
+
                   return Opacity(
-                    opacity: disabled ? 0.55 : 1,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: bg,
-                        foregroundColor: fg,
-                        side: side ?? BorderSide.none,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.m),
-                        ),
-                      ),
-                      onPressed: disabled
+                    opacity: disabled ? 0.6 : 1,
+                    child: InkWell(
+                      onTap: disabled
                           ? null
                           : () {
                               HapticFeedback.selectionClick();
                               picked = dt;
                               Navigator.of(ctx).pop();
                             },
-                      child: Text(
-                        label,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: bg,
+                          borderRadius: BorderRadius.circular(24),
+                          border: border,
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: fg,
+                          ),
+                        ),
                       ),
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: AppSpacing.l),
+              const SizedBox(height: 24),
             ],
           );
         }
 
-        Widget skeletonPill({double w = 56}) => Container(
-          width: w,
-          height: 36,
-          decoration: BoxDecoration(
-            color:
-                (isDark
-                        ? AppColors.surfaceContainerDark
-                        : AppColors.surfaceContainer)
-                    .withAlpha(90),
-            borderRadius: BorderRadius.circular(AppRadius.m),
-          ),
-        );
-
-        Widget skeletonSection(String title) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              title,
-              style: AppTypography.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppColors.onSurfaceDark : AppColors.onSurface,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.s),
-            Wrap(
-              spacing: AppSpacing.s,
-              runSpacing: AppSpacing.s,
-              children: <Widget>[
-                skeletonPill(),
-                skeletonPill(w: 64),
-                skeletonPill(w: 52),
-                skeletonPill(),
-                skeletonPill(w: 60),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.l),
-          ],
-        );
-
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.only(
-              left: AppSpacing.l,
-              right: AppSpacing.l,
-              top: AppSpacing.s,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.xl,
+              left: 24,
+              right: 24,
+              top: 8,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
             ),
             child: FutureBuilder<void>(
               future: loadFuture,
@@ -265,23 +221,37 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(
-                        tr.calendar_slots_title(
-                          '${day.day}/${day.month}',
-                          headerRange,
-                        ),
-                        style: AppTypography.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppColors.onSurfaceDark
-                              : AppColors.onSurface,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                '${day.day}/${day.month}',
+                                style: Theme.of(ctx).textTheme.headlineMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: cs.primary,
+                                    ),
+                              ),
+                              Text(
+                                headerRange,
+                                style: Theme.of(ctx).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          Icon(
+                            Icons.calendar_month,
+                            color: cs.primary.withValues(alpha: 0.5),
+                            size: 32,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: AppSpacing.m),
-                      if (!loaded) ...<Widget>[
-                        skeletonSection(tr.calendar_morning),
-                        skeletonSection(tr.calendar_afternoon),
-                      ] else ...<Widget>[
+                      const SizedBox(height: 24),
+                      if (!loaded)
+                        const Center(child: CircularProgressIndicator())
+                      else ...<Widget>[
                         section(tr.calendar_morning, morning),
                         section(tr.calendar_afternoon, afternoon),
                       ],
@@ -322,19 +292,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       appBar: AppBar(title: Text(tr.calendar_title)),
       body: Column(
         children: <Widget>[
-          // Cabecera horario + quick picks
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          // Quick picks
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: <Widget>[
-                Expanded(
-                  child: Text(
-                    tr.calendar_schedule_range('08:00', '19:00'),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
                 _QuickDateChip(
                   label: tr.calendar_quick_today,
                   selected: isSameDay(_selectedDay, _today),
@@ -349,7 +312,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     });
                   },
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _QuickDateChip(
                   label: tr.calendar_quick_tomorrow,
                   selected: isSameDay(
@@ -364,7 +327,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     });
                   },
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _QuickDateChip(
                   label: tr.calendar_quick_next_sat,
                   selected: isSameDay(_selectedDay, _nextSaturday(_today)),
@@ -379,120 +342,156 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               ],
             ),
           ),
-          TableCalendar<void>(
-            firstDay: _today,
-            lastDay: _lastDay,
-            focusedDay: _focusedDay,
-            currentDay: _today,
-            availableGestures: AvailableGestures.horizontalSwipe,
-            selectedDayPredicate: (final DateTime d) =>
-                isSameDay(d, _selectedDay),
-            onPageChanged: (final DateTime f) => _focusedDay = f,
-            onDaySelected: (final DateTime selected, final DateTime focused) {
-              setState(() {
-                _selectedDay = selected;
-                _focusedDay = focused;
-              });
-              _openSlotsSheet(selected);
-            },
-            calendarStyle: CalendarStyle(
-              todayDecoration: BoxDecoration(
-                color: cs.primary.withAlpha(38),
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: BoxDecoration(
-                color: cs.primary,
-                shape: BoxShape.circle,
-              ),
-              outsideDaysVisible: false,
-            ),
-            headerStyle: HeaderStyle(
-              titleCentered: true,
-              formatButtonVisible: false,
-              titleTextStyle: Theme.of(
-                context,
-              ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Leyenda de estados de slots
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: _SlotLegend(),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                tr.calendar_select_hour_label,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (draft.dateTime != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
                 children: <Widget>[
-                  Icon(Icons.schedule, size: 18, color: cs.primary),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Hora: ${draft.dateTime!.hour.toString().padLeft(2, '0')}:${draft.dateTime!.minute.toString().padLeft(2, '0')}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainer,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: TableCalendar<void>(
+                      firstDay: _today,
+                      lastDay: _lastDay,
+                      focusedDay: _focusedDay,
+                      currentDay: _today,
+                      availableGestures: AvailableGestures.horizontalSwipe,
+                      selectedDayPredicate: (final DateTime d) =>
+                          isSameDay(d, _selectedDay),
+                      onPageChanged: (final DateTime f) => _focusedDay = f,
+                      onDaySelected:
+                          (final DateTime selected, final DateTime focused) {
+                            setState(() {
+                              _selectedDay = selected;
+                              _focusedDay = focused;
+                            });
+                            _openSlotsSheet(selected);
+                          },
+                      calendarStyle: CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: cs.secondaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        todayTextStyle: TextStyle(
+                          color: cs.onSecondaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        selectedDecoration: BoxDecoration(
+                          color: cs.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        selectedTextStyle: TextStyle(
+                          color: cs.onPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        defaultTextStyle: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        weekendTextStyle: TextStyle(color: cs.error),
+                        outsideDaysVisible: false,
+                        cellMargin: const EdgeInsets.all(4),
+                      ),
+                      headerStyle: HeaderStyle(
+                        titleCentered: true,
+                        formatButtonVisible: false,
+                        titleTextStyle: Theme.of(context).textTheme.titleLarge!
+                            .copyWith(fontWeight: FontWeight.bold),
+                        leftChevronIcon: Icon(
+                          Icons.chevron_left,
+                          color: cs.primary,
+                        ),
+                        rightChevronIcon: Icon(
+                          Icons.chevron_right,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _SlotLegend(),
+                  ),
+                  const SizedBox(height: 80), // Spacer for bottom summary
                 ],
               ),
             ),
-          if (summary != null)
-            Semantics(
-              label: tr.calendar_summary_semantics(
-                selectedService!.name,
-                dayFmt.format(draft.dateTime!),
-                timeFmt.format(draft.dateTime!),
+          ),
+        ],
+      ),
+      bottomSheet: (summary != null)
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
-              container: true,
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
+              child: SafeArea(
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.event_available, color: cs.primary),
-                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.calendar_today,
+                        color: cs.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
                     Expanded(
-                      child: Text(
-                        summary,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            tr.calendar_continue,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                          Text(
+                            summary,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: () => context.pushNamed(RouteNames.details),
-                      child: Text(tr.calendar_continue),
+                    FloatingActionButton(
+                      onPressed: () => context.goNamed(RouteNames.details),
+                      child: const Icon(Icons.arrow_forward),
                     ),
                   ],
                 ),
               ),
-            ),
-          const SizedBox(height: 8),
-        ],
-      ),
+            )
+          : null,
     );
   }
 }
@@ -509,40 +508,28 @@ class _QuickDateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Semantics(
-      label: label,
-      button: true,
-      selected: selected,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.l),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.m,
-            vertical: AppSpacing.s,
-          ),
-          decoration: BoxDecoration(
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary
+              : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
             color: selected
-                ? AppColors.primary
-                : (isDark ? AppColors.surfaceDark : AppColors.surface),
-            borderRadius: BorderRadius.circular(AppRadius.l),
-            border: Border.all(
-              color: selected
-                  ? AppColors.primary
-                  : (isDark ? AppColors.outlineDark : AppColors.outline),
-            ),
-            boxShadow: selected ? AppShadows.soft : <BoxShadow>[],
+                ? cs.primary
+                : cs.outlineVariant.withValues(alpha: 0.5),
           ),
-          child: Text(
-            label,
-            style: AppTypography.textTheme.labelMedium?.copyWith(
-              color: selected
-                  ? AppColors.onPrimary
-                  : (isDark ? AppColors.onSurfaceDark : AppColors.onSurface),
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -558,32 +545,20 @@ class _SlotLegend extends StatelessWidget {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final S tr = S.of(context);
     return Wrap(
-      spacing: AppSpacing.l,
-      runSpacing: AppSpacing.s,
+      runSpacing: 8,
+      spacing: 16,
+      alignment: WrapAlignment.center,
       children: <Widget>[
         _LegendItem(
+          color: cs.surfaceContainerHigh,
           label: tr.calendar_legend_available,
           color: AppColors.primaryContainer,
           textColor: AppColors.onPrimaryContainer,
         ),
+        _LegendItem(label: tr.calendar_legend_occupied, opacity: 0.5),
         _LegendItem(
-          label: tr.calendar_legend_occupied,
-          color: isDark
-              ? AppColors.surfaceContainerDark
-              : AppColors.surfaceContainer,
-          textColor: isDark
-              ? AppColors.onSurfaceVariantDark
-              : AppColors.onSurfaceVariant,
-        ),
-        _LegendItem(
+          color: cs.tertiaryContainer,
           label: tr.calendar_legend_hold,
-          color: AppColors.secondaryContainer,
-          textColor: AppColors.onSecondaryContainer,
-          border: Border.all(
-            color: isDark
-                ? AppColors.onBackground
-                : AppColors.onPrimaryContainer,
-          ),
         ),
       ],
     );
@@ -594,13 +569,11 @@ class _LegendItem extends StatelessWidget {
   const _LegendItem({
     required this.label,
     required this.color,
-    required this.textColor,
-    this.border,
+    required this.label,
+    this.opacity = 1,
   });
   final String label;
-  final Color color;
-  final Color textColor;
-  final BoxBorder? border;
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
@@ -608,22 +581,15 @@ class _LegendItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Container(
-          height: 14,
-          width: 14,
+          height: 12,
+          width: 12,
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(AppRadius.s),
-            border: border,
+            color: color.withValues(alpha: opacity),
+            shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: AppSpacing.s),
-        Text(
-          label,
-          style: AppTypography.textTheme.labelSmall!.copyWith(
-            fontWeight: FontWeight.w600,
-            color: textColor,
-          ),
-        ),
+        const SizedBox(width: 8),
+        Text(label, style: style),
       ],
     );
   }
