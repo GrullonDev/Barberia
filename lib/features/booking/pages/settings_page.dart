@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 
-class SettingsPage extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:barberia/app/theme_controller.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/app/router.dart';
+
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(final BuildContext context, final WidgetRef ref) {
     final ColorScheme cs = Theme.of(context).colorScheme;
+    final ThemeMode mode = ref.watch(themeControllerProvider).mode;
+    final bool isDark = mode == ThemeMode.dark;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Configuración'), centerTitle: true),
       body: ListView(
@@ -21,7 +30,7 @@ class SettingsPage extends StatelessWidget {
             icon: Icons.person_outline,
             title: 'Perfil',
             subtitle: 'Gestionar datos personales',
-            onTap: () {},
+            onTap: () => context.goNamed(RouteNames.profile),
           ),
           const SizedBox(height: 12),
           _buildSettingsTile(
@@ -65,7 +74,14 @@ class SettingsPage extends StatelessWidget {
             context,
             icon: Icons.dark_mode_outlined,
             title: 'Modo Oscuro',
-            trailing: Switch.adaptive(value: false, onChanged: (bool v) {}),
+            trailing: Switch.adaptive(
+              value: isDark,
+              onChanged: (bool v) {
+                ref
+                    .read(themeControllerProvider.notifier)
+                    .setMode(v ? ThemeMode.dark : ThemeMode.light);
+              },
+            ),
           ),
           const SizedBox(height: 24),
           _buildSectionHeader(context, 'Ayuda'),
@@ -91,7 +107,9 @@ class SettingsPage extends StatelessWidget {
             title: 'Cerrar Sesión',
             iconColor: cs.error,
             textColor: cs.error,
-            onTap: () {},
+            onTap: () async {
+              await ref.read(authRepositoryProvider).logout();
+            },
           ),
           const SizedBox(height: 32),
         ],

@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 
-class ProfilePage extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:barberia/features/auth/models/user.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:go_router/go_router.dart';
+import 'package:barberia/app/router.dart';
+
+class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
+    final User? user = ref.watch(authStateProvider);
+
+    if (user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -33,42 +44,30 @@ class ProfilePage extends StatelessWidget {
                         child: CircleAvatar(
                           radius: 50,
                           backgroundColor: cs.surfaceContainerHighest,
-                          child: Icon(
-                            Icons.person,
-                            size: 50,
-                            color: cs.onSurfaceVariant,
+                          child: Text(
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : '?',
+                            style: txt.displayMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: cs.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: cs.surface, width: 2),
-                          ),
-                          child: Icon(
-                            Icons.edit,
-                            size: 14,
-                            color: cs.onPrimary,
-                          ),
-                        ),
-                      ),
+                      // Edit icon disabled for now
+                      // Positioned(bottom: 0, right: 0, ... ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Juan Pérez',
+                    user.name,
                     style: txt.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'juan.perez@example.com',
+                    user.email,
                     style: txt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
@@ -84,15 +83,15 @@ class ProfilePage extends StatelessWidget {
                   _ProfileMenuSection(
                     title: 'Cuenta',
                     children: <Widget>[
-                      _ProfileMenuItem(
-                        icon: Icons.person_outline,
-                        title: 'Datos Personales',
-                        onTap: () {},
-                      ),
+                      // _ProfileMenuItem(
+                      //   icon: Icons.person_outline,
+                      //   title: 'Datos Personales',
+                      //   onTap: () {}, // TODO: Edit profile page
+                      // ),
                       _ProfileMenuItem(
                         icon: Icons.history,
                         title: 'Mis Reservas',
-                        onTap: () {},
+                        onTap: () => context.pushNamed(RouteNames.myBookings),
                       ),
                     ],
                   ),
@@ -100,20 +99,20 @@ class ProfilePage extends StatelessWidget {
                   _ProfileMenuSection(
                     title: 'General',
                     children: <Widget>[
-                      _ProfileMenuItem(
-                        icon: Icons.notifications_none,
-                        title: 'Notificaciones',
-                        onTap: () {},
-                      ),
+                      // _ProfileMenuItem(
+                      //   icon: Icons.notifications_none,
+                      //   title: 'Notificaciones',
+                      //   onTap: () {},
+                      // ),
                       _ProfileMenuItem(
                         icon: Icons.settings_outlined,
                         title: 'Configuración',
-                        onTap: () {},
+                        onTap: () => context.pushNamed('settings'),
                       ),
                       _ProfileMenuItem(
                         icon: Icons.policy_outlined,
                         title: 'Políticas de Privacidad',
-                        onTap: () {},
+                        onTap: () => context.pushNamed(RouteNames.privacy),
                       ),
                     ],
                   ),
@@ -124,7 +123,10 @@ class ProfilePage extends StatelessWidget {
                     textColor: cs.error,
                     iconColor: cs.error,
                     showTrailing: false,
-                    onTap: () {},
+                    onTap: () async {
+                      await ref.read(authRepositoryProvider).logout();
+                      // Navigation handled by authState change in Router
+                    },
                   ),
                   const SizedBox(height: 40), // Bottom padding
                 ],

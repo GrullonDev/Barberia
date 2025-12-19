@@ -15,6 +15,7 @@ import 'package:barberia/features/auth/pages/login_page.dart';
 import 'package:barberia/features/auth/pages/register_page.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
+import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
 import 'package:barberia/features/static/privacy_page.dart';
 
 abstract final class RouteNames {
@@ -167,6 +168,13 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         path: '/admin',
         name: RouteNames.admin,
         builder: (_, __) => const AdminDashboardPage(),
+        routes: [
+          GoRoute(
+            path: 'add-service',
+            name: RouteNames.addService,
+            builder: (_, __) => const AddEditServicePage(),
+          ),
+        ],
       ),
     ],
   );
