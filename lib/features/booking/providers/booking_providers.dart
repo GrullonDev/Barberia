@@ -6,6 +6,7 @@ import 'package:barberia/features/booking/repositories/booking_repository.dart';
 import 'package:barberia/features/booking/repositories/service_repository.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/core/services/notification_service.dart';
 
 // Repositories
 final Provider<ServiceRepository> serviceRepositoryProvider =
@@ -100,6 +101,19 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     state = <Booking>[...state, booking];
     try {
       await _repository.createBooking(booking);
+
+      // Schedule Notification (1 hour before)
+      final DateTime scheduledTime = booking.dateTime.subtract(
+        const Duration(hours: 1),
+      );
+      if (scheduledTime.isAfter(DateTime.now())) {
+        await NotificationService().scheduleNotification(
+          id: booking.id.hashCode,
+          title: 'Recordatorio de Cita',
+          body: 'Tu cita para ${booking.serviceName} es en 1 hora.',
+          scheduledDate: scheduledTime,
+        );
+      }
     } catch (e) {
       // Revert if failed (would need robust rollback, simplified here)
       _loadBookings();
@@ -129,6 +143,9 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     ];
     try {
       await _repository.cancelBooking(id);
+
+      // Cancel Notification
+      await NotificationService().cancelNotification(id.hashCode);
     } catch (e) {
       _loadBookings();
     }

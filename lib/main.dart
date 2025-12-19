@@ -6,10 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/app.dart';
 import 'package:barberia/core/database/database_helper.dart';
+import 'package:barberia/core/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
+
+  // Initialize Notifications
+  await NotificationService().init();
+  await NotificationService().requestPermissions();
 
   // --- TAREA TEMPORAL: VERIFICAR USUARIOS ---
   final DatabaseHelper dbHelper = DatabaseHelper.instance;
