@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:barberia/features/auth/models/user.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:barberia/app/theme_controller.dart';
 
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 import 'package:barberia/common/design_tokens.dart';
 
@@ -33,12 +35,12 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Clipz'),
         actions: <Widget>[
-          if (ref.watch(authProvider).currentUser?.role == 'admin')
+          if (ref.watch(authStateProvider)?.role == UserRole.admin)
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () => context.pushNamed(RouteNames.addService),
             ),
-          if (ref.watch(authProvider).currentUser?.role == 'admin')
+          if (ref.watch(authStateProvider)?.role == UserRole.admin)
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
               onPressed: () => context.pushNamed(RouteNames.admin),
@@ -220,6 +222,8 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final S tr = S.of(context);
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
     return LayoutBuilder(
       builder: (BuildContext ctx, BoxConstraints c) {
         final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
@@ -264,7 +268,16 @@ class _HeroSection extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: <Widget>[
-                PrimaryButton(label: tr.hero_cta_primary, onPressed: onPrimary),
+                FilledButton(
+                  onPressed: onPrimary,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+                  ),
+                  child: Text(tr.hero_cta_primary),
+                ),
                 OutlinedButton(
                   onPressed: onSecondary,
                   style: OutlinedButton.styleFrom(
@@ -310,9 +323,12 @@ class _HeroSection extends StatelessWidget {
                 child: DefaultTextStyle(style: txt.bodyMedium!, child: text),
               ),
             ],
-          ),
-        ],
-      ),
+          );
+        }
+        return Column(
+          children: <Widget>[image, const SizedBox(height: 24), text],
+        );
+      },
     );
   }
 }
@@ -332,6 +348,7 @@ class _PopularServiceCard extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
     final S tr = S.of(context);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String price = NumberFormat.currency(
       name: 'GTQ',
       symbol: 'Q',

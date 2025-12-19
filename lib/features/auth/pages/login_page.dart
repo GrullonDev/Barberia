@@ -17,6 +17,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _passCtrl = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscureText = true;
   String? _error;
 
   Future<void> _submit() async {
@@ -86,11 +87,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passCtrl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Contraseña',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureText ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureText = !_obscureText;
+                        });
+                      },
+                    ),
                   ),
-                  obscureText: true,
+                  obscureText: _obscureText,
                   validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 24),

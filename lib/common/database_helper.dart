@@ -94,13 +94,14 @@ CREATE TABLE services (
   }
 
   Future<void> _createUsersTable(Database db) async {
-    const String idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const String idType = 'TEXT PRIMARY KEY';
     const String textType = 'TEXT NOT NULL';
 
     await db.execute('''
 CREATE TABLE users (
   id $idType,
-  username $textType UNIQUE,
+  email $textType UNIQUE,
+  name $textType,
   password $textType,
   role $textType
 )
@@ -111,7 +112,9 @@ CREATE TABLE users (
         .convert(utf8.encode('barberia_admin'))
         .toString();
     await db.insert('users', <String, Object?>{
-      'username': 'admin',
+      'id': 'admin_01',
+      'email': 'admin@barberia.com',
+      'name': 'Admin',
       'password': adminPassword,
       'role': 'admin',
     });
@@ -119,7 +122,7 @@ CREATE TABLE users (
 
   Future<Service> create(Service service) async {
     final Database db = await instance.database;
-    final int id = await db.insert('services', service.toJson());
+    final int id = await db.insert('services', service.toMap());
     return service.copyWith(id: id);
   }
 
@@ -129,22 +132,22 @@ CREATE TABLE users (
         .convert(utf8.encode(user.password))
         .toString();
     final User userWithHashedPassword = user.copyWith(password: hashedPassword);
-    final int id = await db.insert('users', userWithHashedPassword.toJson());
-    return user.copyWith(id: id);
+    await db.insert('users', userWithHashedPassword.toMap());
+    return user;
   }
 
-  Future<User?> readUserByUsername(String username) async {
+  Future<User?> readUserByEmail(String email) async {
     final Database db = await instance.database;
 
     final List<Map<String, Object?>> maps = await db.query(
       'users',
-      columns: <String>['id', 'username', 'password', 'role'],
-      where: 'username = ?',
-      whereArgs: <Object?>[username],
+      columns: <String>['id', 'name', 'email', 'password', 'role'],
+      where: 'email = ?',
+      whereArgs: <Object?>[email],
     );
 
     if (maps.isNotEmpty) {
-      return User.fromJson(maps.first);
+      return User.fromMap(maps.first);
     } else {
       return null;
     }
@@ -158,12 +161,12 @@ CREATE TABLE users (
 
     final List<Map<String, Object?>> maps = await db.query(
       'users',
-      where: 'username = ? AND password = ?',
+      where: 'email = ? AND password = ?',
       whereArgs: <Object?>[username, hashedPassword],
     );
 
     if (maps.isNotEmpty) {
-      return User.fromJson(maps.first);
+      return User.fromMap(maps.first);
     } else {
       return null;
     }
@@ -187,7 +190,7 @@ CREATE TABLE users (
     );
 
     if (maps.isNotEmpty) {
-      return Service.fromJson(maps.first);
+      return Service.fromMap(maps.first);
     } else {
       throw Exception('ID $id not found');
     }
@@ -199,7 +202,7 @@ CREATE TABLE users (
     final List<Map<String, Object?>> result = await db.query('services');
 
     return result
-        .map((Map<String, Object?> json) => Service.fromJson(json))
+        .map((Map<String, Object?> json) => Service.fromMap(json))
         .toList();
   }
 
@@ -208,7 +211,7 @@ CREATE TABLE users (
 
     return db.update(
       'services',
-      service.toJson(),
+      service.toMap(),
       where: 'id = ?',
       whereArgs: <Object?>[service.id],
     );
@@ -283,7 +286,7 @@ CREATE TABLE bookings (
         ),
         extendedDescription: json['serviceDescription'],
       );
-      return Booking.fromMap(json, service);
+      return Booking.fromMap(json, linkedService: service);
     }).toList();
   }
 

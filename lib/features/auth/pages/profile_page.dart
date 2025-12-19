@@ -11,8 +11,7 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final AuthState authState = ref.watch(authProvider);
-    final User? user = authState.currentUser;
+    final User? user = ref.watch(authStateProvider);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -27,7 +26,7 @@ class ProfilePage extends ConsumerWidget {
                     radius: 50,
                     backgroundColor: AppColors.primaryContainer,
                     child: Text(
-                      user.username.substring(0, 1).toUpperCase(),
+                      user.name.substring(0, 1).toUpperCase(),
                       style: const TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.bold,
@@ -40,19 +39,21 @@ class ProfilePage extends ConsumerWidget {
                 _ProfileItem(
                   icon: Icons.person,
                   title: 'Nombre de Usuario',
-                  value: user.username,
+                  value: user.name,
                   isDark: isDark,
                 ),
                 _ProfileItem(
                   icon: Icons.security,
                   title: 'Rol',
-                  value: user.role == 'admin' ? 'Administrador' : 'Cliente',
+                  value: user.role == UserRole.admin
+                      ? 'Administrador'
+                      : 'Cliente',
                   isDark: isDark,
                 ),
                 const SizedBox(height: 40),
                 FilledButton.icon(
                   onPressed: () async {
-                    await ref.read(authProvider.notifier).logout();
+                    await ref.read(authStateProvider.notifier).logout();
                     if (context.mounted) {
                       context.goNamed(RouteNames.login);
                     }

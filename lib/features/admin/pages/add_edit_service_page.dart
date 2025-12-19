@@ -64,9 +64,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
           : _descCtrl.text.trim();
 
       final Service newService = Service(
-        id:
-            widget.service?.id ??
-            DateTime.now().millisecondsSinceEpoch.toString(),
+        id: widget.service?.id,
         name: name,
         price: price,
         durationMinutes: duration,

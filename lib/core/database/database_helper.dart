@@ -51,7 +51,7 @@ class DatabaseHelper {
     // 2. Services Table
     await db.execute('''
       CREATE TABLE services (
-        id $idType,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         name $textType,
         price $realType,
         durationMinutes $intType,
@@ -66,7 +66,7 @@ class DatabaseHelper {
       CREATE TABLE bookings (
         id $idType,
         userId $textType,
-        serviceId $textType,
+        serviceId $intType,
         serviceName $textType,
         date $textType,
         status $textType,
@@ -97,7 +97,7 @@ class DatabaseHelper {
     // Seed Initial Services
     final List<Map<String, dynamic>> services = <Map<String, dynamic>>[
       <String, dynamic>{
-        'id': 'srv_01',
+        // id autoincremented or manual
         'name': 'Corte Clásico',
         'price': 100.0,
         'durationMinutes': 45,
@@ -107,7 +107,6 @@ class DatabaseHelper {
         'isActive': 1,
       },
       <String, dynamic>{
-        'id': 'srv_02',
         'name': 'Afeitado de Barba',
         'price': 80.0,
         'durationMinutes': 30,
@@ -117,7 +116,6 @@ class DatabaseHelper {
         'isActive': 1,
       },
       <String, dynamic>{
-        'id': 'srv_03',
         'name': 'Combo Completo',
         'price': 160.0,
         'durationMinutes': 75,
@@ -127,7 +125,6 @@ class DatabaseHelper {
         'isActive': 1,
       },
       <String, dynamic>{
-        'id': 'srv_04',
         'name': 'Corte Degradado',
         'price': 120.0,
         'durationMinutes': 60,
@@ -159,10 +156,7 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getAllBookings() async {
     final db = await instance.database;
-    final result = await db.query(
-      'bookings',
-      orderBy: 'date DESC',
-    );
+    final result = await db.query('bookings', orderBy: 'date DESC');
     return result;
   }
 

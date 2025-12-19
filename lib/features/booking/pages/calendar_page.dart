@@ -88,7 +88,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   Future<void> _openSlotsSheet(final DateTime day) async {
     final BookingDraft draft = ref.read(bookingDraftProvider);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     // Pre-generate slots (would be fetched from backend in real app)
     final Map<DateTime, SlotState> slots = _generateSlots(day);
     final List<MapEntry<DateTime, SlotState>> morning = slots.entries
@@ -109,6 +109,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       ),
       builder: (final BuildContext ctx) {
         final S tr = S.of(ctx);
+        final ColorScheme cs = Theme.of(ctx).colorScheme;
         final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
         // Simulated loading future
         final Future<void> loadFuture = Future<void>.delayed(
@@ -542,8 +543,8 @@ class _SlotLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final S tr = S.of(context);
+    final ColorScheme cs = Theme.of(context).colorScheme;
     return Wrap(
       runSpacing: 8,
       spacing: 16,
@@ -552,10 +553,12 @@ class _SlotLegend extends StatelessWidget {
         _LegendItem(
           color: cs.surfaceContainerHigh,
           label: tr.calendar_legend_available,
-          color: AppColors.primaryContainer,
-          textColor: AppColors.onPrimaryContainer,
         ),
-        _LegendItem(label: tr.calendar_legend_occupied, opacity: 0.5),
+        _LegendItem(
+          color: cs.surfaceContainerHighest,
+          label: tr.calendar_legend_occupied,
+          opacity: 0.5,
+        ),
         _LegendItem(
           color: cs.tertiaryContainer,
           label: tr.calendar_legend_hold,
@@ -569,10 +572,10 @@ class _LegendItem extends StatelessWidget {
   const _LegendItem({
     required this.label,
     required this.color,
-    required this.label,
     this.opacity = 1,
   });
   final String label;
+  final Color color;
   final double opacity;
 
   @override
@@ -589,7 +592,7 @@ class _LegendItem extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(label, style: style),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

@@ -10,7 +10,6 @@ import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/service_card.dart';
 import 'package:barberia/l10n/app_localizations.dart';
-import 'package:barberia/common/design_tokens.dart';
 
 class ServiceSelectPage extends ConsumerWidget {
   const ServiceSelectPage({super.key});
@@ -24,7 +23,7 @@ class ServiceSelectPage extends ConsumerWidget {
     final BookingDraft draft = ref.watch(bookingDraftProvider);
 
     Future<void> showDetails(final Service s) async {
-      final bool isDark = Theme.of(context).brightness == Brightness.dark;
+      final ColorScheme cs = Theme.of(context).colorScheme;
       await showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,

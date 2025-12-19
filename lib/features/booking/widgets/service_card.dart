@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:barberia/common/design_tokens.dart';
 
 /// Simple service summary card for grid selection.
 class ServiceCard extends StatelessWidget {

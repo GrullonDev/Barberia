@@ -29,6 +29,7 @@ abstract final class RouteNames {
   static const String login = 'login';
   static const String register = 'register';
   static const String admin = 'admin';
+  static const String addService = 'add-service';
 }
 
 final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {

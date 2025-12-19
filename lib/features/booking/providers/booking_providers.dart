@@ -1,5 +1,4 @@
-import 'package:barberia/common/database_helper.dart';
-import 'package:barberia/common/services/notification_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
@@ -38,7 +37,30 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
     notes: notes,
   );
 
-  void reset() => state = BookingDraft.empty();
+  void setService(Service service) {
+    state = state.copyWith(service: service);
+  }
+
+  void setDate(DateTime date) {
+    state = state.copyWith(date: date);
+  }
+
+  void setTime(DateTime time) {
+    // implementation depends on how time is stored, likely updating dateTime
+    if (state.date == null) return;
+    final newDate = DateTime(
+      state.date!.year,
+      state.date!.month,
+      state.date!.day,
+      time.hour,
+      time.minute,
+    );
+    state = state.copyWith(date: newDate);
+  }
+
+  void setDateTime(DateTime dateTime) {
+    state = state.copyWith(dateTime: dateTime);
+  }
 }
 
 final StateNotifierProvider<BookingDraftNotifier, BookingDraft>

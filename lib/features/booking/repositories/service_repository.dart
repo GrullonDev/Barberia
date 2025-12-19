@@ -35,14 +35,14 @@ class ServiceRepository {
     );
   }
 
-  Future<void> deleteService(String id) async {
+  Future<void> deleteService(int id) async {
     final Database db = await _dbHelper.database;
     // We might want soft delete, but for now hard delete or set isActive = 0
     await db.delete('services', where: 'id = ?', whereArgs: [id]);
   }
 
   // Toggle visibility instead of deleting
-  Future<void> toggleServiceVisibility(String id, bool isActive) async {
+  Future<void> toggleServiceVisibility(int id, bool isActive) async {
     final Database db = await _dbHelper.database;
     await db.update(
       'services',
