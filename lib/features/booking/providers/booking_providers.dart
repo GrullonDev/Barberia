@@ -1,19 +1,32 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:barberia/core/services/notification_service.dart';
+import 'package:barberia/features/auth/models/user.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/repositories/booking_repository.dart';
 import 'package:barberia/features/booking/repositories/service_repository.dart';
-import 'package:barberia/features/auth/models/user.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
-import 'package:barberia/core/services/notification_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final StateNotifierProvider<BookingDraftNotifier, BookingDraft>
+bookingDraftProvider =
+    StateNotifierProvider<BookingDraftNotifier, BookingDraft>(
+      (final Ref ref) => BookingDraftNotifier(),
+    );
+
+final Provider<BookingRepository> bookingRepositoryProvider =
+    Provider<BookingRepository>((Ref ref) => BookingRepository());
+
+final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =
+    StateNotifierProvider<BookingsNotifier, List<Booking>>((final Ref ref) {
+      final BookingRepository repo = ref.watch(bookingRepositoryProvider);
+      final User? user = ref.watch(authStateProvider);
+      return BookingsNotifier(repo, user);
+    });
 
 // Repositories
 final Provider<ServiceRepository> serviceRepositoryProvider =
     Provider<ServiceRepository>((Ref ref) => ServiceRepository());
-
-final Provider<BookingRepository> bookingRepositoryProvider =
-    Provider<BookingRepository>((Ref ref) => BookingRepository());
 
 /// Async list of services from DB
 final FutureProvider<List<Service>> servicesAsyncProvider =
@@ -38,18 +51,22 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
     notes: notes,
   );
 
-  void setService(Service service) {
-    state = state.copyWith(service: service);
-  }
-
   void setDate(DateTime date) {
     state = state.copyWith(date: date);
+  }
+
+  void setDateTime(DateTime dateTime) {
+    state = state.copyWith(dateTime: dateTime);
+  }
+
+  void setService(Service service) {
+    state = state.copyWith(service: service);
   }
 
   void setTime(DateTime time) {
     // implementation depends on how time is stored, likely updating dateTime
     if (state.date == null) return;
-    final newDate = DateTime(
+    final DateTime newDate = DateTime(
       state.date!.year,
       state.date!.month,
       state.date!.day,
@@ -58,42 +75,15 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
     );
     state = state.copyWith(date: newDate);
   }
-
-  void setDateTime(DateTime dateTime) {
-    state = state.copyWith(dateTime: dateTime);
-  }
 }
-
-final StateNotifierProvider<BookingDraftNotifier, BookingDraft>
-bookingDraftProvider =
-    StateNotifierProvider<BookingDraftNotifier, BookingDraft>(
-      (final Ref ref) => BookingDraftNotifier(),
-    );
 
 // Bookings List (Synced with DB)
 class BookingsNotifier extends StateNotifier<List<Booking>> {
+  final BookingRepository _repository;
+
+  final User? _user;
   BookingsNotifier(this._repository, this._user) : super(const <Booking>[]) {
     _loadBookings();
-  }
-
-  final BookingRepository _repository;
-  final User? _user;
-
-  Future<void> _loadBookings() async {
-    if (_user == null) {
-      state = [];
-      return;
-    }
-    // If admin, maybe fetch all? For now, let's stick to user's bookings.
-    if (_user.role == UserRole.admin) {
-      final List<Booking> bookings = await _repository.getBookings(
-        _user.id,
-      ); // Or getAllBookingsAdmin()
-      state = bookings;
-    } else {
-      final List<Booking> bookings = await _repository.getBookings(_user.id);
-      state = bookings;
-    }
   }
 
   Future<void> add(final Booking booking) async {
@@ -151,6 +141,19 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     }
   }
 
+  /// Verifica si un slot [start] con duración [duration] se solapa
+  bool hasConflict(DateTime start, Duration duration) {
+    final DateTime end = start.add(duration);
+    for (final Booking b in state) {
+      if (b.status == BookingStatus.canceled) continue;
+      final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
+      if (overlap) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   Future<void> rebook(String id, DateTime newStart) async {
     // Rebook logic usually means creating a new appointment.
     // For this existing method signature, we update local state.
@@ -179,23 +182,18 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     ];
   }
 
-  /// Verifica si un slot [start] con duración [duration] se solapa
-  bool hasConflict(DateTime start, Duration duration) {
-    final DateTime end = start.add(duration);
-    for (final Booking b in state) {
-      if (b.status == BookingStatus.canceled) continue;
-      final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
-      if (overlap) {
-        return true;
-      }
+  Future<void> _loadBookings() async {
+    if (_user == null) {
+      state = <Booking>[];
+      return;
     }
-    return false;
+    // If admin, maybe fetch all? For now, let's stick to user's bookings.
+    if (_user.role == UserRole.admin) {
+      final List<Booking> bookings = await _repository.getAllBookingsAdmin();
+      state = bookings;
+    } else {
+      final List<Booking> bookings = await _repository.getBookings(_user.id);
+      state = bookings;
+    }
   }
 }
-
-final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =
-    StateNotifierProvider<BookingsNotifier, List<Booking>>((final Ref ref) {
-      final repo = ref.watch(bookingRepositoryProvider);
-      final user = ref.watch(authStateProvider);
-      return BookingsNotifier(repo, user);
-    });

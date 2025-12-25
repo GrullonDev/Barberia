@@ -39,7 +39,14 @@ abstract class AppColors {
 
 abstract class AppTypography {
   // Montserrat for a modern, geometric, premium feel
-  static TextTheme get textTheme => GoogleFonts.montserratTextTheme();
+  static TextTheme get textTheme {
+    try {
+      return GoogleFonts.montserratTextTheme();
+    } catch (_) {
+      // Fallback to default typography if font loading fails (e.g. offline)
+      return Typography.material2021().englishLike;
+    }
+  }
 }
 
 abstract class AppSpacing {
