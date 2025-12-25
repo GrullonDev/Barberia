@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:barberia/app/locale_controller.dart';
+import 'package:barberia/app/router.dart';
 import 'package:barberia/app/theme_controller.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
-import 'package:barberia/app/router.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -14,6 +17,7 @@ class SettingsPage extends ConsumerWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final ThemeMode mode = ref.watch(themeControllerProvider).mode;
     final bool isDark = mode == ThemeMode.dark;
+    final Locale currentLocale = ref.watch(localeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Configuración'), centerTitle: true),
@@ -44,7 +48,8 @@ class SettingsPage extends ConsumerWidget {
             context,
             icon: Icons.lock_outline,
             title: 'Seguridad',
-            onTap: () {},
+            subtitle: 'Cambiar contraseña',
+            onTap: () => _showChangePasswordDialog(context, ref),
           ),
           const SizedBox(height: 24),
           _buildSectionHeader(context, 'Preferencias'),
@@ -57,7 +62,7 @@ class SettingsPage extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  'Español',
+                  currentLocale.languageCode == 'es' ? 'Español' : 'English',
                   style: TextStyle(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
@@ -67,7 +72,7 @@ class SettingsPage extends ConsumerWidget {
                 Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
               ],
             ),
-            onTap: () {},
+            onTap: () => _showLanguageSelector(context, ref, currentLocale),
           ),
           const SizedBox(height: 12),
           _buildSettingsTile(
@@ -90,7 +95,7 @@ class SettingsPage extends ConsumerWidget {
             context,
             icon: Icons.help_outline,
             title: 'Centro de Ayuda',
-            onTap: () {},
+            onTap: () => _showHelpCenter(context),
           ),
           const SizedBox(height: 12),
           _buildSettingsTile(
@@ -98,7 +103,7 @@ class SettingsPage extends ConsumerWidget {
             icon: Icons.info_outline,
             title: 'Acerca de',
             subtitle: 'Versión 1.0.0',
-            onTap: () {},
+            onTap: () => _showAboutDialog(context),
           ),
           const SizedBox(height: 24),
           _buildSettingsTile(
@@ -179,5 +184,192 @@ class SettingsPage extends ConsumerWidget {
                 : null),
       ),
     );
+  }
+
+  Future<void> _showChangePasswordDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final TextEditingController passCtrl = TextEditingController();
+    final TextEditingController confirmCtrl = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cambiar Contraseña'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nueva Contraseña',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+                validator: (v) =>
+                    (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: confirmCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirmar Contraseña',
+                  prefixIcon: Icon(Icons.lock),
+                ),
+                validator: (v) {
+                  if (v != passCtrl.text) return 'Las contraseñas no coinciden';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(ctx);
+                final currentUser = ref
+                    .read(authRepositoryProvider)
+                    .currentUser;
+                if (currentUser != null) {
+                  await ref
+                      .read(authRepositoryProvider)
+                      .updatePassword(currentUser.id, passCtrl.text);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Contraseña actualizada con éxito'),
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageSelector(
+    BuildContext context,
+    WidgetRef ref,
+    Locale currentLocale,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Español'),
+              trailing: currentLocale.languageCode == 'es'
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : null,
+              onTap: () {
+                ref
+                    .read(localeControllerProvider.notifier)
+                    .setLocale(const Locale('es'));
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              title: const Text('English'),
+              trailing: currentLocale.languageCode == 'en'
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : null,
+              onTap: () {
+                ref
+                    .read(localeControllerProvider.notifier)
+                    .setLocale(const Locale('en'));
+                Navigator.pop(ctx);
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showHelpCenter(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Centro de Ayuda',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_today, color: Colors.blue),
+              title: const Text('Problema con una cita'),
+              subtitle: const Text('Contactar a la barbería'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _launchUrl(
+                  'https://wa.me/1234567890',
+                ); // Replace with actual number
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bug_report, color: Colors.orange),
+              title: const Text('Problema con la App'),
+              subtitle: const Text('Contactar al desarrollador'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _launchUrl('mailto:support@barberia.com');
+              },
+            ),
+            const SizedBox(height: 32),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AboutDialog(
+        applicationName: 'Barbería App',
+        applicationVersion: '1.0.0',
+        applicationIcon: const Icon(Icons.content_cut, size: 48),
+        children: const [
+          SizedBox(height: 16),
+          Text(
+            'Esta aplicación fue desarrollada para gestionar citas de barbería de manera eficiente.',
+          ),
+          SizedBox(height: 16),
+          Text('Desarrollador: Jorge Grullon'),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    if (!await launchUrl(url)) {
+      debugPrint('Could not launch \$url');
+    }
   }
 }

@@ -50,6 +50,19 @@ class AuthRepository {
     return newUser;
   }
 
+  Future<void> updatePassword(String userId, String newPassword) async {
+    final Database db = await _dbHelper.database;
+    await db.update(
+      'users',
+      {'password': newPassword},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+    if (_currentUser != null && _currentUser!.id == userId) {
+      _currentUser = _currentUser!.copyWith(password: newPassword);
+    }
+  }
+
   Future<void> logout() async {
     _currentUser = null;
   }

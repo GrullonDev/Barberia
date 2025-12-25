@@ -6,13 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:barberia/app/router.dart';
-import 'package:barberia/app/theme.dart';
-import 'package:barberia/app/theme_controller.dart';
 
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
-import 'package:barberia/l10n/app_localizations.dart';
+
 import 'package:barberia/common/design_tokens.dart';
 
 class HomePage extends ConsumerWidget {
@@ -25,533 +23,204 @@ class HomePage extends ConsumerWidget {
     );
     final List<Service> popular =
         asyncServices.valueOrNull?.take(6).toList() ?? const <Service>[];
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final ThemePrefs themePrefs = ref.watch(themeControllerProvider);
-    final PageController pageCtrl = PageController(viewportFraction: 0.78);
-    final ValueNotifier<double> pageNotifier = ValueNotifier<double>(0);
-    pageCtrl.addListener(() => pageNotifier.value = pageCtrl.page ?? 0);
+    final User? user = ref.watch(authStateProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Clipz'),
-        actions: <Widget>[
-          if (ref.watch(authStateProvider)?.role == UserRole.admin)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => context.pushNamed(RouteNames.addService),
-            ),
-          if (ref.watch(authStateProvider)?.role == UserRole.admin)
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings),
-              onPressed: () => context.pushNamed(RouteNames.admin),
-            ),
-          PopupMenuButton<String>(
-            onSelected: (final String v) {
-              if (v == 'profile') {
-                context.pushNamed(RouteNames.profile);
-              } else if (v.startsWith('mode:')) {
-                final String m = v.split(':')[1];
-                ref.read(themeControllerProvider.notifier).setMode(switch (m) {
-                  'light' => ThemeMode.light,
-                  'dark' => ThemeMode.dark,
-                  _ => ThemeMode.system,
-                });
-              } else if (v.startsWith('seed:')) {
-                final String s = v.split(':')[1];
-                ref.read(themeControllerProvider.notifier).setSeed(switch (s) {
-                  'indigo' => ThemeSeedOption.indigo,
-                  'rose' => ThemeSeedOption.rose,
-                  'amber' => ThemeSeedOption.amber,
-                  _ => ThemeSeedOption.emerald,
-                });
-              }
-            },
-            itemBuilder: (final BuildContext _) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: AppColors.primary),
-                    SizedBox(width: 8),
-                    Text('Mi Perfil'),
-                  ],
+      body: CustomScrollView(
+        slivers: [
+          _HomeAppBar(user: user),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _HeroSection(),
+                const SizedBox(height: 32),
+                _SectionHeader(
+                  title: 'Servicios Populares',
+                  onAction: () => context.goNamed(RouteNames.services),
                 ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'mode:light',
-                child: Text('Modo Claro'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'mode:dark',
-                child: Text('Modo Oscuro'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'mode:system',
-                child: Text('Modo Sistema'),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'seed:emerald',
-                child: Text('Verde'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'seed:indigo',
-                child: Text('Índigo'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'seed:rose',
-                child: Text('Rose'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'seed:amber',
-                child: Text('Amber'),
-              ),
-            ],
-            icon: Container(
-              height: 26,
-              width: 26,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: themePrefs.seed.color,
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          _HeroSection(
-            onPrimary: () => context.goNamed(RouteNames.services),
-            onSecondary: () => context.goNamed(RouteNames.services),
-          ),
-          const SizedBox(height: 28),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text(
-                S.of(context).home_popular_title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              TextButton(
-                onPressed: () => context.goNamed(RouteNames.services),
-                child: Text(S.of(context).see_all),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 190,
-            child: asyncServices.when(
-              loading: () => _ShimmerCarousel(),
-              error: (final Object e, final StackTrace st) =>
-                  const Center(child: Text('Error cargando servicios')),
-              data: (final List<Service> data) => PageView.builder(
-                controller: pageCtrl,
-                padEnds: false,
-                itemCount: popular.length,
-                itemBuilder: (final BuildContext _, final int i) {
-                  final double progress = (pageNotifier.value - i).abs();
-                  final double scale = (1 - (progress * 0.08)).clamp(0.9, 1.0);
-                  final Service s = popular[i];
-                  return AnimatedBuilder(
-                    animation: pageNotifier,
-                    builder: (_, __) {
-                      return Transform.scale(
-                        scale: scale,
-                        child: Opacity(
-                          opacity: (1 - progress * 0.5).clamp(0.3, 1.0),
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: i == popular.length - 1 ? 0 : 14,
-                            ),
-                            child: _PopularServiceCard(
-                              service: s,
-                              selected: (pageNotifier.value.round() == i),
-                              onTap: () => context.goNamed(RouteNames.services),
-                            ),
-                          ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: asyncServices.when(
+                    loading: () => const _LoadingShimmer(),
+                    error: (_, __) =>
+                        const Center(child: Text('Error al cargar servicios')),
+                    data: (data) {
+                      if (data.isEmpty)
+                        return const Center(
+                          child: Text("No hay servicios disponibles"),
+                        );
+                      return ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: popular.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 16),
+                        itemBuilder: (context, index) => _ServiceCard(
+                          service: popular[index],
+                          onTap: () => context.goNamed(RouteNames.services),
                         ),
                       );
                     },
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          ValueListenableBuilder<double>(
-            valueListenable: pageNotifier,
-            builder: (_, final double v, __) => Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List<Widget>.generate(popular.length, (final int i) {
-                final double sel = (v - i).abs();
-                final bool active = sel < 0.5;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 6,
-                  width: active ? 22 : 6,
-                  decoration: BoxDecoration(
-                    color: active ? cs.primary : cs.outlineVariant,
-                    borderRadius: BorderRadius.circular(20),
                   ),
-                );
-              }),
+                ),
+                const SizedBox(height: 32),
+                _QuickActionsSection(),
+              ]),
             ),
-          ),
-          const SizedBox(height: 32),
-          TextButton(
-            onPressed: () => context.goNamed(RouteNames.myBookings),
-            child: Text('Ver mis citas', style: TextStyle(color: cs.primary)),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HomeAppBar extends ConsumerWidget {
+  final User? user;
+  const _HomeAppBar({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
+
+    return SliverAppBar(
+      expandedHeight: 140,
+      pinned: true,
+      backgroundColor: cs.surface,
+      surfaceTintColor: Colors.transparent,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        centerTitle: false,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Bienvenido de nuevo,',
+              style: txt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
+            ),
+            Text(
+              user?.name.split(' ').first ?? 'Invitado',
+              style: txt.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
+            ),
+          ],
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [cs.primaryContainer.withValues(alpha: 0.1), cs.surface],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        if (user?.role == UserRole.admin)
+          IconButton(
+            icon: Icon(Icons.admin_panel_settings, color: cs.primary),
+            onPressed: () => context.pushNamed(RouteNames.admin),
+            tooltip: 'Admin Panel',
+          ),
+        IconButton(
+          onPressed: () => context.pushNamed(RouteNames.profile),
+          icon: CircleAvatar(
+            backgroundColor: cs.primaryContainer,
+            foregroundColor: cs.onPrimaryContainer,
+            radius: 18,
+            child: Text(
+              user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'G',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+      ],
     );
   }
 }
 
 class _HeroSection extends StatelessWidget {
-  const _HeroSection({required this.onPrimary, required this.onSecondary});
-  final VoidCallback onPrimary;
-  final VoidCallback onSecondary;
-
   @override
   Widget build(BuildContext context) {
-    final S tr = S.of(context);
-    final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
-    return LayoutBuilder(
-      builder: (BuildContext ctx, BoxConstraints c) {
-        final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
-        final Widget image = Semantics(
-          label: tr.hero_image_semantics,
-          image: true,
-          child: Container(
-            width: wide ? double.infinity : 110,
-            height: wide ? 200 : 130,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(wide ? 32 : 24),
-              gradient: LinearGradient(
-                colors: <Color>[
-                  cs.primaryContainer,
-                  cs.primaryContainer.withValues(alpha: .6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Icon(
-              Icons.image,
-              size: wide ? 90 : 54,
-              color: cs.onPrimaryContainer.withValues(alpha: 0.9),
-            ),
-          ),
-        );
-        final Widget text = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              tr.hero_title,
-              style: txt.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              tr.hero_subtitle,
-              style: txt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                FilledButton(
-                  onPressed: onPrimary,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 14,
-                    ),
-                  ),
-                  child: Text(tr.hero_cta_primary),
-                ),
-                OutlinedButton(
-                  onPressed: onSecondary,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                  ),
-                  child: Text(tr.hero_cta_secondary),
-                ),
-              ],
-            ),
-          ],
-        );
-        if (wide) {
-          return Stack(
-            children: <Widget>[
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(40),
-                  child: image,
-                ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(40),
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        Colors.black.withValues(alpha: 0.45),
-                        Colors.black.withValues(alpha: 0.15),
-                      ],
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                top: 24,
-                right: 24,
-                child: DefaultTextStyle(style: txt.bodyMedium!, child: text),
-              ),
-            ],
-          );
-        }
-        return Column(
-          children: <Widget>[image, const SizedBox(height: 24), text],
-        );
-      },
-    );
-  }
-}
 
-class _PopularServiceCard extends StatelessWidget {
-  const _PopularServiceCard({
-    required this.service,
-    required this.onTap,
-    required this.selected,
-  });
-  final Service service;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final TextTheme txt = Theme.of(context).textTheme;
-    final S tr = S.of(context);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final String price = NumberFormat.currency(
-      name: 'GTQ',
-      symbol: 'Q',
-    ).format(service.price);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.l),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-        width: 230,
-        padding: EdgeInsets.all(selected ? AppSpacing.m + 2 : AppSpacing.m),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: selected
-                ? AppColors.primary
-                : (isDark ? AppColors.outlineDark : AppColors.outline),
-            width: selected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          color: cs.surfaceContainerHighest.withValues(
-            alpha: selected ? 0.35 : 0.25,
-          ),
-          boxShadow: selected
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.22),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.m),
-                    color: AppColors.primaryContainer,
-                  ),
-                  child: Icon(
-                    Icons.cut,
-                    color: cs.onPrimaryContainer,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.s),
-                Expanded(
-                  child: Text(
-                    service.name,
-                    style: txt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: selected ? 18 : 16,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              '${service.durationMinutes} min',
-              style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.secondaryContainer
-                    : AppColors.secondaryContainer,
-                borderRadius: BorderRadius.circular(AppRadius.s),
-              ),
-              child: Text(
-                '${tr.price_from_prefix} $price',
-                style: txt.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSecondaryContainer,
-                  letterSpacing: .3,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ShimmerCarousel extends StatefulWidget {
-  @override
-  State<_ShimmerCarousel> createState() => _ShimmerCarouselState();
-}
-
-class _ShimmerCarouselState extends State<_ShimmerCarousel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        return ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: 3,
-          separatorBuilder: (_, __) => const SizedBox(width: 14),
-          itemBuilder: (_, int i) {
-            return _ShimmerBlock(
-              progress: (_ctrl.value + i * 0.33) % 1,
-              color: cs.primary,
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _ShimmerBlock extends StatelessWidget {
-  const _ShimmerBlock({required this.progress, required this.color});
-  final double progress;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
     return Container(
-      width: 230,
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-        border: Border.all(color: cs.outlineVariant),
+        color: const Color(0xFF111827), // Always Dark Navy for premium contrast
+        borderRadius: BorderRadius.circular(AppRadius.l),
+        image: const DecorationImage(
+          image: AssetImage(
+            'assets/images/barber_bg_pattern.png',
+          ), // Placeholder pattern
+          fit: BoxFit.cover,
+          opacity: 0.2,
+        ),
+        boxShadow: AppShadows.medium,
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Stack(
-        children: <Widget>[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Container(
-                height: 18,
-                width: 120,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  color: cs.onSurface.withAlpha(18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                height: 14,
-                width: 80,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  color: cs.onSurface.withAlpha(15),
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'NUEVO',
+                  style: TextStyle(
+                    color: AppColors.onPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
               const Spacer(),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Container(
-                  height: 28,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: cs.onSurface.withAlpha(15),
-                  ),
-                ),
-              ),
+              Icon(Icons.stars, color: AppColors.primary, size: 20),
             ],
           ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ShimmerPainter(
-                  progress: progress,
-                  base: cs.surfaceContainerHighest,
-                  highlight: color.withValues(alpha: 0.25),
-                ),
-              ),
+          const SizedBox(height: 16),
+          Text(
+            'Luce tu mejor versión',
+            style: txt.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Reserva tu corte premium hoy y obtén un 10% de descuento en tu primera visita.',
+            style: txt.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.goNamed(RouteNames.services),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            ),
+            child: const Text('RESERVAR AHORA'),
           ),
         ],
       ),
@@ -559,34 +228,190 @@ class _ShimmerBlock extends StatelessWidget {
   }
 }
 
-class _ShimmerPainter extends CustomPainter {
-  _ShimmerPainter({
-    required this.progress,
-    required this.base,
-    required this.highlight,
-  });
-  final double progress;
-  final Color base;
-  final Color highlight;
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final VoidCallback onAction;
+
+  const _SectionHeader({required this.title, required this.onAction});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final Paint p = Paint()
-      ..shader = LinearGradient(
-        colors: <Color>[base, highlight, base],
-        stops: const <double>[0, 0.5, 1],
-        begin: Alignment(-1 + progress * 2, -1),
-        end: Alignment(1 + progress * 2, 1),
-      ).createShader(Offset.zero & size);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(24)),
-      p,
+  Widget build(BuildContext context) {
+    final TextTheme txt = Theme.of(context).textTheme;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: txt.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        TextButton(
+          onPressed: onAction,
+          style: TextButton.styleFrom(foregroundColor: cs.primary),
+          child: const Text('Ver Todo'),
+        ),
+      ],
     );
   }
-
-  @override
-  bool shouldRepaint(covariant _ShimmerPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }
 
-// Shimmer replaces old skeleton implementation.
+class _ServiceCard extends StatelessWidget {
+  final Service service;
+  final VoidCallback onTap;
+
+  const _ServiceCard({required this.service, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
+    final String price = NumberFormat.currency(
+      name: 'GTQ',
+      symbol: 'Q',
+    ).format(service.price);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 160,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppRadius.m),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 48,
+              width: 48,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppShadows.soft,
+              ),
+              child: Icon(Icons.content_cut, color: cs.primary),
+            ),
+            const Spacer(),
+            Text(
+              service.name,
+              style: txt.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${service.durationMinutes} min',
+              style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              price,
+              style: txt.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionsSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _ActionButton(
+          icon: Icons.calendar_today,
+          label: 'Mis Citas',
+          onTap: () => context.goNamed(RouteNames.myBookings),
+        ),
+        _ActionButton(
+          icon: Icons.location_on,
+          label: 'Ubicación',
+          onTap: () {},
+        ), // Placeholder
+        _ActionButton(
+          icon: Icons.phone,
+          label: 'Contacto',
+          onTap: () {},
+        ), // Placeholder
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: cs.onSurfaceVariant),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingShimmer extends StatelessWidget {
+  const _LoadingShimmer();
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: 3,
+      separatorBuilder: (_, __) => const SizedBox(width: 16),
+      itemBuilder: (_, __) => Container(
+        width: 160,
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+}
