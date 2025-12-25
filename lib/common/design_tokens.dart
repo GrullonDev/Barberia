@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 abstract class AppColors {
-  // Primary Palette (Emerald - Premium & Fresh)
-  static const Color primary = Color(0xFF10B981); // Emerald 500
-  static const Color onPrimary = Colors.white;
-  static const Color primaryContainer = Color(0xFFD1FAE5); // Emerald 100
-  static const Color onPrimaryContainer = Color(0xFF064E3B); // Emerald 900
+  // Primary Palette (Gold - Premium & Luxury)
+  static const Color primary = Color(0xFFD4AF37); // Metallic Gold
+  static const Color onPrimary = Color(0xFF0F172A); // Dark Navy text on Gold
+  static const Color primaryContainer = Color(0xFFFDE68A); // Pale Gold
+  static const Color onPrimaryContainer = Color(0xFF451A03); // Dark Bronze
 
-  // Secondary Palette (Slate/Blue Grey - Professional)
-  static const Color secondary = Color(0xFF475569); // Slate 600
+  // Secondary Palette (Dark Navy / Rich Black)
+  static const Color secondary = Color(0xFF0F172A); // Slate 900
   static const Color onSecondary = Colors.white;
-  static const Color secondaryContainer = Color(0xFFF1F5F9); // Slate 100
-  static const Color onSecondaryContainer = Color(0xFF0F172A); // Slate 900
+  static const Color secondaryContainer = Color(0xFF334155); // Slate 700
+  static const Color onSecondaryContainer = Color(0xFFF1F5F9); // Slate 100
 
   // Neutral / Surface (Light)
   static const Color surface = Color(0xFFFFFFFF);
@@ -23,14 +23,14 @@ abstract class AppColors {
   static const Color onBackground = Color(0xFF0F172A); // Slate 900
   static const Color outline = Color(0xFFE2E8F0); // Slate 200
 
-  // Neutral / Surface (Dark)
-  static const Color surfaceDark = Color(0xFF1E293B); // Slate 800
-  static const Color backgroundDark = Color(0xFF0F172A); // Slate 900
-  static const Color surfaceContainerDark = Color(0xFF334155); // Slate 700
-  static const Color onSurfaceDark = Color(0xFFF8FAFC); // Slate 50
-  static const Color onSurfaceVariantDark = Color(0xFF94A3B8); // Slate 400
-  static const Color onBackgroundDark = Color(0xFFF1F5F9); // Slate 100
-  static const Color outlineDark = Color(0xFF334155); // Slate 700
+  // Neutral / Surface (Dark - Premium)
+  static const Color surfaceDark = Color(0xFF1B1F23); // Rich Dark Grey
+  static const Color backgroundDark = Color(0xFF050505); // Almost Black
+  static const Color surfaceContainerDark = Color(0xFF27272A); // Zinc 800
+  static const Color onSurfaceDark = Color(0xFFE2E8F0); // Slate 200
+  static const Color onSurfaceVariantDark = Color(0xFFA1A1AA); // Zinc 400
+  static const Color onBackgroundDark = Color(0xFFF8FAFC); // Slate 50
+  static const Color outlineDark = Color(0xFF3F3F46); // Zinc 700
 
   // Semantic
   static const Color error = Color(0xFFEF4444); // Red 500
@@ -38,7 +38,8 @@ abstract class AppColors {
 }
 
 abstract class AppTypography {
-  static TextTheme get textTheme => GoogleFonts.outfitTextTheme();
+  // Montserrat for a modern, geometric, premium feel
+  static TextTheme get textTheme => GoogleFonts.montserratTextTheme();
 }
 
 abstract class AppSpacing {
@@ -60,7 +61,7 @@ abstract class AppRadius {
 abstract class AppShadows {
   static List<BoxShadow> get soft => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
+      color: Colors.black.withValues(alpha: 0.1),
       blurRadius: 10,
       offset: const Offset(0, 4),
     ),
@@ -68,9 +69,17 @@ abstract class AppShadows {
 
   static List<BoxShadow> get medium => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.08),
-      blurRadius: 16,
+      color: Colors.black.withValues(alpha: 0.2),
+      blurRadius: 20,
       offset: const Offset(0, 8),
+    ),
+  ];
+
+  static List<BoxShadow> get glow => [
+    BoxShadow(
+      color: AppColors.primary.withValues(alpha: 0.3),
+      blurRadius: 20,
+      spreadRadius: 2,
     ),
   ];
 }
