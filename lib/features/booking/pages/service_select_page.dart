@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -53,7 +52,11 @@ class ServiceSelectPage extends ConsumerWidget {
                         color: cs.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Icon(Icons.cut, color: cs.primary, size: 32),
+                      child: Icon(
+                        Icons.content_cut,
+                        color: cs.primary,
+                        size: 32,
+                      ),
                     ),
                     const SizedBox(width: 20),
                     Expanded(
@@ -137,67 +140,93 @@ class ServiceSelectPage extends ConsumerWidget {
     final ServiceCategory? selectedCat = ref.watch(categoryFilterProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr.home_title.toUpperCase(),
-        ), // Usually "SERVICES" or similar
-        centerTitle: true,
-      ),
-      body: asyncServices.when(
-        loading: () => const _ServicesGridSkeleton(),
-        error: (final Object e, final StackTrace st) =>
-            const Center(child: Text('Error cargando servicios')),
-        data: (final List<Service> services) {
-          final List<Service> filtered = selectedCat == null
-              ? services
-              : services
-                    .where((final Service s) => s.category == selectedCat)
-                    .toList();
-          return Column(
-            children: <Widget>[
-              // Category Filters
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                child: Row(
-                  children: <Widget>[
-                    _CategoryChip(
-                      label: tr.services_filter_all,
-                      selected: selectedCat == null,
-                      onTap: () =>
-                          ref.read(categoryFilterProvider.notifier).state =
-                              null,
-                    ),
-                    const SizedBox(width: 12),
-                    _CategoryChip(
-                      label: tr.services_filter_hair,
-                      selected: selectedCat == ServiceCategory.hair,
-                      onTap: () =>
-                          ref.read(categoryFilterProvider.notifier).state =
-                              ServiceCategory.hair,
-                    ),
-                    const SizedBox(width: 12),
-                    _CategoryChip(
-                      label: tr.services_filter_beard,
-                      selected: selectedCat == ServiceCategory.beard,
-                      onTap: () =>
-                          ref.read(categoryFilterProvider.notifier).state =
-                              ServiceCategory.beard,
-                    ),
-                    const SizedBox(width: 12),
-                    _CategoryChip(
-                      label: tr.services_filter_combo,
-                      selected: selectedCat == ServiceCategory.combo,
-                      onTap: () =>
-                          ref.read(categoryFilterProvider.notifier).state =
-                              ServiceCategory.combo,
-                    ),
-                  ],
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 120,
+            pinned: true,
+            backgroundColor: cs.surface,
+            flexibleSpace: FlexibleSpaceBar(
+              title: Text(
+                tr.home_title.toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
               ),
+              centerTitle: true,
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      cs.surface,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Row(
+                children: <Widget>[
+                  _CategoryChip(
+                    label: tr.services_filter_all,
+                    selected: selectedCat == null,
+                    onTap: () =>
+                        ref.read(categoryFilterProvider.notifier).state = null,
+                  ),
+                  const SizedBox(width: 12),
+                  _CategoryChip(
+                    label: tr.services_filter_hair,
+                    selected: selectedCat == ServiceCategory.hair,
+                    onTap: () =>
+                        ref.read(categoryFilterProvider.notifier).state =
+                            ServiceCategory.hair,
+                  ),
+                  const SizedBox(width: 12),
+                  _CategoryChip(
+                    label: tr.services_filter_beard,
+                    selected: selectedCat == ServiceCategory.beard,
+                    onTap: () =>
+                        ref.read(categoryFilterProvider.notifier).state =
+                            ServiceCategory.beard,
+                  ),
+                  const SizedBox(width: 12),
+                  _CategoryChip(
+                    label: tr.services_filter_combo,
+                    selected: selectedCat == ServiceCategory.combo,
+                    onTap: () =>
+                        ref.read(categoryFilterProvider.notifier).state =
+                            ServiceCategory.combo,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          asyncServices.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(child: _ServicesGridSkeleton()),
+            ),
+            error: (final Object e, final StackTrace st) =>
+                const SliverFillRemaining(
+                  child: Center(child: Text('Error cargando servicios')),
+                ),
+            data: (final List<Service> services) {
+              final List<Service> filtered = selectedCat == null
+                  ? services
+                  : services
+                        .where((final Service s) => s.category == selectedCat)
+                        .toList();
 
-              if (filtered.isEmpty)
-                Expanded(
+              if (filtered.isEmpty) {
+                return SliverFillRemaining(
+                  hasScrollBody: false,
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -211,41 +240,40 @@ class ServiceSelectPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                )
-              else
-                Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    itemCount: filtered.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 20,
-                          crossAxisSpacing: 20,
-                          childAspectRatio: 0.85, // Taller cards
-                        ),
-                    itemBuilder: (final BuildContext _, final int i) {
-                      final Service s = filtered[i];
-                      final bool isSelected = draft.service?.id == s.id;
-                      return ServiceCard(
-                        title: s.name,
-                        subtitle: '${s.durationMinutes} min',
-                        price: NumberFormat.currency(
-                          name: 'GTQ',
-                          symbol: 'Q',
-                        ).format(s.price),
-                        selected: isSelected,
-                        onTap: () => showDetails(s),
-                      );
-                    },
-                  ),
+                );
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
                 ),
-            ],
-          );
-        },
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 20,
+                    crossAxisSpacing: 20,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final Service s = filtered[index];
+                    final bool isSelected = draft.service?.id == s.id;
+                    return ServiceCard(
+                      title: s.name,
+                      subtitle: '${s.durationMinutes} min',
+                      price: NumberFormat.currency(
+                        name: 'GTQ',
+                        symbol: 'Q',
+                      ).format(s.price),
+                      selected: isSelected,
+                      onTap: () => showDetails(s),
+                    );
+                  }, childCount: filtered.length),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

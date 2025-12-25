@@ -290,62 +290,89 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     final S tr = S.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(tr.calendar_title)),
-      body: Column(
-        children: <Widget>[
-          // Quick picks
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: <Widget>[
-                _QuickDateChip(
-                  label: tr.calendar_quick_today,
-                  selected: isSameDay(_selectedDay, _today),
-                  onTap: () {
-                    setState(() {
-                      _focusedDay = DateTime(
-                        _today.year,
-                        _today.month,
-                        _today.day,
-                      );
-                      _selectedDay = _focusedDay;
-                    });
-                  },
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 120,
+            pinned: true,
+            backgroundColor: cs.surface,
+            flexibleSpace: FlexibleSpaceBar(
+              title: Text(
+                tr.calendar_title.toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
-                const SizedBox(width: 8),
-                _QuickDateChip(
-                  label: tr.calendar_quick_tomorrow,
-                  selected: isSameDay(
-                    _selectedDay,
-                    _today.add(const Duration(days: 1)),
+              ),
+              centerTitle: true,
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      cs.surface,
+                    ],
                   ),
-                  onTap: () {
-                    final DateTime d = _today.add(const Duration(days: 1));
-                    setState(() {
-                      _focusedDay = d;
-                      _selectedDay = d;
-                    });
-                  },
                 ),
-                const SizedBox(width: 8),
-                _QuickDateChip(
-                  label: tr.calendar_quick_next_sat,
-                  selected: isSameDay(_selectedDay, _nextSaturday(_today)),
-                  onTap: () {
-                    final DateTime d = _nextSaturday(_today);
-                    setState(() {
-                      _focusedDay = d;
-                      _selectedDay = d;
-                    });
-                  },
-                ),
-              ],
+              ),
             ),
           ),
-
-          Expanded(
+          SliverToBoxAdapter(
             child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: <Widget>[
+                  _QuickDateChip(
+                    label: tr.calendar_quick_today,
+                    selected: isSameDay(_selectedDay, _today),
+                    onTap: () {
+                      setState(() {
+                        _focusedDay = DateTime(
+                          _today.year,
+                          _today.month,
+                          _today.day,
+                        );
+                        _selectedDay = _focusedDay;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickDateChip(
+                    label: tr.calendar_quick_tomorrow,
+                    selected: isSameDay(
+                      _selectedDay,
+                      _today.add(const Duration(days: 1)),
+                    ),
+                    onTap: () {
+                      final DateTime d = _today.add(const Duration(days: 1));
+                      setState(() {
+                        _focusedDay = d;
+                        _selectedDay = d;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickDateChip(
+                    label: tr.calendar_quick_next_sat,
+                    selected: isSameDay(_selectedDay, _nextSaturday(_today)),
+                    onTap: () {
+                      final DateTime d = _nextSaturday(_today);
+                      setState(() {
+                        _focusedDay = d;
+                        _selectedDay = d;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 80),
               child: Column(
                 children: <Widget>[
                   Container(
@@ -353,6 +380,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     decoration: BoxDecoration(
                       color: cs.surfaceContainer,
                       borderRadius: BorderRadius.circular(24),
+                      boxShadow: AppShadows.soft,
                     ),
                     padding: const EdgeInsets.only(bottom: 12),
                     child: TableCalendar<void>(
@@ -425,7 +453,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _SlotLegend(),
                   ),
-                  const SizedBox(height: 80), // Spacer for bottom summary
                 ],
               ),
             ),

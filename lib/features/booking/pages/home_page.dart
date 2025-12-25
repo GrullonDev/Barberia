@@ -41,23 +41,30 @@ class HomePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
-                  height: 200,
+                  height: 220,
                   child: asyncServices.when(
                     loading: () => const _LoadingShimmer(),
                     error: (_, __) =>
                         const Center(child: Text('Error al cargar servicios')),
                     data: (data) {
-                      if (data.isEmpty)
+                      if (data.isEmpty) {
                         return const Center(
                           child: Text("No hay servicios disponibles"),
                         );
+                      }
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
                         itemCount: popular.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 16),
                         itemBuilder: (context, index) => _ServiceCard(
                           service: popular[index],
-                          onTap: () => context.goNamed(RouteNames.services),
+                          onTap: () {
+                            ref
+                                .read(bookingDraftProvider.notifier)
+                                .setService(popular[index]);
+                            context.goNamed(RouteNames.calendar);
+                          },
                         ),
                       );
                     },
@@ -65,6 +72,7 @@ class HomePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 32),
                 _QuickActionsSection(),
+                const SizedBox(height: 100), // Bottom padding
               ]),
             ),
           ),
@@ -105,7 +113,7 @@ class _HomeAppBar extends ConsumerWidget {
             ),
             Text(
               user?.name.split(' ').first ?? 'Invitado',
-              style: txt.titleLarge?.copyWith(
+              style: txt.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: cs.onSurface,
               ),
@@ -117,7 +125,10 @@ class _HomeAppBar extends ConsumerWidget {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [cs.primaryContainer.withValues(alpha: 0.1), cs.surface],
+              colors: [
+                cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                cs.surface,
+              ],
             ),
           ),
         ),
@@ -129,19 +140,34 @@ class _HomeAppBar extends ConsumerWidget {
             onPressed: () => context.pushNamed(RouteNames.admin),
             tooltip: 'Admin Panel',
           ),
-        IconButton(
-          onPressed: () => context.pushNamed(RouteNames.profile),
-          icon: CircleAvatar(
-            backgroundColor: cs.primaryContainer,
-            foregroundColor: cs.onPrimaryContainer,
-            radius: 18,
-            child: Text(
-              user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'G',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: IconButton(
+            onPressed: () => context.pushNamed(RouteNames.profile),
+            style: IconButton.styleFrom(
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: cs.primary, width: 2),
+              ),
+              child: CircleAvatar(
+                backgroundColor: cs.primaryContainer,
+                foregroundColor: cs.onPrimaryContainer,
+                radius: 16,
+                child: Text(
+                  user?.name.isNotEmpty == true
+                      ? user!.name[0].toUpperCase()
+                      : 'G',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 16),
       ],
     );
   }
@@ -151,6 +177,7 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme txt = Theme.of(context).textTheme;
+    final ColorScheme cs = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
@@ -158,18 +185,14 @@ class _HeroSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF111827), // Always Dark Navy for premium contrast
         borderRadius: BorderRadius.circular(AppRadius.l),
-        image: const DecorationImage(
-          image: AssetImage(
-            'assets/images/barber_bg_pattern.png',
-          ), // Placeholder pattern
-          fit: BoxFit.cover,
-          opacity: 0.2,
-        ),
-        boxShadow: AppShadows.medium,
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: cs.primary.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,18 +232,25 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Reserva tu corte premium hoy y obtén un 10% de descuento en tu primera visita.',
+            'Reserva tu corte premium hoy y destaca.',
             style: txt.bodyMedium?.copyWith(color: Colors.white70),
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.goNamed(RouteNames.services),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => context.goNamed(RouteNames.services),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.onPrimary,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              child: const Text('RESERVAR AHORA'),
             ),
-            child: const Text('RESERVAR AHORA'),
           ),
         ],
       ),
@@ -282,7 +312,14 @@ class _ServiceCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surfaceContainer,
           borderRadius: BorderRadius.circular(AppRadius.m),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,9 +328,8 @@ class _ServiceCard extends StatelessWidget {
               height: 48,
               width: 48,
               decoration: BoxDecoration(
-                color: cs.surface,
+                color: cs.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: AppShadows.soft,
               ),
               child: Icon(Icons.content_cut, color: cs.primary),
             ),
@@ -301,7 +337,7 @@ class _ServiceCard extends StatelessWidget {
             Text(
               service.name,
               style: txt.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
               maxLines: 2,
@@ -372,22 +408,29 @@ class _ActionButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: 100,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
           color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Icon(icon, color: cs.onSurfaceVariant),
-            const SizedBox(height: 8),
+            Icon(icon, color: cs.primary),
+            const SizedBox(height: 12),
             Text(
               label,
               style: TextStyle(
                 color: cs.onSurface,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
