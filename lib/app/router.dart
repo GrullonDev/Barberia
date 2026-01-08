@@ -8,7 +8,7 @@ import 'package:barberia/features/booking/pages/confirmation_page.dart';
 import 'package:barberia/features/booking/pages/details_page.dart';
 import 'package:barberia/features/booking/pages/home_page.dart';
 import 'package:barberia/features/booking/pages/my_bookings_page.dart';
-import 'package:barberia/features/booking/pages/profile_page.dart';
+import 'package:barberia/features/auth/pages/profile_page.dart';
 import 'package:barberia/features/booking/pages/service_select_page.dart';
 import 'package:barberia/features/booking/pages/settings_page.dart';
 import 'package:barberia/features/auth/pages/login_page.dart';

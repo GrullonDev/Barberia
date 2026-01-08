@@ -1,9 +1,15 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:barberia/features/admin/pages/all_bookings_page.dart';
 import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
 import 'package:barberia/features/admin/pages/manage_services_page.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
+import 'package:barberia/features/booking/models/booking.dart';
+import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/booking/models/service.dart';
 
 class AdminDashboardPage extends ConsumerWidget {
   const AdminDashboardPage({super.key});
@@ -11,8 +17,6 @@ class AdminDashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final User? user = ref.watch(authStateProvider);
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final TextTheme txt = Theme.of(context).textTheme;
 
     // Real Stats Data
     final List<Booking> bookings = ref.watch(bookingsProvider);
@@ -36,7 +40,6 @@ class AdminDashboardPage extends ConsumerWidget {
         final Service service = services.firstWhere(
           (Service s) => s.id == booking.serviceId,
           orElse: () => const Service(
-            id: -1,
             name: '',
             price: 0,
             durationMinutes: 0,
@@ -70,10 +73,16 @@ class AdminDashboardPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
           const SizedBox(height: 20),
-          _AdminCard(
+          _OverviewSection(
+            todayCount: todayBookings.length.toString(),
+            revenue: revenueFormatted,
+          ),
+          const SizedBox(height: 24),
+          _AdminActionCard(
             icon: Icons.cut,
             title: 'Gestionar Servicios',
             subtitle: 'Agregar, editar o eliminar servicios',
+            color: Colors.blue,
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ManageServicesPage()),
@@ -81,13 +90,27 @@ class AdminDashboardPage extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 12),
-          // Placeholder for generic booking management if needed
-          _AdminCard(
+          _AdminActionCard(
+            icon: Icons.people,
+            title: 'Gestionar Barberos',
+            subtitle: 'Administrar el equipo de trabajo',
+            color: Colors.orange,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ManageBarbersPage()),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _AdminActionCard(
             icon: Icons.calendar_today,
             title: 'Ver Todas las Reservas',
-            subtitle: 'Lista completa de citas (Próximamente)',
+            subtitle: 'Lista completa de citas',
+            color: Colors.green,
             onTap: () {
-              // Navigation to admin bookings view
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AllBookingsPage()),
+              );
             },
           ),
         ],

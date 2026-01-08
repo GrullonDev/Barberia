@@ -12,116 +12,65 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final User? user = ref.watch(authStateProvider);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
     if (user == null) {
       return const Scaffold(
         body: Center(child: Text('No has iniciado sesión')),
       );
     }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Mi Perfil')),
-      body: user == null
-          ? const Center(child: Text('No has iniciado sesión'))
-          : ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: <Widget>[
-                Center(
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundColor: AppColors.primaryContainer,
-                    child: Text(
-                      user.name.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: <Widget>[
+          Center(
+            child: CircleAvatar(
+              radius: 50,
+              backgroundColor: AppColors.primaryContainer,
+              child: Text(
+                user.name.substring(0, 1).toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onPrimaryContainer,
                 ),
-                const SizedBox(height: 24),
-                _ProfileItem(
-                  icon: Icons.person,
-                  title: 'Nombre de Usuario',
-                  value: user.name,
-                  isDark: isDark,
-                ),
-                _ProfileItem(
-                  icon: Icons.security,
-                  title: 'Rol',
-                  value: user.role == UserRole.admin
-                      ? 'Administrador'
-                      : 'Cliente',
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 40),
-                FilledButton.icon(
-                  onPressed: () async {
-                    await ref.read(authStateProvider.notifier).logout();
-                    await ref.read(authStateProvider.notifier).logout();
-                    if (context.mounted) {
-                      context.goNamed(RouteNames.login);
-                    }
-                  },
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Cerrar Sesión'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ]),
+              ),
             ),
           ),
+          const SizedBox(height: 40),
+          _ProfileItem(
+            icon: Icons.person,
+            label: 'Nombre de Usuario',
+            value: user.name,
+          ),
+          _ProfileItem(
+            icon: Icons.security,
+            label: 'Rol',
+            value: user.role == UserRole.admin ? 'Administrador' : 'Cliente',
+            showDivider: false,
+          ),
+          const SizedBox(height: 40),
+          FilledButton.icon(
+            onPressed: () async {
+              await ref.read(authStateProvider.notifier).logout();
+              if (context.mounted) {
+                context.goNamed(RouteNames.login);
+              }
+            },
+            icon: const Icon(Icons.logout),
+            label: const Text('Cerrar Sesión'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+            ),
+          ),
+          const SizedBox(height: 40),
         ],
       ),
-    );
-  }
-}
-
-class _ProfileInfoCard extends StatelessWidget {
-  const _ProfileInfoCard({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-              letterSpacing: 1.0,
-            ),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Theme.of(
-                context,
-              ).colorScheme.outlineVariant.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Column(children: children),
-        ),
-      ],
     );
   }
 }
@@ -131,14 +80,12 @@ class _ProfileItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    required this.isDark,
     this.showDivider = true,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final bool isDark;
   final bool showDivider;
 
   @override

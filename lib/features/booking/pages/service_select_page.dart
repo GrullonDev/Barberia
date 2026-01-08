@@ -23,7 +23,6 @@ class ServiceSelectPage extends ConsumerWidget {
       servicesAsyncProvider,
     );
     final BookingDraft draft = ref.watch(bookingDraftProvider);
-    final ColorScheme cs = Theme.of(context).colorScheme;
 
     Future<void> showDetails(final Service s) async {
       await showModalBottomSheet<void>(
@@ -234,10 +233,9 @@ class ServiceSelectPage extends ConsumerWidget {
                     },
                   ),
                 ),
-              );
-            },
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

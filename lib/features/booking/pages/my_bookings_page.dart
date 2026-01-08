@@ -8,6 +8,7 @@ import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/appointment_card.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
+import 'package:barberia/common/design_tokens.dart';
 
 class MyBookingsPage extends ConsumerWidget {
   const MyBookingsPage({super.key});
@@ -94,22 +95,31 @@ class MyBookingsPage extends ConsumerWidget {
                 ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
               ),
             )
-          : ListView.separated(
+          else
+            SliverPadding(
               padding: EdgeInsets.all(
                 ResponsiveHelper.getResponsivePadding(context),
               ),
-              itemCount: bookings.length,
-              separatorBuilder: (_, __) => SizedBox(
-                height: ResponsiveHelper.getSpacing(context, mobile: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate((
+                  final BuildContext _,
+                  final int i,
+                ) {
+                  final Booking b = bookings[i];
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: ResponsiveHelper.getSpacing(context, mobile: 16),
+                    ),
+                    child: AppointmentCard(booking: b)
+                        .animate()
+                        .fadeIn(duration: 300.ms, delay: (50 * i).ms)
+                        .slideX(begin: 0.05, curve: Curves.easeOut),
+                  );
+                }, childCount: bookings.length),
               ),
-              itemBuilder: (final BuildContext _, final int i) {
-                final Booking b = bookings[i];
-                return AppointmentCard(booking: b)
-                    .animate()
-                    .fadeIn(duration: 300.ms, delay: (50 * i).ms)
-                    .slideX(begin: 0.05, curve: Curves.easeOut);
-              },
             ),
+        ],
+      ),
     );
   }
 }

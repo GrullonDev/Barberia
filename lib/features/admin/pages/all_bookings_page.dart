@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
 
+import 'package:barberia/features/booking/providers/booking_providers.dart';
+
 class AllBookingsPage extends ConsumerWidget {
   const AllBookingsPage({super.key});
 
@@ -57,16 +59,13 @@ class AllBookingsPage extends ConsumerWidget {
                   child: ListTile(
                     title: Text(booking.serviceName),
                     subtitle: Text(
-                      'Cliente: ${booking.customerName}\nFecha: ${booking.dateTime}',
+                      'Cliente: ${booking.customerName}\nFecha: ${DateFormat('dd/MM/yyyy HH:mm').format(booking.dateTime)}',
                     ),
                     isThreeLine: true,
                   ),
                 );
               },
             ),
-          );
-        },
-      ),
     );
   }
 }

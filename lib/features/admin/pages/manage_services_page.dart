@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'package:intl/intl.dart';
-
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
@@ -56,7 +52,7 @@ class ManageServicesPage extends ConsumerWidget {
               ),
             );
           }
-          return ListView.builder(
+          return ListView.separated(
             padding: EdgeInsets.all(
               ResponsiveHelper.getResponsivePadding(context),
             ),
@@ -67,7 +63,7 @@ class ManageServicesPage extends ConsumerWidget {
               return ListTile(
                 title: Text(service.name),
                 subtitle: Text(
-                  '\$${service.price} - ${service.durationMinutes} min',
+                  'Q${service.price} - ${service.durationMinutes} min',
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,

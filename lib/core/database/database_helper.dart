@@ -223,7 +223,6 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getAllBookings() async {
     final db = await instance.database;
     final result = await db.query('bookings', orderBy: 'date DESC');
-    final result = await db.query('bookings', orderBy: 'date DESC');
     return result;
   }
 

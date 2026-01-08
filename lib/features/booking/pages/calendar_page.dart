@@ -110,7 +110,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       builder: (final BuildContext ctx) {
         final S tr = S.of(ctx);
         final ColorScheme cs = Theme.of(ctx).colorScheme;
-        final ColorScheme cs = Theme.of(ctx).colorScheme;
         final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
         // Simulated loading future
         final Future<void> loadFuture = Future<void>.delayed(
@@ -574,7 +573,6 @@ class _SlotLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final S tr = S.of(context);
-    final ColorScheme cs = Theme.of(context).colorScheme;
     return Wrap(
       runSpacing: 8,
       spacing: 16,
@@ -608,14 +606,10 @@ class _LegendItem extends StatelessWidget {
   });
   final String label;
   final Color color;
-  final Color color;
   final double opacity;
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle? style = Theme.of(
-      context,
-    ).textTheme.bodyMedium; // Define style
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[

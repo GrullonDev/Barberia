@@ -1,20 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/repositories/booking_repository.dart';
 import 'package:barberia/features/booking/repositories/service_repository.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/auth/models/user.dart';
+import 'package:barberia/core/services/notification_service.dart';
 
+// Repositories
+final Provider<BookingRepository> bookingRepositoryProvider =
+    Provider<BookingRepository>((Ref ref) => BookingRepository());
+
+final Provider<ServiceRepository> serviceRepositoryProvider =
+    Provider<ServiceRepository>((Ref ref) => ServiceRepository());
+
+// Providers
 final StateNotifierProvider<BookingDraftNotifier, BookingDraft>
 bookingDraftProvider =
     StateNotifierProvider<BookingDraftNotifier, BookingDraft>(
       (final Ref ref) => BookingDraftNotifier(),
     );
-
-final Provider<BookingRepository> bookingRepositoryProvider =
-    Provider<BookingRepository>((Ref ref) => BookingRepository());
 
 final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =
     StateNotifierProvider<BookingsNotifier, List<Booking>>((final Ref ref) {
@@ -22,10 +28,6 @@ final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =
       final User? user = ref.watch(authStateProvider);
       return BookingsNotifier(repo, user);
     });
-
-// Repositories
-final Provider<ServiceRepository> serviceRepositoryProvider =
-    Provider<ServiceRepository>((Ref ref) => ServiceRepository());
 
 /// Async list of services from DB
 final FutureProvider<List<Service>> servicesAsyncProvider =
@@ -38,17 +40,20 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
   BookingDraftNotifier() : super(BookingDraft.empty());
 
   void reset() => state = BookingDraft.empty();
+
   void setCustomerInfo({
     required final String name,
     final String? phone,
     final String? email,
     final String? notes,
-  }) => state = state.copyWith(
-    name: name,
-    phone: phone,
-    email: email,
-    notes: notes,
-  );
+  }) {
+    state = state.copyWith(
+      name: name,
+      phone: phone,
+      email: email,
+      notes: notes,
+    );
+  }
 
   void setService(Service service) => state = state.copyWith(service: service);
   void setDate(DateTime date) => state = state.copyWith(date: date);
@@ -56,22 +61,23 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
       state = state.copyWith(dateTime: dateTime);
 }
 
-final StateNotifierProvider<BookingDraftNotifier, BookingDraft>
-bookingDraftProvider =
-    StateNotifierProvider<BookingDraftNotifier, BookingDraft>(
-      (final Ref ref) => BookingDraftNotifier(),
-    );
-    state = state.copyWith(date: newDate);
-  }
-}
-
 // Bookings List (Synced with DB)
 class BookingsNotifier extends StateNotifier<List<Booking>> {
   final BookingRepository _repository;
-
   final User? _user;
+
   BookingsNotifier(this._repository, this._user) : super(const <Booking>[]) {
     _loadBookings();
+  }
+
+  Future<void> _loadBookings() async {
+    if (_user == null) return;
+    try {
+      final bookings = await _repository.getBookings(_user.id);
+      state = bookings;
+    } catch (e) {
+      // Handle error
+    }
   }
 
   Future<void> add(final Booking booking) async {
@@ -93,7 +99,6 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
         );
       }
     } catch (e) {
-      // Revert if failed (would need robust rollback, simplified here)
       _loadBookings();
     }
   }
@@ -143,12 +148,6 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   }
 
   Future<void> rebook(String id, DateTime newStart) async {
-    // Rebook logic usually means creating a new appointment.
-    // For this existing method signature, we update local state.
-    // For DB, we'd probably insert a new record or update the existing one.
-    // We'll skip DB persistence for rebook in this specific method for now,
-    // or assume the UI calls 'add' for a new slot.
-
     state = <Booking>[
       for (final Booking b in state)
         if (b.id == id)
@@ -169,26 +168,4 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
           b,
     ];
   }
-
-  /// Verifica si un slot [start] con duración [duration] se solapa
-  bool hasConflict(DateTime start, Duration duration) {
-    final DateTime end = start.add(duration);
-    for (final Booking b in state) {
-      if (b.status == BookingStatus.canceled) {
-        continue;
-      }
-      final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
-      if (overlap) {
-        return true;
-      }
-    }
-    return false;
-  }
 }
-
-final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =
-    StateNotifierProvider<BookingsNotifier, List<Booking>>((final Ref ref) {
-      final repo = ref.watch(bookingRepositoryProvider);
-      final user = ref.watch(authStateProvider);
-      return BookingsNotifier(repo, user);
-    });

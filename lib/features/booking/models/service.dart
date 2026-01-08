@@ -1,5 +1,5 @@
 class Service {
-  final String? id;
+  final int? id;
   final String name;
   final int durationMinutes;
   final double price;
@@ -12,7 +12,6 @@ class Service {
     required this.durationMinutes,
     required this.price,
     required this.category,
-    this.id,
     this.id,
     this.extendedDescription,
     this.isActive = true,
@@ -52,7 +51,7 @@ class Service {
 
   factory Service.fromMap(Map<String, dynamic> map) {
     return Service(
-      id: map['id']?.toString(),
+      id: map['id'] as int?,
       name: map['name'] as String,
       durationMinutes: map['durationMinutes'] as int,
       price: (map['price'] as num).toDouble(),
@@ -68,26 +67,6 @@ class Service {
   Map<String, dynamic> toJson() => toMap();
 
   factory Service.fromJson(Map<String, dynamic> json) => Service.fromMap(json);
-
-  Service copyWith({
-    String? id,
-    String? name,
-    int? durationMinutes,
-    double? price,
-    ServiceCategory? category,
-    String? extendedDescription,
-    bool? isActive,
-  }) {
-    return Service(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      durationMinutes: durationMinutes ?? this.durationMinutes,
-      price: price ?? this.price,
-      category: category ?? this.category,
-      extendedDescription: extendedDescription ?? this.extendedDescription,
-      isActive: isActive ?? this.isActive,
-    );
-  }
 }
 
 enum ServiceCategory { hair, beard, combo }

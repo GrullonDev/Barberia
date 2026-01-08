@@ -36,7 +36,9 @@ class BarbersNotifier extends StateNotifier<List<Barber>> {
       ]);
 
   void add(String name, String specialty) {
-    if (name.isEmpty || specialty.isEmpty) return;
+    if (name.isEmpty || specialty.isEmpty) {
+      return;
+    }
     state = <Barber>[
       ...state,
       Barber(
@@ -63,9 +65,7 @@ class BarbersNotifier extends StateNotifier<List<Barber>> {
 }
 
 final StateNotifierProvider<BarbersNotifier, List<Barber>> barbersProvider =
-    StateNotifierProvider<BarbersNotifier, List<Barber>>((
-      StateNotifierProviderRef<BarbersNotifier, List<Barber>> ref,
-    ) {
+    StateNotifierProvider<BarbersNotifier, List<Barber>>((final Ref ref) {
       return BarbersNotifier();
     });
 
@@ -271,7 +271,7 @@ class _BarberCard extends ConsumerWidget {
                   children: [
                     Switch(
                       value: barber.isAvailable,
-                      activeColor: cs.primary,
+                      activeThumbColor: cs.primary,
                       onChanged: (_) => ref
                           .read(barbersProvider.notifier)
                           .toggleAvailability(barber.id),

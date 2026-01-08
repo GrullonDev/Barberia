@@ -96,11 +96,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passCtrl,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureText
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () {
+                          setState(() => _obscureText = !_obscureText);
+                        },
+                      ),
                     ),
-                    obscureText: true,
+                    obscureText: _obscureText,
                     validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 24),

@@ -1,46 +1,65 @@
-import 'package:barberia/common/widgets/primary_button.dart';
 import 'package:flutter/material.dart';
-import 'package:barberia/features/auth/models/user.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
 import 'package:barberia/app/router.dart';
-
+import 'package:barberia/app/theme.dart';
+import 'package:barberia/app/theme_controller.dart';
+import 'package:barberia/common/design_tokens.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
-
-import 'package:barberia/common/design_tokens.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/auth/models/user.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(final BuildContext context, final WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  late final PageController _pageCtrl;
+  late final ValueNotifier<double> _pageNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageCtrl = PageController(viewportFraction: 0.85);
+    _pageNotifier = ValueNotifier<double>(0);
+    _pageCtrl.addListener(() {
+      _pageNotifier.value = _pageCtrl.page ?? 0;
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    _pageNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
     final AsyncValue<List<Service>> asyncServices = ref.watch(
       servicesAsyncProvider,
     );
     final List<Service> popular =
         asyncServices.valueOrNull?.take(6).toList() ?? const <Service>[];
     final User? user = ref.watch(authStateProvider);
+    final ThemePrefs themePrefs = ref.watch(themeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Clipz'),
         actions: <Widget>[
-          if (ref.watch(authStateProvider)?.role == UserRole.admin)
-            // Note: RouteNames.addService might be missing, ensure it exists or comment out if temporary
+          if (user?.role == UserRole.admin)
             IconButton(
               icon: const Icon(Icons.add),
-              onPressed: () => context.pushNamed(
-                'add_service',
-              ), // Fallback literal if const missing
+              onPressed: () => context.pushNamed(RouteNames.addService),
             ),
-          if (ref.watch(authStateProvider)?.role == UserRole.admin)
+          if (user?.role == UserRole.admin)
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
               onPressed: () => context.pushNamed(RouteNames.admin),
@@ -131,14 +150,14 @@ class HomePage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               Text(
-                S.of(context).home_popular_title,
+                'Servicios Populares',
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               TextButton(
                 onPressed: () => context.goNamed(RouteNames.services),
-                child: Text(S.of(context).see_all),
+                child: const Text('Ver todos'),
               ),
             ],
           ),
@@ -146,20 +165,23 @@ class HomePage extends ConsumerWidget {
           SizedBox(
             height: 190,
             child: asyncServices.when(
-              loading: () => _ShimmerCarousel(),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (final Object e, final StackTrace st) =>
                   const Center(child: Text('Error cargando servicios')),
               data: (final List<Service> data) => PageView.builder(
-                controller: pageCtrl,
+                controller: _pageCtrl,
                 padEnds: false,
                 itemCount: popular.length,
                 itemBuilder: (final BuildContext _, final int i) {
-                  final double progress = (pageNotifier.value - i).abs();
-                  final double scale = (1 - (progress * 0.08)).clamp(0.9, 1.0);
-                  final Service s = popular[i];
-                  return AnimatedBuilder(
-                    animation: pageNotifier,
-                    builder: (_, __) {
+                  return ValueListenableBuilder<double>(
+                    valueListenable: _pageNotifier,
+                    builder: (context, value, _) {
+                      final double progress = (value - i).abs();
+                      final double scale = (1 - (progress * 0.08)).clamp(
+                        0.9,
+                        1.0,
+                      );
+                      final Service s = popular[i];
                       return Transform.scale(
                         scale: scale,
                         child: Opacity(
@@ -168,9 +190,8 @@ class HomePage extends ConsumerWidget {
                             padding: EdgeInsets.only(
                               right: i == popular.length - 1 ? 0 : 14,
                             ),
-                            child: _PopularServiceCard(
+                            child: _ServiceCard(
                               service: s,
-                              selected: (pageNotifier.value.round() == i),
                               onTap: () => context.goNamed(RouteNames.services),
                             ),
                           ),
@@ -184,7 +205,7 @@ class HomePage extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           ValueListenableBuilder<double>(
-            valueListenable: pageNotifier,
+            valueListenable: _pageNotifier,
             builder: (_, final double v, __) => Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List<Widget>.generate(popular.length, (final int i) {
@@ -204,129 +225,27 @@ class HomePage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 32),
-          TextButton(
-            onPressed: () => context.goNamed(RouteNames.myBookings),
-            child: Text('Ver mis citas', style: TextStyle(color: cs.primary)),
+          _QuickActionsSection(),
+          const SizedBox(height: 32),
+          Center(
+            child: TextButton(
+              onPressed: () => context.goNamed(RouteNames.myBookings),
+              child: Text('Ver mis citas', style: TextStyle(color: cs.primary)),
+            ),
           ),
-          SizedBox(
-            height: MediaQuery.of(context).padding.bottom + 80,
-          ), // Extra space for nav bar
+          const SizedBox(height: 80), // Space for bottom nav
         ],
       ),
     );
   }
 }
 
-class _HomeAppBar extends ConsumerWidget {
-  final User? user;
-  const _HomeAppBar({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    final S tr = S.of(context);
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final TextTheme txt = Theme.of(context).textTheme;
-    return LayoutBuilder(
-      builder: (BuildContext ctx, BoxConstraints c) {
-        final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
-        final Widget image = Semantics(
-          label: tr.hero_image_semantics,
-          image: true,
-          child: Container(
-            width: wide ? double.infinity : 110,
-            height: wide ? 200 : 130,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(wide ? 32 : 24),
-              gradient: LinearGradient(
-                colors: <Color>[
-                  cs.primaryContainer,
-                  cs.primaryContainer.withValues(alpha: .6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Icon(
-              Icons.image,
-              size: wide ? 90 : 54,
-              color: cs.onPrimaryContainer.withValues(alpha: 0.9),
-            ),
-          ),
-        );
-        final Widget text = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Text(
-              'Bienvenido de nuevo,',
-              style: txt.bodySmall?.copyWith(
-                color: cs.onSurface.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            Text(
-              user?.name.split(' ').first ?? 'Invitado',
-              style: txt.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: cs.onSurface,
-              ),
-            ),
-          ],
-        ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [
-                cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                cs.surface,
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        if (user?.role == UserRole.admin)
-          IconButton(
-            icon: Icon(Icons.admin_panel_settings, color: cs.primary),
-            onPressed: () => context.pushNamed(RouteNames.admin),
-            tooltip: 'Admin Panel',
-          ),
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: IconButton(
-            onPressed: () => context.pushNamed(RouteNames.profile),
-            style: IconButton.styleFrom(
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            icon: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: cs.primary, width: 2),
-              ),
-              child: CircleAvatar(
-                backgroundColor: cs.primaryContainer,
-                foregroundColor: cs.onPrimaryContainer,
-                radius: 16,
-                child: Text(
-                  user?.name.isNotEmpty == true
-                      ? user!.name[0].toUpperCase()
-                      : 'G',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _HeroSection extends StatelessWidget {
+  final VoidCallback onPrimary;
+  final VoidCallback onSecondary;
+
+  const _HeroSection({required this.onPrimary, required this.onSecondary});
+
   @override
   Widget build(BuildContext context) {
     final TextTheme txt = Theme.of(context).textTheme;
@@ -336,7 +255,7 @@ class _HeroSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827), // Always Dark Navy for premium contrast
+        color: const Color(0xFF111827), // Dark Navy for premium contrast
         borderRadius: BorderRadius.circular(AppRadius.l),
         boxShadow: [
           BoxShadow(
@@ -361,7 +280,7 @@ class _HeroSection extends StatelessWidget {
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
+                child: const Text(
                   'NUEVO',
                   style: TextStyle(
                     color: AppColors.onPrimary,
@@ -372,7 +291,7 @@ class _HeroSection extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Icon(Icons.stars, color: AppColors.primary, size: 20),
+              const Icon(Icons.stars, color: AppColors.primary, size: 20),
             ],
           ),
           const SizedBox(height: 16),
@@ -384,79 +303,29 @@ class _HeroSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Reserva tu corte premium hoy y destaca.',
-            style: txt.bodyMedium?.copyWith(color: Colors.white70),
+            style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context.goNamed(RouteNames.services),
+              onPressed: onPrimary,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.onPrimary,
-                foregroundColor: AppColors.primary,
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
                   vertical: 16,
                 ),
                 textStyle: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            ],
-          );
-        }
-
-        // Mobile layout (default)
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: cs.primaryContainer,
-            borderRadius: BorderRadius.circular(24),
+              child: const Text('RESERVAR AHORA'),
+            ),
           ),
-          child: Column(
-            children: [
-              image,
-              const SizedBox(height: 24),
-              DefaultTextStyle(
-                style: txt.bodyMedium!.copyWith(color: cs.onPrimaryContainer),
-                child: text,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final VoidCallback onAction;
-
-  const _SectionHeader({required this.title, required this.onAction});
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme txt = Theme.of(context).textTheme;
-    final ColorScheme cs = Theme.of(context).colorScheme;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: txt.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        TextButton(
-          onPressed: onAction,
-          style: TextButton.styleFrom(foregroundColor: cs.primary),
-          child: const Text('Ver Todo'),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -471,8 +340,6 @@ class _ServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
-    final S tr = S.of(context);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String price = NumberFormat.currency(
       name: 'GTQ',
       symbol: 'Q',
@@ -552,12 +419,8 @@ class _QuickActionsSection extends StatelessWidget {
           icon: Icons.location_on,
           label: 'Ubicación',
           onTap: () {},
-        ), // Placeholder
-        _ActionButton(
-          icon: Icons.phone,
-          label: 'Contacto',
-          onTap: () {},
-        ), // Placeholder
+        ),
+        _ActionButton(icon: Icons.phone, label: 'Contacto', onTap: () {}),
       ],
     );
   }
@@ -608,25 +471,6 @@ class _ActionButton extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadingShimmer extends StatelessWidget {
-  const _LoadingShimmer();
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: 3,
-      separatorBuilder: (_, __) => const SizedBox(width: 16),
-      itemBuilder: (_, __) => Container(
-        width: 160,
-        decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/app.dart';
 import 'package:barberia/core/database/database_helper.dart';
 import 'package:barberia/common/utils/list_clients_script.dart';
+import 'package:barberia/core/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
