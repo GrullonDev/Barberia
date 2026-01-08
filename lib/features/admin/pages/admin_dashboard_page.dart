@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/features/admin/pages/manage_services_page.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class AdminDashboardPage extends ConsumerWidget {
   const AdminDashboardPage({super.key});
@@ -24,7 +25,7 @@ class AdminDashboardPage extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(ResponsiveHelper.getResponsivePadding(context)),
         children: <Widget>[
           if (user != null)
             Text(

@@ -97,7 +97,9 @@ class SettingsPage extends StatelessWidget {
             textColor: cs.error,
             onTap: () {},
           ),
-          const SizedBox(height: 32),
+          SizedBox(
+            height: MediaQuery.of(context).padding.bottom + 80,
+          ), // Extra space for nav bar
         ],
       ),
     );

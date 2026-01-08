@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -20,7 +21,9 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 20),
             // User Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveHelper.getResponsivePadding(context),
+              ),
               child: Column(
                 children: <Widget>[
                   Stack(
@@ -78,7 +81,9 @@ class ProfilePage extends StatelessWidget {
 
             // Menu Items
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveHelper.getResponsivePadding(context),
+              ),
               child: Column(
                 children: <Widget>[
                   _ProfileMenuSection(
@@ -126,7 +131,9 @@ class ProfilePage extends StatelessWidget {
                     showTrailing: false,
                     onTap: () {},
                   ),
-                  const SizedBox(height: 40), // Bottom padding
+                  SizedBox(
+                    height: MediaQuery.of(context).padding.bottom + 80,
+                  ), // Extra space for nav bar
                 ],
               ),
             ),

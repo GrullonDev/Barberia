@@ -212,6 +212,9 @@ class HomePage extends ConsumerWidget {
             onPressed: () => context.goNamed(RouteNames.myBookings),
             child: Text('Ver mis citas', style: TextStyle(color: cs.primary)),
           ),
+          SizedBox(
+            height: MediaQuery.of(context).padding.bottom + 80,
+          ), // Extra space for nav bar
         ],
       ),
     );

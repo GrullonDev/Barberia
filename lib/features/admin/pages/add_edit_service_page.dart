@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/repositories/service_repository.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class AddEditServicePage extends ConsumerStatefulWidget {
   final Service? service; // If null, adding new service
@@ -109,7 +110,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
         title: Text(isEditing ? 'Editar Servicio' : 'Nuevo Servicio'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(ResponsiveHelper.getResponsivePadding(context)),
         child: Form(
           key: _formKey,
           child: Column(

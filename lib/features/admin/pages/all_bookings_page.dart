@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:barberia/core/database/database_helper.dart';
 import 'package:barberia/features/booking/models/booking.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class AllBookingsPage extends StatefulWidget {
   const AllBookingsPage({super.key});
@@ -60,9 +61,9 @@ class _AllBookingsPageState extends State<AllBookingsPage> {
               itemBuilder: (BuildContext context, int index) {
                 final Booking booking = bookings[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                  margin: EdgeInsets.symmetric(
+                    horizontal: ResponsiveHelper.getResponsivePadding(context),
+                    vertical: ResponsiveHelper.getSpacing(context, mobile: 8),
                   ),
                   child: ListTile(
                     title: Text(booking.serviceName),
