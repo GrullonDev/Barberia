@@ -15,6 +15,7 @@ import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class DetailsPage extends ConsumerStatefulWidget {
   const DetailsPage({super.key});
@@ -314,7 +315,12 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            padding: EdgeInsets.fromLTRB(
+              ResponsiveHelper.getResponsivePadding(context),
+              12,
+              ResponsiveHelper.getResponsivePadding(context),
+              32,
+            ),
             children: <Widget>[
               // Progress indicator (Step 3 of 3)
               Row(

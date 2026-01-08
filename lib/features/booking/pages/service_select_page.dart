@@ -10,6 +10,7 @@ import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/service_card.dart';
 import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class ServiceSelectPage extends ConsumerWidget {
   const ServiceSelectPage({super.key});
@@ -228,15 +229,22 @@ class ServiceSelectPage extends ConsumerWidget {
               else
                 Expanded(
                   child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    padding: EdgeInsets.all(
+                      ResponsiveHelper.getResponsivePadding(context),
+                    ),
                     itemCount: filtered.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.95,
-                        ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: ResponsiveHelper.getGridColumns(context),
+                      mainAxisSpacing: ResponsiveHelper.getSpacing(
+                        context,
+                        mobile: 16,
+                      ),
+                      crossAxisSpacing: ResponsiveHelper.getSpacing(
+                        context,
+                        mobile: 16,
+                      ),
+                      childAspectRatio: 0.95,
+                    ),
                     itemBuilder: (final BuildContext _, final int i) {
                       final Service s = filtered[i];
                       final bool isSelected = draft.service?.id == s.id;

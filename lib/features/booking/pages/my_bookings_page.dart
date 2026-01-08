@@ -8,6 +8,7 @@ import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/appointment_card.dart';
 import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class MyBookingsPage extends ConsumerWidget {
   const MyBookingsPage({super.key});
@@ -73,9 +74,13 @@ class MyBookingsPage extends ConsumerWidget {
               ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
             )
           : ListView.separated(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(
+                ResponsiveHelper.getResponsivePadding(context),
+              ),
               itemCount: bookings.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              separatorBuilder: (_, __) => SizedBox(
+                height: ResponsiveHelper.getSpacing(context, mobile: 16),
+              ),
               itemBuilder: (final BuildContext _, final int i) {
                 final Booking b = bookings[i];
                 return AppointmentCard(booking: b)

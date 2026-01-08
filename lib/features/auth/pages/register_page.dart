@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -42,41 +43,52 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Registro')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: <Widget>[
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-                validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: ResponsiveHelper.isTablet(context)
+                ? 500
+                : double.infinity,
+          ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(
+              ResponsiveHelper.getResponsivePadding(context),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: <Widget>[
+                  TextFormField(
+                    controller: _nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailCtrl,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passCtrl,
+                    decoration: const InputDecoration(labelText: 'Contraseña'),
+                    obscureText: true,
+                    validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _isLoading ? null : _submit,
+                      child: _isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text('Registrarse'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passCtrl,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-                validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _submit,
-                  child: _isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text('Registrarse'),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

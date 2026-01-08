@@ -199,6 +199,21 @@ class DatabaseHelper {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    final db = await instance.database;
+    return await db.query('users', orderBy: 'username ASC');
+  }
+
+  Future<List<Map<String, dynamic>>> getUsersByRole(String role) async {
+    final db = await instance.database;
+    return await db.query(
+      'users',
+      where: 'role = ?',
+      whereArgs: [role],
+      orderBy: 'username ASC',
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getAllBookings() async {
     final db = await instance.database;
     final result = await db.query('bookings', orderBy: 'date DESC');

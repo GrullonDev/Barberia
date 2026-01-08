@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -9,7 +10,10 @@ class SettingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Configuración'), centerTitle: true),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: ResponsiveHelper.getResponsivePadding(context),
+          vertical: 8,
+        ),
         scrollDirection: Axis.vertical,
         shrinkWrap: true,
         children: <Widget>[

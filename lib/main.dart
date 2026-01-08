@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/app.dart';
 import 'package:barberia/core/database/database_helper.dart';
+import 'package:barberia/common/utils/list_clients_script.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,12 @@ Future<void> main() async {
     print('--- Fin del script ---');
   }
   // --- FIN DE LA TAREA TEMPORAL ---
+
+  // --- LISTAR USUARIOS CLIENTES ---
+  // Este script lista solo los usuarios con rol 'client'
+  // Ejecuta la app y revisa la consola de debug
+  await listClientUsers();
+  // --- FIN LISTAR CLIENTES ---
 
   runApp(const ProviderScope(child: MyApp()));
 }

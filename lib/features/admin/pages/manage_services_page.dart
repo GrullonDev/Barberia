@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class ManageServicesPage extends ConsumerWidget {
   const ManageServicesPage({super.key});
@@ -31,6 +32,9 @@ class ManageServicesPage extends ConsumerWidget {
             return const Center(child: Text('No hay servicios.'));
           }
           return ListView.builder(
+            padding: EdgeInsets.all(
+              ResponsiveHelper.getResponsivePadding(context),
+            ),
             itemCount: services.length,
             itemBuilder: (BuildContext context, int index) {
               final Service service = services[index];

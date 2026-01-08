@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -47,68 +48,77 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const Icon(Icons.content_cut, size: 64),
-                const SizedBox(height: 16),
-                Text(
-                  'Barbería App',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 32),
-                if (_error != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onErrorContainer,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: ResponsiveHelper.isTablet(context)
+                ? 500
+                : double.infinity,
+          ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(
+              ResponsiveHelper.getResponsivePadding(context),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Icon(Icons.content_cut, size: 64),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Barbería App',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 32),
+                  if (_error != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                        ),
                       ),
                     ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
                   ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                    validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
                   ),
-                  validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Contraseña',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _isLoading ? null : _submit,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Iniciar Sesión'),
                   ),
-                  obscureText: true,
-                  validator: (String? v) => v!.isEmpty ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _isLoading ? null : _submit,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Iniciar Sesión'),
-                ),
-                TextButton(
-                  onPressed: () => context.pushNamed('register'),
-                  child: const Text('¿No tienes cuenta? Regístrate'),
-                ),
-              ],
+                  TextButton(
+                    onPressed: () => context.pushNamed('register'),
+                    child: const Text('¿No tienes cuenta? Regístrate'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
