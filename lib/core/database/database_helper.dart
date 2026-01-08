@@ -21,11 +21,53 @@ class DatabaseHelper {
     return _database!;
   }
 
+  Future<String> get dbPath async {
+    final String path = await getDatabasesPath();
+    final String dbName = dotenv.env['DB_NAME'] ?? 'default_barberia.db';
+    return join(path, dbName);
+  }
+
   Future<Database> _initDB(String filePath) async {
     final String dbPath = await getDatabasesPath();
     final String path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('DROP TABLE IF EXISTS users');
+      // Re-create users table with correct schema (username instead of name)
+      const String idType = 'TEXT PRIMARY KEY';
+      const String textType = 'TEXT NOT NULL';
+      const String textNullable = 'TEXT';
+
+      await db.execute('''
+        CREATE TABLE users (
+          id $idType,
+          username $textType UNIQUE,
+          email $textType,
+          password $textType, 
+          role $textType,
+          phone $textNullable
+        )
+      ''');
+
+      // Re-seed admin user
+      await db.insert('users', <String, Object?>{
+        'id': 'admin_01',
+        'username': 'Barber Admin',
+        'email': 'admin@barberia.com',
+        'password': 'admin',
+        'role': 'admin',
+        'phone': '555-0000',
+      });
+    }
   }
 
   FutureOr<void> _createDB(Database db, int version) async {
@@ -40,7 +82,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE users (
         id $idType,
-        name $textType,
+        username $textType UNIQUE,
         email $textType,
         password $textType, 
         role $textType,
@@ -87,7 +129,7 @@ class DatabaseHelper {
     // In a real app, password should be hashed. This is for demo/MVP.
     await db.insert('users', <String, Object?>{
       'id': 'admin_01',
-      'name': 'Barber Admin',
+      'username': 'Barber Admin',
       'email': 'admin@barberia.com',
       'password': 'admin',
       'role': 'admin',
@@ -159,10 +201,7 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getAllBookings() async {
     final db = await instance.database;
-    final result = await db.query(
-      'bookings',
-      orderBy: 'date DESC',
-    );
+    final result = await db.query('bookings', orderBy: 'date DESC');
     return result;
   }
 

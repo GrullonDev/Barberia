@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:barberia/common/design_tokens.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
-import 'package:barberia/common/database_helper.dart';
+import 'package:barberia/core/database/database_helper.dart';
 import 'package:share_plus/share_plus.dart';
 
 class AdminDashboardPage extends ConsumerStatefulWidget {

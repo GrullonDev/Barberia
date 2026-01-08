@@ -1,15 +1,16 @@
-import 'package:barberia/common/database_helper.dart';
+import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AddServicePage extends StatefulWidget {
+class AddServicePage extends ConsumerStatefulWidget {
   const AddServicePage({super.key});
 
   @override
-  State<AddServicePage> createState() => _AddServicePageState();
+  ConsumerState<AddServicePage> createState() => _AddServicePageState();
 }
 
-class _AddServicePageState extends State<AddServicePage> {
+class _AddServicePageState extends ConsumerState<AddServicePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _durationController = TextEditingController();
@@ -94,13 +95,16 @@ class _AddServicePageState extends State<AddServicePage> {
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     final newService = Service(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
                       name: _nameController.text,
                       durationMinutes: int.parse(_durationController.text),
                       price: double.parse(_priceController.text),
                       extendedDescription: _descriptionController.text,
                       category: _selectedCategory,
                     );
-                    await DatabaseHelper.instance.create(newService);
+                    await ref
+                        .read(serviceRepositoryProvider)
+                        .addService(newService);
                     if (context.mounted) {
                       Navigator.of(context).pop();
                     }

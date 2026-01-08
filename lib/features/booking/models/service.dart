@@ -1,5 +1,5 @@
 class Service {
-  final int? id;
+  final String? id;
   final String name;
   final int durationMinutes;
   final double price;
@@ -31,7 +31,7 @@ class Service {
 
   factory Service.fromMap(Map<String, dynamic> map) {
     return Service(
-      id: map['id'] as int?,
+      id: map['id']?.toString(),
       name: map['name'] as String,
       durationMinutes: map['durationMinutes'] as int,
       price: (map['price'] as num).toDouble(),
@@ -49,7 +49,7 @@ class Service {
   factory Service.fromJson(Map<String, dynamic> json) => Service.fromMap(json);
 
   Service copyWith({
-    int? id,
+    String? id,
     String? name,
     int? durationMinutes,
     double? price,
