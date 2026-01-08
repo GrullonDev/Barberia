@@ -3,7 +3,7 @@ import 'service.dart';
 class Booking {
   final String id;
   final String userId;
-  final String serviceId;
+  final int serviceId;
   final String serviceName; // Denormalized for display if service deleted
   final DateTime dateTime;
   final BookingStatus status;
@@ -53,8 +53,8 @@ class Booking {
   factory Booking.fromMap(Map<String, dynamic> map, {Service? linkedService}) {
     return Booking(
       id: map['id'] as String,
-      userId: map['userId'] as String,
-      serviceId: map['serviceId'] as String,
+      userId: map['userId'] as String? ?? 'guest',
+      serviceId: map['serviceId'] as int,
       serviceName: map['serviceName'] as String,
       dateTime: DateTime.parse(map['date'] as String),
       status: BookingStatus.values.firstWhere(
@@ -69,7 +69,6 @@ class Booking {
     );
   }
 
-  // Helper Ims string generation...
   String toIcsString() {
     final String dtStart = _formatIcsDateTime(dateTime.toUtc());
     final String dtEnd = _formatIcsDateTime(endTime.toUtc());

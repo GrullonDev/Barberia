@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -181,6 +182,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                                 ClipboardData(text: qrData),
                               );
                               if (context.mounted) {
+                              if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(tr.confirm_link_copied),
@@ -320,6 +322,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

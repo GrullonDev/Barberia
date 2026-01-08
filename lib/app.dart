@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/app/router.dart';
 import 'package:barberia/app/theme.dart';
 import 'package:barberia/app/theme_controller.dart';
+import 'package:barberia/app/locale_controller.dart';
 
 import 'l10n/app_localizations.dart';
 
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
             ],
             supportedLocales: S.supportedLocales,
+            locale: ref.watch(localeControllerProvider),
             routerConfig: ref.watch(goRouterProvider),
           );
         },

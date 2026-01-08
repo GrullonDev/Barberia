@@ -13,12 +13,33 @@ class Service {
     required this.price,
     required this.category,
     this.id,
+    this.id,
     this.extendedDescription,
     this.isActive = true,
   });
 
+  Service copyWith({
+    int? id,
+    String? name,
+    int? durationMinutes,
+    double? price,
+    ServiceCategory? category,
+    String? extendedDescription,
+    bool? isActive,
+  }) {
+    return Service(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      price: price ?? this.price,
+      category: category ?? this.category,
+      extendedDescription: extendedDescription ?? this.extendedDescription,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'id': id,
       'name': name,
       'durationMinutes': durationMinutes,
@@ -36,7 +57,7 @@ class Service {
       durationMinutes: map['durationMinutes'] as int,
       price: (map['price'] as num).toDouble(),
       category: ServiceCategory.values.firstWhere(
-        (e) => e.name == (map['category'] as String),
+        (ServiceCategory e) => e.name == (map['category'] as String),
         orElse: () => ServiceCategory.hair,
       ),
       extendedDescription: map['extendedDescription'] as String?,

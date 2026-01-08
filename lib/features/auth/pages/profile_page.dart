@@ -14,6 +14,12 @@ class ProfilePage extends ConsumerWidget {
     final User? user = ref.watch(authStateProvider);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('No has iniciado sesión')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Mi Perfil')),
       body: user == null
@@ -54,6 +60,7 @@ class ProfilePage extends ConsumerWidget {
                 FilledButton.icon(
                   onPressed: () async {
                     await ref.read(authStateProvider.notifier).logout();
+                    await ref.read(authStateProvider.notifier).logout();
                     if (context.mounted) {
                       context.goNamed(RouteNames.login);
                     }
@@ -61,13 +68,60 @@ class ProfilePage extends ConsumerWidget {
                   icon: const Icon(Icons.logout),
                   label: const Text('Cerrar Sesión'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.error,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
                   ),
                 ),
-              ],
+                const SizedBox(height: 40),
+              ]),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileInfoCard extends StatelessWidget {
+  const _ProfileInfoCard({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Column(children: children),
+        ),
+      ],
     );
   }
 }
@@ -75,34 +129,70 @@ class ProfilePage extends ConsumerWidget {
 class _ProfileItem extends StatelessWidget {
   const _ProfileItem({
     required this.icon,
-    required this.title,
+    required this.label,
     required this.value,
     required this.isDark,
+    this.showDivider = true,
   });
 
   final IconData icon;
-  final String title;
+  final String label;
   final String value;
   final bool isDark;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.primary),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            color: isDark ? AppColors.secondary : AppColors.secondary,
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: cs.primary, size: 22),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        subtitle: Text(
-          value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
+        if (showDivider)
+          Divider(
+            height: 1,
+            indent: 60,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+      ],
     );
   }
 }

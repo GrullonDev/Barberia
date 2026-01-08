@@ -1,17 +1,17 @@
 import 'package:barberia/common/widgets/primary_button.dart';
 import 'package:flutter/material.dart';
+import 'package:barberia/features/auth/models/user.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:barberia/app/router.dart';
-import 'package:barberia/app/theme.dart';
-import 'package:barberia/app/theme_controller.dart';
 
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
-import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+
 import 'package:barberia/common/design_tokens.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/auth/models/user.dart';
@@ -26,11 +26,7 @@ class HomePage extends ConsumerWidget {
     );
     final List<Service> popular =
         asyncServices.valueOrNull?.take(6).toList() ?? const <Service>[];
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final ThemePrefs themePrefs = ref.watch(themeControllerProvider);
-    final PageController pageCtrl = PageController(viewportFraction: 0.78);
-    final ValueNotifier<double> pageNotifier = ValueNotifier<double>(0);
-    pageCtrl.addListener(() => pageNotifier.value = pageCtrl.page ?? 0);
+    final User? user = ref.watch(authStateProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -221,10 +217,9 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _HeroSection extends StatelessWidget {
-  const _HeroSection({required this.onPrimary, required this.onSecondary});
-  final VoidCallback onPrimary;
-  final VoidCallback onSecondary;
+class _HomeAppBar extends ConsumerWidget {
+  final User? user;
+  const _HomeAppBar({required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -260,65 +255,152 @@ class _HeroSection extends StatelessWidget {
         );
         final Widget text = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
             Text(
-              tr.hero_title,
-              style: txt.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+              'Bienvenido de nuevo,',
+              style: txt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
             ),
-            const SizedBox(height: 10),
             Text(
-              tr.hero_subtitle,
-              style: txt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                PrimaryButton(label: tr.hero_cta_primary, onPressed: onPrimary),
-                OutlinedButton(
-                  onPressed: onSecondary,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                  ),
-                  child: Text(tr.hero_cta_secondary),
-                ),
-              ],
+              user?.name.split(' ').first ?? 'Invitado',
+              style: txt.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
             ),
           ],
-        );
-        if (wide) {
-          return Stack(
-            children: <Widget>[
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(40),
-                  child: image,
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                cs.surface,
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        if (user?.role == UserRole.admin)
+          IconButton(
+            icon: Icon(Icons.admin_panel_settings, color: cs.primary),
+            onPressed: () => context.pushNamed(RouteNames.admin),
+            tooltip: 'Admin Panel',
+          ),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: IconButton(
+            onPressed: () => context.pushNamed(RouteNames.profile),
+            style: IconButton.styleFrom(
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: cs.primary, width: 2),
+              ),
+              child: CircleAvatar(
+                backgroundColor: cs.primaryContainer,
+                foregroundColor: cs.onPrimaryContainer,
+                radius: 16,
+                child: Text(
+                  user?.name.isNotEmpty == true
+                      ? user!.name[0].toUpperCase()
+                      : 'G',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(40),
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        Colors.black.withValues(alpha: 0.45),
-                        Colors.black.withValues(alpha: 0.15),
-                      ],
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme txt = Theme.of(context).textTheme;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827), // Always Dark Navy for premium contrast
+        borderRadius: BorderRadius.circular(AppRadius.l),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: cs.primary.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'NUEVO',
+                  style: TextStyle(
+                    color: AppColors.onPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
                   ),
                 ),
               ),
-              Positioned(
-                left: 24,
-                top: 24,
-                right: 24,
-                child: DefaultTextStyle(style: txt.bodyMedium!, child: text),
+              const Spacer(),
+              Icon(Icons.stars, color: AppColors.primary, size: 20),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Luce tu mejor versión',
+            style: txt.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Reserva tu corte premium hoy y destaca.',
+            style: txt.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => context.goNamed(RouteNames.services),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.onPrimary,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           );
@@ -348,15 +430,42 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-class _PopularServiceCard extends StatelessWidget {
-  const _PopularServiceCard({
-    required this.service,
-    required this.onTap,
-    required this.selected,
-  });
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final VoidCallback onAction;
+
+  const _SectionHeader({required this.title, required this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme txt = Theme.of(context).textTheme;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: txt.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        TextButton(
+          onPressed: onAction,
+          style: TextButton.styleFrom(foregroundColor: cs.primary),
+          child: const Text('Ver Todo'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ServiceCard extends StatelessWidget {
   final Service service;
   final VoidCallback onTap;
-  final bool selected;
+
+  const _ServiceCard({required this.service, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -368,88 +477,57 @@ class _PopularServiceCard extends StatelessWidget {
       name: 'GTQ',
       symbol: 'Q',
     ).format(service.price);
-    return InkWell(
+
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.l),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-        width: 230,
-        padding: EdgeInsets.all(selected ? AppSpacing.m + 2 : AppSpacing.m),
+      child: Container(
+        width: 160,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: selected
-                ? AppColors.primary
-                : (isDark ? AppColors.outlineDark : AppColors.outline),
-            width: selected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          color: cs.surfaceContainerHighest.withValues(
-            alpha: selected ? 0.35 : 0.25,
-          ),
-          boxShadow: selected
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.22),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppRadius.m),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.m),
-                    color: AppColors.primaryContainer,
-                  ),
-                  child: Icon(
-                    Icons.cut,
-                    color: cs.onPrimaryContainer,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.s),
-                Expanded(
-                  child: Text(
-                    service.name,
-                    style: txt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: selected ? 18 : 16,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+          children: [
+            Container(
+              height: 48,
+              width: 48,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.content_cut, color: cs.primary),
             ),
             const Spacer(),
+            Text(
+              service.name,
+              style: txt.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
             Text(
               '${service.durationMinutes} min',
               style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.secondaryContainer
-                    : AppColors.secondaryContainer,
-                borderRadius: BorderRadius.circular(AppRadius.s),
-              ),
-              child: Text(
-                '${tr.price_from_prefix} $price',
-                style: txt.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSecondaryContainer,
-                  letterSpacing: .3,
-                ),
+            const SizedBox(height: 12),
+            Text(
+              price,
+              style: txt.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: cs.primary,
               ),
             ),
           ],
@@ -459,149 +537,98 @@ class _PopularServiceCard extends StatelessWidget {
   }
 }
 
-class _ShimmerCarousel extends StatefulWidget {
-  @override
-  State<_ShimmerCarousel> createState() => _ShimmerCarouselState();
-}
-
-class _ShimmerCarouselState extends State<_ShimmerCarousel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
+class _QuickActionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        return ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: 3,
-          separatorBuilder: (_, __) => const SizedBox(width: 14),
-          itemBuilder: (_, int i) {
-            return _ShimmerBlock(
-              progress: (_ctrl.value + i * 0.33) % 1,
-              color: cs.primary,
-            );
-          },
-        );
-      },
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _ActionButton(
+          icon: Icons.calendar_today,
+          label: 'Mis Citas',
+          onTap: () => context.goNamed(RouteNames.myBookings),
+        ),
+        _ActionButton(
+          icon: Icons.location_on,
+          label: 'Ubicación',
+          onTap: () {},
+        ), // Placeholder
+        _ActionButton(
+          icon: Icons.phone,
+          label: 'Contacto',
+          onTap: () {},
+        ), // Placeholder
+      ],
     );
   }
 }
 
-class _ShimmerBlock extends StatelessWidget {
-  const _ShimmerBlock({required this.progress, required this.color});
-  final double progress;
-  final Color color;
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 230,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Stack(
-        children: <Widget>[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                height: 18,
-                width: 120,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  color: cs.onSurface.withAlpha(18),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                height: 14,
-                width: 80,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  color: cs.onSurface.withAlpha(15),
-                ),
-              ),
-              const Spacer(),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Container(
-                  height: 28,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: cs.onSurface.withAlpha(15),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ShimmerPainter(
-                  progress: progress,
-                  base: cs.surfaceContainerHighest,
-                  highlight: color.withValues(alpha: 0.25),
-                ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: cs.primary),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ShimmerPainter extends CustomPainter {
-  _ShimmerPainter({
-    required this.progress,
-    required this.base,
-    required this.highlight,
-  });
-  final double progress;
-  final Color base;
-  final Color highlight;
-
+class _LoadingShimmer extends StatelessWidget {
+  const _LoadingShimmer();
   @override
-  void paint(Canvas canvas, Size size) {
-    final Paint p = Paint()
-      ..shader = LinearGradient(
-        colors: <Color>[base, highlight, base],
-        stops: const <double>[0, 0.5, 1],
-        begin: Alignment(-1 + progress * 2, -1),
-        end: Alignment(1 + progress * 2, 1),
-      ).createShader(Offset.zero & size);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(24)),
-      p,
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: 3,
+      separatorBuilder: (_, __) => const SizedBox(width: 16),
+      itemBuilder: (_, __) => Container(
+        width: 160,
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant _ShimmerPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }
-
-// Shimmer replaces old skeleton implementation.

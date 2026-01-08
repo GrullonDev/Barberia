@@ -1,63 +1,52 @@
 import 'package:flutter/material.dart';
-
-import 'package:barberia/core/database/database_helper.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
 
-class AllBookingsPage extends StatefulWidget {
+class AllBookingsPage extends ConsumerWidget {
   const AllBookingsPage({super.key});
 
   @override
-  State<AllBookingsPage> createState() => _AllBookingsPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final List<Booking> bookings = ref.watch(bookingsProvider);
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
 
-class _AllBookingsPageState extends State<AllBookingsPage> {
-  late Future<List<Booking>> _bookingsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBookings();
-  }
-
-  void _loadBookings() {
-    _bookingsFuture = _fetchBookings();
-  }
-
-  Future<List<Booking>> _fetchBookings() async {
-    final DatabaseHelper dbHelper = DatabaseHelper.instance;
-    final List<Map<String, dynamic>> bookingMaps = await dbHelper
-        .getAllBookings();
-    return bookingMaps
-        .map((Map<String, dynamic> map) => Booking.fromMap(map))
-        .toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Todas las Reservas')),
-      body: FutureBuilder<List<Booking>>(
-        future: _bookingsFuture,
-        builder: (BuildContext context, AsyncSnapshot<List<Booking>> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No hay reservas.'));
-          }
-
-          final List<Booking> bookings = snapshot.data!;
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() {
-                _loadBookings();
-              });
-            },
-            child: ListView.builder(
+      appBar: AppBar(title: const Text('AGENDA COMPLETA'), centerTitle: true),
+      body: bookings.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.calendar_today_outlined,
+                      size: 64,
+                      color: cs.secondary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'No hay citas registradas',
+                    style: txt.titleMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(20),
               itemCount: bookings.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (BuildContext context, int index) {
                 final Booking booking = bookings[index];
                 return Card(

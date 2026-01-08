@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:intl/intl.dart';
+
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
@@ -15,27 +17,51 @@ class ManageServicesPage extends ConsumerWidget {
     final AsyncValue<List<Service>> servicesAsync = ref.watch(
       servicesAsyncProvider,
     );
+    final ColorScheme cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Gestionar Servicios')),
-      floatingActionButton: FloatingActionButton(
+      appBar: AppBar(
+        title: const Text('GESTIONAR SERVICIOS'),
+        centerTitle: true,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.of(
             context,
           ).push(MaterialPageRoute(builder: (_) => const AddEditServicePage()));
         },
-        child: const Icon(Icons.add),
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        icon: const Icon(Icons.add),
+        label: const Text('NUEVO SERVICIO'),
       ),
       body: servicesAsync.when(
         data: (List<Service> services) {
           if (services.isEmpty) {
-            return const Center(child: Text('No hay servicios.'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.list_alt,
+                    size: 64,
+                    color: cs.secondary.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay servicios registrados',
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            );
           }
           return ListView.builder(
             padding: EdgeInsets.all(
               ResponsiveHelper.getResponsivePadding(context),
             ),
             itemCount: services.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (BuildContext context, int index) {
               final Service service = services[index];
               return ListTile(

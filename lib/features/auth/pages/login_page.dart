@@ -18,6 +18,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _passCtrl = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscureText = true;
   String? _error;
 
   Future<void> _submit() async {

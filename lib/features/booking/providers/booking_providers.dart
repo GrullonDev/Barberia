@@ -5,15 +5,27 @@ import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/repositories/booking_repository.dart';
 import 'package:barberia/features/booking/repositories/service_repository.dart';
-import 'package:barberia/features/auth/models/user.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final StateNotifierProvider<BookingDraftNotifier, BookingDraft>
+bookingDraftProvider =
+    StateNotifierProvider<BookingDraftNotifier, BookingDraft>(
+      (final Ref ref) => BookingDraftNotifier(),
+    );
+
+final Provider<BookingRepository> bookingRepositoryProvider =
+    Provider<BookingRepository>((Ref ref) => BookingRepository());
+
+final StateNotifierProvider<BookingsNotifier, List<Booking>> bookingsProvider =
+    StateNotifierProvider<BookingsNotifier, List<Booking>>((final Ref ref) {
+      final BookingRepository repo = ref.watch(bookingRepositoryProvider);
+      final User? user = ref.watch(authStateProvider);
+      return BookingsNotifier(repo, user);
+    });
 
 // Repositories
 final Provider<ServiceRepository> serviceRepositoryProvider =
     Provider<ServiceRepository>((Ref ref) => ServiceRepository());
-
-final Provider<BookingRepository> bookingRepositoryProvider =
-    Provider<BookingRepository>((Ref ref) => BookingRepository());
 
 /// Async list of services from DB
 final FutureProvider<List<Service>> servicesAsyncProvider =
@@ -49,31 +61,17 @@ bookingDraftProvider =
     StateNotifierProvider<BookingDraftNotifier, BookingDraft>(
       (final Ref ref) => BookingDraftNotifier(),
     );
+    state = state.copyWith(date: newDate);
+  }
+}
 
 // Bookings List (Synced with DB)
 class BookingsNotifier extends StateNotifier<List<Booking>> {
+  final BookingRepository _repository;
+
+  final User? _user;
   BookingsNotifier(this._repository, this._user) : super(const <Booking>[]) {
     _loadBookings();
-  }
-
-  final BookingRepository _repository;
-  final User? _user;
-
-  Future<void> _loadBookings() async {
-    if (_user == null) {
-      state = [];
-      return;
-    }
-    // If admin, maybe fetch all? For now, let's stick to user's bookings.
-    if (_user.role == UserRole.admin) {
-      final List<Booking> bookings = await _repository.getBookings(
-        _user.id,
-      ); // Or getAllBookingsAdmin()
-      state = bookings;
-    } else {
-      final List<Booking> bookings = await _repository.getBookings(_user.id);
-      state = bookings;
-    }
   }
 
   Future<void> add(final Booking booking) async {
@@ -81,6 +79,19 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     state = <Booking>[...state, booking];
     try {
       await _repository.createBooking(booking);
+
+      // Schedule Notification (1 hour before)
+      final DateTime scheduledTime = booking.dateTime.subtract(
+        const Duration(hours: 1),
+      );
+      if (scheduledTime.isAfter(DateTime.now())) {
+        await NotificationService().scheduleNotification(
+          id: booking.id.hashCode,
+          title: 'Recordatorio de Cita',
+          body: 'Tu cita para ${booking.serviceName} es en 1 hora.',
+          scheduledDate: scheduledTime,
+        );
+      }
     } catch (e) {
       // Revert if failed (would need robust rollback, simplified here)
       _loadBookings();
@@ -110,9 +121,25 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     ];
     try {
       await _repository.cancelBooking(id);
+
+      // Cancel Notification
+      await NotificationService().cancelNotification(id.hashCode);
     } catch (e) {
       _loadBookings();
     }
+  }
+
+  /// Verifica si un slot [start] con duración [duration] se solapa
+  bool hasConflict(DateTime start, Duration duration) {
+    final DateTime end = start.add(duration);
+    for (final Booking b in state) {
+      if (b.status == BookingStatus.canceled) continue;
+      final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
+      if (overlap) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> rebook(String id, DateTime newStart) async {
