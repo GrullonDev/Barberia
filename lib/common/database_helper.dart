@@ -130,7 +130,7 @@ CREATE TABLE users (
         .toString();
     final User userWithHashedPassword = user.copyWith(password: hashedPassword);
     final int id = await db.insert('users', userWithHashedPassword.toJson());
-    return user.copyWith(id: id);
+    return user.copyWith(id: id.toString());
   }
 
   Future<User?> readUserByUsername(String username) async {
@@ -283,7 +283,7 @@ CREATE TABLE bookings (
         ),
         extendedDescription: json['serviceDescription'],
       );
-      return Booking.fromMap(json, service);
+      return Booking.fromMap(json, linkedService: service);
     }).toList();
   }
 

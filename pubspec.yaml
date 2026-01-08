@@ -8,6 +8,7 @@ environment:
   sdk: ^3.9.0
 
 dependencies:
+  add_2_calendar: ^3.0.1
   crypto: ^3.0.3
   cupertino_icons: ^1.0.8
   flutter:

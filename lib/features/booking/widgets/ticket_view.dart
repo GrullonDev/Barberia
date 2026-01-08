@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class TicketView extends StatelessWidget {
-  const TicketView({super.key, required this.child});
+  const TicketView({required this.child, super.key});
 
   final Widget child;
 
@@ -29,10 +29,15 @@ class TicketClipper extends CustomClipper<Path> {
     path.lineTo(0.0, size.height);
     path.lineTo(size.width, size.height);
     path.lineTo(size.width, 0.0);
-    path.addOval(Rect.fromCircle(
-        center: Offset(0, size.height / 2), radius: 15.0));
-    path.addOval(Rect.fromCircle(
-        center: Offset(size.width, size.height / 2), radius: 15.0));
+    path.addOval(
+      Rect.fromCircle(center: Offset(0, size.height / 2), radius: 15.0),
+    );
+    path.addOval(
+      Rect.fromCircle(
+        center: Offset(size.width, size.height / 2),
+        radius: 15.0,
+      ),
+    );
     return path;
   }
 

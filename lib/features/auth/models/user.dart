@@ -20,7 +20,7 @@ class User {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'name': name,
+      'username': name,
       'email': email,
       'password': password,
       'role': role.name,
@@ -31,7 +31,7 @@ class User {
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'] as String,
-      name: map['name'] as String,
+      name: map['username'] as String,
       email: map['email'] as String,
       password: map['password'] as String,
       role: UserRole.values.firstWhere(
@@ -39,6 +39,28 @@ class User {
         orElse: () => UserRole.client,
       ),
       phone: map['phone'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => toMap();
+
+  factory User.fromJson(Map<String, dynamic> json) => User.fromMap(json);
+
+  User copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? password,
+    UserRole? role,
+    String? phone,
+  }) {
+    return User(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      password: password ?? this.password,
+      role: role ?? this.role,
+      phone: phone ?? this.phone,
     );
   }
 }

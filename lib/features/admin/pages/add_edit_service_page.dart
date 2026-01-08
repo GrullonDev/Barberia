@@ -52,7 +52,9 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {
@@ -64,9 +66,7 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
           : _descCtrl.text.trim();
 
       final Service newService = Service(
-        id:
-            widget.service?.id ??
-            DateTime.now().millisecondsSinceEpoch.toString(),
+        id: widget.service?.id,
         name: name,
         price: price,
         durationMinutes: duration,
@@ -95,7 +95,9 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -158,7 +160,9 @@ class _AddEditServicePageState extends ConsumerState<AddEditServicePage> {
                   );
                 }).toList(),
                 onChanged: (ServiceCategory? v) {
-                  if (v != null) setState(() => _selectedCategory = v);
+                  if (v != null) {
+                    setState(() => _selectedCategory = v);
+                  }
                 },
               ),
               const SizedBox(height: 12),

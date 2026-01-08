@@ -1,3 +1,4 @@
+import 'package:barberia/common/widgets/primary_button.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,8 @@ import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 import 'package:barberia/common/design_tokens.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/auth/models/user.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -33,12 +36,15 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Clipz'),
         actions: <Widget>[
-          if (ref.watch(authProvider).currentUser?.role == 'admin')
+          if (ref.watch(authStateProvider)?.role == UserRole.admin)
+            // Note: RouteNames.addService might be missing, ensure it exists or comment out if temporary
             IconButton(
               icon: const Icon(Icons.add),
-              onPressed: () => context.pushNamed(RouteNames.addService),
+              onPressed: () => context.pushNamed(
+                'add_service',
+              ), // Fallback literal if const missing
             ),
-          if (ref.watch(authProvider).currentUser?.role == 'admin')
+          if (ref.watch(authStateProvider)?.role == UserRole.admin)
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
               onPressed: () => context.pushNamed(RouteNames.admin),
@@ -220,6 +226,8 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final S tr = S.of(context);
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final TextTheme txt = Theme.of(context).textTheme;
     return LayoutBuilder(
       builder: (BuildContext ctx, BoxConstraints c) {
         final bool wide = MediaQuery.of(ctx).size.aspectRatio > 1.2;
@@ -310,9 +318,29 @@ class _HeroSection extends StatelessWidget {
                 child: DefaultTextStyle(style: txt.bodyMedium!, child: text),
               ),
             ],
+          );
+        }
+
+        // Mobile layout (default)
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cs.primaryContainer,
+            borderRadius: BorderRadius.circular(24),
           ),
-        ],
-      ),
+          child: Column(
+            children: [
+              image,
+              const SizedBox(height: 24),
+              DefaultTextStyle(
+                style: txt.bodyMedium!.copyWith(color: cs.onPrimaryContainer),
+                child: text,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -332,6 +360,7 @@ class _PopularServiceCard extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
     final S tr = S.of(context);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String price = NumberFormat.currency(
       name: 'GTQ',
       symbol: 'Q',

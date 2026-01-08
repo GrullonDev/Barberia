@@ -88,7 +88,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   Future<void> _openSlotsSheet(final DateTime day) async {
     final BookingDraft draft = ref.read(bookingDraftProvider);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     // Pre-generate slots (would be fetched from backend in real app)
     final Map<DateTime, SlotState> slots = _generateSlots(day);
     final List<MapEntry<DateTime, SlotState>> morning = slots.entries
@@ -109,6 +109,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       ),
       builder: (final BuildContext ctx) {
         final S tr = S.of(ctx);
+        final ColorScheme cs = Theme.of(ctx).colorScheme;
         final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
         // Simulated loading future
         final Future<void> loadFuture = Future<void>.delayed(
@@ -268,7 +269,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     if (picked != null) {
       ref.read(bookingDraftProvider.notifier).setDate(day);
       ref.read(bookingDraftProvider.notifier).setDateTime(picked!);
-      if (mounted) context.pushNamed(RouteNames.details);
+      if (mounted) {
+        context.pushNamed(RouteNames.details);
+      }
     } else if (draft.date == null) {
       // Si el usuario cierra sin elegir, mantenemos la fecha seleccionada anterior.
       setState(() {});
@@ -420,8 +423,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
                     child: _SlotLegend(),
                   ),
                   const SizedBox(height: 80), // Spacer for bottom summary
@@ -542,7 +545,6 @@ class _SlotLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final S tr = S.of(context);
     return Wrap(
       runSpacing: 8,
@@ -550,14 +552,18 @@ class _SlotLegend extends StatelessWidget {
       alignment: WrapAlignment.center,
       children: <Widget>[
         _LegendItem(
-          color: cs.surfaceContainerHigh,
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           label: tr.calendar_legend_available,
-          color: AppColors.primaryContainer,
-          textColor: AppColors.onPrimaryContainer,
         ),
-        _LegendItem(label: tr.calendar_legend_occupied, opacity: 0.5),
         _LegendItem(
-          color: cs.tertiaryContainer,
+          color: Theme.of(context)
+              .colorScheme
+              .tertiaryContainer, // Placeholder for occupied color if needed or use specific color
+          label: tr.calendar_legend_occupied,
+          opacity: 0.5,
+        ),
+        _LegendItem(
+          color: Theme.of(context).colorScheme.tertiaryContainer,
           label: tr.calendar_legend_hold,
         ),
       ],
@@ -569,14 +575,17 @@ class _LegendItem extends StatelessWidget {
   const _LegendItem({
     required this.label,
     required this.color,
-    required this.label,
     this.opacity = 1,
   });
   final String label;
+  final Color color;
   final double opacity;
 
   @override
   Widget build(BuildContext context) {
+    final TextStyle? style = Theme.of(
+      context,
+    ).textTheme.bodyMedium; // Define style
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[

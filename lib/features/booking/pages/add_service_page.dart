@@ -6,7 +6,7 @@ class AddServicePage extends StatefulWidget {
   const AddServicePage({super.key});
 
   @override
-  _AddServicePageState createState() => _AddServicePageState();
+  State<AddServicePage> createState() => _AddServicePageState();
 }
 
 class _AddServicePageState extends State<AddServicePage> {
@@ -20,9 +20,7 @@ class _AddServicePageState extends State<AddServicePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Service'),
-      ),
+      appBar: AppBar(title: const Text('Add Service')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -41,7 +39,9 @@ class _AddServicePageState extends State<AddServicePage> {
               ),
               TextFormField(
                 controller: _durationController,
-                decoration: const InputDecoration(labelText: 'Duration (minutes)'),
+                decoration: const InputDecoration(
+                  labelText: 'Duration (minutes)',
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -79,13 +79,15 @@ class _AddServicePageState extends State<AddServicePage> {
                   });
                 },
                 items: ServiceCategory.values
-                    .map<DropdownMenuItem<ServiceCategory>>(
-                        (ServiceCategory value) {
-                  return DropdownMenuItem<ServiceCategory>(
-                    value: value,
-                    child: Text(value.toString().split('.').last),
-                  );
-                }).toList(),
+                    .map<DropdownMenuItem<ServiceCategory>>((
+                      ServiceCategory value,
+                    ) {
+                      return DropdownMenuItem<ServiceCategory>(
+                        value: value,
+                        child: Text(value.toString().split('.').last),
+                      );
+                    })
+                    .toList(),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -99,7 +101,9 @@ class _AddServicePageState extends State<AddServicePage> {
                       category: _selectedCategory,
                     );
                     await DatabaseHelper.instance.create(newService);
-                    Navigator.of(context).pop();
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
                   }
                 },
                 child: const Text('Add Service'),

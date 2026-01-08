@@ -1,4 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart';
 
 class NotificationService {
   static Future<void> sendWhatsApp({
@@ -19,7 +20,7 @@ class NotificationService {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       // Fallback o manejo de error silencioso
-      print('No se pudo abrir WhatsApp para $cleanPhone');
+      debugPrint('No se pudo abrir WhatsApp para $cleanPhone');
     }
   }
 
@@ -40,7 +41,7 @@ class NotificationService {
     if (await canLaunchUrl(emailLaunchUri)) {
       await launchUrl(emailLaunchUri);
     } else {
-      print('No se pudo abrir cliente de correo para $email');
+      debugPrint('No se pudo abrir cliente de correo para $email');
     }
   }
 

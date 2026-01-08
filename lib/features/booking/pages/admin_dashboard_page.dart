@@ -82,7 +82,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.5),
+                color: AppColors.primary.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               selectedDecoration: const BoxDecoration(
@@ -134,7 +134,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                     ),
                     title: Text(booking.customerName),
                     subtitle: Text(
-                      '${booking.service.name}\n${booking.customerPhone ?? "Sin teléfono"}',
+                      '${booking.serviceName}\n${booking.customerPhone ?? "Sin teléfono"}',
                     ),
                     isThreeLine: true,
                     trailing: IconButton(

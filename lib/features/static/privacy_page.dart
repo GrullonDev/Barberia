@@ -10,15 +10,20 @@ import 'package:barberia/l10n/app_localizations.dart';
 /// Simple placeholder privacy policy screen.
 /// Later this will be replaced / enriched with real company policy content.
 // Placeholder future for remote markdown (disabled until dependency added)
-final privacyMarkdownProvider = FutureProvider.autoDispose<String?>((ref) async {
+final privacyMarkdownProvider = FutureProvider.autoDispose<String?>((
+  ref,
+) async {
   // Simple remote fetch (replace URL with real endpoint). If fails returns null.
-  const String url = 'https://raw.githubusercontent.com/github/gitignore/main/README.md'; // placeholder file
+  const String url =
+      'https://raw.githubusercontent.com/github/gitignore/main/README.md'; // placeholder file
   try {
     final http.Response resp = await http.get(Uri.parse(url));
     if (resp.statusCode == 200 && resp.body.isNotEmpty) {
       return utf8.decode(resp.bodyBytes);
     }
-  } catch (_) {/* ignore */}
+  } catch (_) {
+    /* ignore */
+  }
   return null;
 });
 
@@ -40,14 +45,16 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
 
   @override
   void dispose() {
-  // _savedOffset = _scroll.offset; // potential persistence spot
+    // _savedOffset = _scroll.offset; // potential persistence spot
     _scroll.dispose();
     super.dispose();
   }
 
   void _jumpTo(String key) {
     final BuildContext? ctx = _sectionKeys[key]?.currentContext;
-    if (ctx == null) return;
+    if (ctx == null) {
+      return;
+    }
     Scrollable.ensureVisible(
       ctx,
       duration: const Duration(milliseconds: 380),
@@ -72,11 +79,20 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
               child: Row(
                 children: <Widget>[
-                  _IndexChip(label: tr.privacy_prelim_header, onTap: () => _jumpTo('header')),
+                  _IndexChip(
+                    label: tr.privacy_prelim_header,
+                    onTap: () => _jumpTo('header'),
+                  ),
                   const SizedBox(width: 8),
-                  _IndexChip(label: tr.privacy_principles_title, onTap: () => _jumpTo('principles')),
+                  _IndexChip(
+                    label: tr.privacy_principles_title,
+                    onTap: () => _jumpTo('principles'),
+                  ),
                   const SizedBox(width: 8),
-                  _IndexChip(label: tr.privacy_note_title, onTap: () => _jumpTo('note')),
+                  _IndexChip(
+                    label: tr.privacy_note_title,
+                    onTap: () => _jumpTo('note'),
+                  ),
                 ],
               ),
             ),
@@ -89,9 +105,9 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
                       controller: _scroll,
                       data: remote,
                       selectable: true,
-                      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                        p: txt.bodyMedium,
-                      ),
+                      styleSheet: MarkdownStyleSheet.fromTheme(
+                        Theme.of(context),
+                      ).copyWith(p: txt.bodyMedium),
                     );
                   }
                   return ListView(
@@ -100,14 +116,24 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
                     children: <Widget>[
                       Container(
                         key: _sectionKeys['header'],
-                        child: Text(tr.privacy_prelim_header, style: txt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                        child: Text(
+                          tr.privacy_prelim_header,
+                          style: txt.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(tr.privacy_prelim_body, style: txt.bodyMedium),
                       const SizedBox(height: 28),
                       Container(
                         key: _sectionKeys['principles'],
-                        child: Text(tr.privacy_principles_title, style: txt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        child: Text(
+                          tr.privacy_principles_title,
+                          style: txt.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _Bullet(tr.privacy_principle_minimum),
@@ -117,26 +143,44 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
                       const SizedBox(height: 28),
                       Container(
                         key: _sectionKeys['note'],
-                        child: Text(tr.privacy_note_title, style: txt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        child: Text(
+                          tr.privacy_note_title,
+                          style: txt.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(tr.privacy_note_body, style: txt.bodySmall),
                       const SizedBox(height: 40),
                       if (dark)
                         Center(
-                          child: Icon(Icons.shield_moon, size: 72, color: Theme.of(context).colorScheme.primary),
+                          child: Icon(
+                            Icons.shield_moon,
+                            size: 72,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         )
                       else
                         Center(
-                          child: Icon(Icons.shield_outlined, size: 72, color: Theme.of(context).colorScheme.primary),
+                          child: Icon(
+                            Icons.shield_outlined,
+                            size: 72,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       const SizedBox(height: 28),
                       Row(
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              tr.privacy_version_label('0.1', DateFormat('yyyy-MM-dd').format(DateTime.now())),
-                              style: txt.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                              tr.privacy_version_label(
+                                '0.1',
+                                DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                              ),
+                              style: txt.bodySmall?.copyWith(
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -146,7 +190,7 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
                             label: Text(tr.privacy_acknowledge),
                           ),
                         ],
-                      )
+                      ),
                     ],
                   );
                 },
@@ -155,7 +199,12 @@ class _PrivacyPageState extends ConsumerState<PrivacyPage> {
                   controller: _scroll,
                   padding: const EdgeInsets.all(20),
                   children: <Widget>[
-                    Text(tr.privacy_prelim_header, style: txt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      tr.privacy_prelim_header,
+                      style: txt.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Text(tr.privacy_prelim_body, style: txt.bodyMedium),
                   ],
@@ -183,7 +232,7 @@ class _Bullet extends StatelessWidget {
             padding: EdgeInsets.only(top: 4),
             child: Icon(Icons.circle, size: 8),
           ),
-            const SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
           ),
@@ -212,7 +261,9 @@ class _IndexChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
     );

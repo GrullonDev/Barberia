@@ -8,11 +8,11 @@ class Service {
   final bool isActive;
 
   const Service({
-    this.id,
     required this.name,
     required this.durationMinutes,
     required this.price,
     required this.category,
+    this.id,
     this.extendedDescription,
     this.isActive = true,
   });
@@ -31,7 +31,7 @@ class Service {
 
   factory Service.fromMap(Map<String, dynamic> map) {
     return Service(
-      id: map['id'] as String,
+      id: map['id'] as int?,
       name: map['name'] as String,
       durationMinutes: map['durationMinutes'] as int,
       price: (map['price'] as num).toDouble(),
@@ -41,6 +41,30 @@ class Service {
       ),
       extendedDescription: map['extendedDescription'] as String?,
       isActive: (map['isActive'] as int) == 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() => toMap();
+
+  factory Service.fromJson(Map<String, dynamic> json) => Service.fromMap(json);
+
+  Service copyWith({
+    int? id,
+    String? name,
+    int? durationMinutes,
+    double? price,
+    ServiceCategory? category,
+    String? extendedDescription,
+    bool? isActive,
+  }) {
+    return Service(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      price: price ?? this.price,
+      category: category ?? this.category,
+      extendedDescription: extendedDescription ?? this.extendedDescription,
+      isActive: isActive ?? this.isActive,
     );
   }
 }

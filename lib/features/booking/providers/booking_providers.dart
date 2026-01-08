@@ -1,5 +1,5 @@
-import 'package:barberia/common/database_helper.dart';
-import 'package:barberia/common/services/notification_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
@@ -38,7 +38,10 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
     notes: notes,
   );
 
-  void reset() => state = BookingDraft.empty();
+  void setService(Service service) => state = state.copyWith(service: service);
+  void setDate(DateTime date) => state = state.copyWith(date: date);
+  void setDateTime(DateTime dateTime) =>
+      state = state.copyWith(dateTime: dateTime);
 }
 
 final StateNotifierProvider<BookingDraftNotifier, BookingDraft>
@@ -144,7 +147,9 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   bool hasConflict(DateTime start, Duration duration) {
     final DateTime end = start.add(duration);
     for (final Booking b in state) {
-      if (b.status == BookingStatus.canceled) continue;
+      if (b.status == BookingStatus.canceled) {
+        continue;
+      }
       final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
       if (overlap) {
         return true;

@@ -78,7 +78,7 @@ class ManageServicesPage extends ConsumerWidget {
                         if (confirm == true) {
                           await ref
                               .read(serviceRepositoryProvider)
-                              .deleteService(service.id);
+                              .deleteService(service.id!);
                           ref.invalidate(servicesAsyncProvider);
                         }
                       },

@@ -12,7 +12,7 @@ linter:
     always_put_control_body_on_new_line: true
     always_put_required_named_parameters_first: true
     always_require_non_null_named_parameters: true
-    always_specify_types: true
+    always_specify_types: false
     require_trailing_commas: true
     prefer_single_quotes: true
 
