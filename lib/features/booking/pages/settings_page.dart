@@ -304,7 +304,7 @@ class SettingsPage extends ConsumerWidget {
                 Navigator.pop(ctx);
               },
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: MediaQuery.of(ctx).padding.bottom + 16),
           ],
         );
       },
@@ -346,7 +346,7 @@ class SettingsPage extends ConsumerWidget {
                 _launchUrl('mailto:support@barberia.com');
               },
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: MediaQuery.of(ctx).padding.bottom + 16),
           ],
         );
       },

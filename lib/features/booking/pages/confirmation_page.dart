@@ -317,6 +317,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                     ),
                   ],
                 ),
+                SizedBox(
+                  height: MediaQuery.of(context).padding.bottom + 80,
+                ), // Space for navigation bar
               ],
             ),
           ),

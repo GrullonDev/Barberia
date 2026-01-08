@@ -59,7 +59,9 @@ class ResponsiveHelper {
 
   /// Get number of columns for grid
   static int getGridColumns(BuildContext context) {
-    if (isDesktop(context)) return 4;
+    if (isDesktop(context)) {
+      return 4;
+    }
     return isMobile(context) ? 2 : 3;
   }
 

@@ -138,7 +138,9 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   bool hasConflict(DateTime start, Duration duration) {
     final DateTime end = start.add(duration);
     for (final Booking b in state) {
-      if (b.status == BookingStatus.canceled) continue;
+      if (b.status == BookingStatus.canceled) {
+        continue;
+      }
       final bool overlap = start.isBefore(b.endTime) && end.isAfter(b.dateTime);
       if (overlap) {
         return true;

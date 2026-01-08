@@ -12,6 +12,7 @@ import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/l10n/app_localizations.dart';
+import 'package:barberia/common/utils/responsive_helper.dart';
 
 class CalendarPage extends ConsumerStatefulWidget {
   const CalendarPage({super.key});
@@ -101,6 +102,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     DateTime? picked;
     await showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -208,10 +210,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
+              left: ResponsiveHelper.getResponsivePadding(context),
+              right: ResponsiveHelper.getResponsivePadding(context),
               top: 8,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              bottom:
+                  MediaQuery.of(ctx).viewInsets.bottom +
+                  ResponsiveHelper.getSpacing(context, mobile: 24),
             ),
             child: FutureBuilder<void>(
               future: loadFuture,
@@ -324,7 +328,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           SliverToBoxAdapter(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveHelper.getResponsivePadding(context),
+                vertical: 12,
+              ),
               child: Row(
                 children: <Widget>[
                   _QuickDateChip(
@@ -455,6 +462,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: _SlotLegend(),
                   ),
+                  SizedBox(
+                    height: MediaQuery.of(context).padding.bottom + 80,
+                  ), // Space for navigation bar
                 ],
               ),
             ),
@@ -473,9 +483,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     offset: const Offset(0, -5),
                   ),
                 ],
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              margin: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                MediaQuery.of(context).padding.bottom +
+                    100, // Float above nav bar
               ),
               child: SafeArea(
                 child: Row(

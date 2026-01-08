@@ -27,6 +27,7 @@ class ServiceSelectPage extends ConsumerWidget {
     Future<void> showDetails(final Service s) async {
       await showModalBottomSheet<void>(
         context: context,
+        useRootNavigator: true,
         showDragHandle: true,
         isScrollControlled: true,
         backgroundColor: cs.surface,
@@ -36,10 +37,13 @@ class ServiceSelectPage extends ConsumerWidget {
         builder: (final BuildContext ctx) {
           return Padding(
             padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
+              left: ResponsiveHelper.getResponsivePadding(context),
+              right: ResponsiveHelper.getResponsivePadding(context),
               top: 8,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
+              bottom:
+                  MediaQuery.of(ctx).viewInsets.bottom +
+                  MediaQuery.of(ctx).padding.bottom +
+                  ResponsiveHelper.getSpacing(context, mobile: 32),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -156,7 +160,12 @@ class ServiceSelectPage extends ConsumerWidget {
             children: <Widget>[
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: EdgeInsets.fromLTRB(
+                  ResponsiveHelper.getResponsivePadding(context),
+                  12,
+                  ResponsiveHelper.getResponsivePadding(context),
+                  8,
+                ),
                 child: Row(
                   children: <Widget>[
                     _CategoryChip(
@@ -201,8 +210,13 @@ class ServiceSelectPage extends ConsumerWidget {
               else
                 Expanded(
                   child: GridView.builder(
-                    padding: EdgeInsets.all(
-                      ResponsiveHelper.getResponsivePadding(context),
+                    padding: EdgeInsets.only(
+                      left: ResponsiveHelper.getResponsivePadding(context),
+                      right: ResponsiveHelper.getResponsivePadding(context),
+                      top: ResponsiveHelper.getResponsivePadding(context),
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
+                          80, // Space for navigation bar
                     ),
                     itemCount: filtered.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -287,12 +301,12 @@ class _ServicesGridSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.85,
+      padding: EdgeInsets.all(ResponsiveHelper.getResponsivePadding(context)),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveHelper.getGridColumns(context),
+        crossAxisSpacing: ResponsiveHelper.getSpacing(context, mobile: 16),
+        mainAxisSpacing: ResponsiveHelper.getSpacing(context, mobile: 16),
+        childAspectRatio: 0.95,
       ),
       itemCount: 6,
       itemBuilder: (_, __) => Container(
