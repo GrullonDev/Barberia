@@ -51,16 +51,22 @@ class Service {
 
   factory Service.fromMap(Map<String, dynamic> map) {
     return Service(
-      id: map['id'] as int?,
-      name: map['name'] as String,
-      durationMinutes: map['durationMinutes'] as int,
-      price: (map['price'] as num).toDouble(),
+      id: map['id'] is String
+          ? int.tryParse(map['id'] as String)
+          : map['id'] as int?,
+      name: map['name'] as String? ?? '',
+      durationMinutes: map['durationMinutes'] is String
+          ? (int.tryParse(map['durationMinutes'] as String) ?? 0)
+          : (map['durationMinutes'] as int? ?? 0),
+      price: (map['price'] as num?)?.toDouble() ?? 0.0,
       category: ServiceCategory.values.firstWhere(
-        (ServiceCategory e) => e.name == (map['category'] as String),
+        (ServiceCategory e) => e.name == (map['category'] as String?),
         orElse: () => ServiceCategory.hair,
       ),
       extendedDescription: map['extendedDescription'] as String?,
-      isActive: (map['isActive'] as int) == 1,
+      isActive: map['isActive'] is int
+          ? (map['isActive'] as int) == 1
+          : (map['isActive'] as bool? ?? true),
     );
   }
 

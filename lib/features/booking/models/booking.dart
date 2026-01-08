@@ -52,16 +52,20 @@ class Booking {
 
   factory Booking.fromMap(Map<String, dynamic> map, {Service? linkedService}) {
     return Booking(
-      id: map['id'] as String,
-      userId: map['userId'] as String? ?? 'guest',
-      serviceId: map['serviceId'] as int,
-      serviceName: map['serviceName'] as String,
-      dateTime: DateTime.parse(map['date'] as String),
+      id: map['id']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? 'guest',
+      serviceId: map['serviceId'] is String
+          ? (int.tryParse(map['serviceId'] as String) ?? 0)
+          : (map['serviceId'] as int? ?? 0),
+      serviceName: map['serviceName']?.toString() ?? 'Servicio',
+      dateTime: map['date'] != null
+          ? DateTime.tryParse(map['date'] as String) ?? DateTime.now()
+          : DateTime.now(),
       status: BookingStatus.values.firstWhere(
-        (e) => e.name == (map['status'] as String),
+        (e) => e.name == (map['status'] as String?),
         orElse: () => BookingStatus.active,
       ),
-      customerName: map['customerName'] as String,
+      customerName: map['customerName']?.toString() ?? '',
       customerEmail: map['customerEmail'] as String?,
       customerPhone: map['customerPhone'] as String?,
       notes: map['notes'] as String?,

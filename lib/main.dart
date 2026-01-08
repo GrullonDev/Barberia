@@ -1,3 +1,4 @@
+import 'package:barberia/common/utils/list_users_script.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -34,6 +35,7 @@ Future<void> main() async {
     print('----------------------------------');
   }
   // --- FIN DE LA TAREA TEMPORAL ---
+  await listAllUsers();
 
   // --- LISTAR USUARIOS CLIENTES ---
   // Este script lista solo los usuarios con rol 'client'
