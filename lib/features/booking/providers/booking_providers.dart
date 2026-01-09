@@ -7,6 +7,8 @@ import 'package:barberia/features/booking/repositories/service_repository.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/core/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 // Repositories
 final Provider<BookingRepository> bookingRepositoryProvider =
@@ -35,11 +37,63 @@ final FutureProvider<List<Service>> servicesAsyncProvider =
       return ref.watch(serviceRepositoryProvider).getServices();
     });
 
-// Booking Draft (client-side state, no DB needed until confirm)
+// Booking Draft (client-side state, persisted in SharedPreferences)
 class BookingDraftNotifier extends StateNotifier<BookingDraft> {
-  BookingDraftNotifier() : super(BookingDraft.empty());
+  static const String _kDraftKey = 'booking_draft_data';
 
-  void reset() => state = BookingDraft.empty();
+  BookingDraftNotifier() : super(BookingDraft.empty()) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? jsonStr = prefs.getString(_kDraftKey);
+      if (jsonStr != null) {
+        final Map<String, dynamic> map =
+            json.decode(jsonStr) as Map<String, dynamic>;
+
+        // Handle service Reconstruction
+        Service? service;
+        if (map['service'] != null) {
+          service = Service.fromMap(map['service'] as Map<String, dynamic>);
+        }
+
+        state = BookingDraft(
+          service: service,
+          date: map['date'] != null
+              ? DateTime.tryParse(map['date'] as String)
+              : null,
+          dateTime: map['dateTime'] != null
+              ? DateTime.tryParse(map['dateTime'] as String)
+              : null,
+          name: map['name'] as String?,
+          phone: map['phone'] as String?,
+          email: map['email'] as String?,
+          notes: map['notes'] as String?,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persist() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final Map<String, dynamic> data = {
+      'service': state.service?.toMap(),
+      'date': state.date?.toIso8601String(),
+      'dateTime': state.dateTime?.toIso8601String(),
+      'name': state.name,
+      'phone': state.phone,
+      'email': state.email,
+      'notes': state.notes,
+    };
+    await prefs.setString(_kDraftKey, json.encode(data));
+  }
+
+  void reset() {
+    state = BookingDraft.empty();
+    _persist();
+  }
 
   void setCustomerInfo({
     required final String name,
@@ -53,12 +107,23 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
       email: email,
       notes: notes,
     );
+    _persist();
   }
 
-  void setService(Service service) => state = state.copyWith(service: service);
-  void setDate(DateTime date) => state = state.copyWith(date: date);
-  void setDateTime(DateTime dateTime) =>
-      state = state.copyWith(dateTime: dateTime);
+  void setService(Service service) {
+    state = state.copyWith(service: service);
+    _persist();
+  }
+
+  void setDate(DateTime date) {
+    state = state.copyWith(date: date);
+    _persist();
+  }
+
+  void setDateTime(DateTime dateTime) {
+    state = state.copyWith(dateTime: dateTime);
+    _persist();
+  }
 }
 
 // Bookings List (Synced with DB)
@@ -73,7 +138,12 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   Future<void> _loadBookings() async {
     if (_user == null) return;
     try {
-      final bookings = await _repository.getBookings(_user.id);
+      final List<Booking> bookings;
+      if (_user.role == UserRole.admin || _user.role == UserRole.barber) {
+        bookings = await _repository.getAllBookingsAdmin();
+      } else {
+        bookings = await _repository.getBookings(_user.id);
+      }
       state = bookings;
     } catch (e) {
       // Handle error

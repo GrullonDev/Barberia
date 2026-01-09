@@ -195,7 +195,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
   Widget build(final BuildContext context) {
     final BookingDraft draft = ref.watch(bookingDraftProvider);
     final bool optIn = ref.watch(reminderOptInProvider);
-    _acceptRemindersCache ??= optIn; // inicializar una vez
+    // Use a post-frame callback or similar to initialize if we really need a local cache,
+    // but here it's cleaner to just use the provider value directly if we don't need a separate state.
+    final bool currentOptIn = _acceptRemindersCache ?? optIn;
     final bool ready = draft.dateTime != null && draft.service != null;
     String? disabledReason;
     if (!ready) {
@@ -246,7 +248,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       // Animación de éxito antes de navegar.
       // Capture navigators early.
       final NavigatorState rootNav = Navigator.of(context, rootNavigator: true);
-      void goToConfirmation() => context.pushNamed(RouteNames.confirmation);
+      void goToConfirmation() => context.goNamed(RouteNames.confirmation);
       showGeneralDialog(
         context: context,
         barrierDismissible: false,
@@ -429,7 +431,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   Checkbox(
-                    value: _acceptRemindersCache ?? false,
+                    value: currentOptIn,
                     onChanged: (final bool? v) {
                       setState(() => _acceptRemindersCache = v ?? false);
                       ref.read(reminderOptInProvider.notifier).set(v ?? false);

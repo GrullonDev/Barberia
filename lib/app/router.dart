@@ -51,18 +51,19 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
       }
 
       // Handle authenticated users
-      final bool isAdmin = authState.role == UserRole.admin;
+      final bool hasAdminAccess =
+          authState.role == UserRole.admin || authState.role == UserRole.barber;
       final bool isAdminPath = state.uri.path.startsWith('/admin');
 
       if (isAuthRoute) {
-        return isAdmin ? '/admin' : '/';
+        return hasAdminAccess ? '/admin' : '/';
       }
 
-      if (isAdmin && !isAdminPath) {
-        return '/admin'; // Force admin to admin section
+      if (hasAdminAccess && !isAdminPath && state.uri.path == '/') {
+        return '/admin'; // Force staff to admin section by default if at root
       }
 
-      if (!isAdmin && isAdminPath) {
+      if (!hasAdminAccess && isAdminPath) {
         return '/'; // Block client from admin section
       }
 

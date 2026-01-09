@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:barberia/core/database/database_helper.dart';
 import 'package:barberia/features/booking/models/service.dart';
@@ -13,7 +14,16 @@ class ServiceRepository {
       whereArgs: onlyActive ? [1] : null,
     );
 
-    return List.generate(maps.length, (i) => Service.fromMap(maps[i]));
+    final List<Service> services = List.generate(
+      maps.length,
+      (i) => Service.fromMap(maps[i]),
+    );
+    for (final s in services) {
+      if (kDebugMode) {
+        print('Service loaded: ${s.name} (ID: ${s.id})');
+      }
+    }
+    return services;
   }
 
   Future<void> addService(Service service) async {

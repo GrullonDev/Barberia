@@ -1,4 +1,4 @@
-enum UserRole { admin, client }
+enum UserRole { admin, barber, client }
 
 class User {
   final String id;

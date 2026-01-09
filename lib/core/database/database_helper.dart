@@ -138,6 +138,16 @@ class DatabaseHelper {
 
     // Seed Initial Services - moved to _seedServices
     // Keep admin creation here
+    // Seed Barber User
+    await db.insert('users', <String, Object?>{
+      'id': 'barber_01',
+      'username': 'Juan Barbero',
+      'email': 'barber@barberia.com',
+      'password': 'barber',
+      'role': 'barber',
+      'phone': '555-1111',
+    });
+
     await _seedServices(db);
 
     if (kDebugMode) {

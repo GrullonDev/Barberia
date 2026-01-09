@@ -1,16 +1,19 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
 
+import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:barberia/app/router.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/auth/models/user.dart' as auth_user;
 import 'package:barberia/common/config/location_config.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
@@ -36,11 +39,11 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     }
     _enqueued = true;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final List<Booking> current = ref.read(bookingsProvider);
       if (!current.any((final Booking b) => b.id == _booking!.id)) {
         ref.read(bookingsProvider.notifier).add(_booking!);
-
         ref.read(bookingDraftProvider.notifier).reset();
       }
     });
@@ -56,11 +59,12 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           draft.dateTime != null &&
           draft.name != null &&
           (draft.phone != null || draft.email != null)) {
+        final auth_user.User? currentUser = ref.read(authStateProvider);
         _booking = Booking(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          userId: 'guest_01', // Placeholder until Auth is implemented
-          serviceId: draft.service!.id!,
-          serviceName: draft.service!.name,
+          userId: currentUser?.id ?? 'guest_01',
+          serviceId: draft.service?.id ?? 0,
+          serviceName: draft.service?.name ?? 'Servicio',
           service: draft.service,
           dateTime: draft.dateTime!,
           customerName: draft.name!,
@@ -91,7 +95,10 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     if (booking == null) {
       return Scaffold(body: Center(child: Text(tr.confirm_incomplete)));
     }
-    final String qrData = _qrData!;
+    final String? qrData = _qrData;
+    if (qrData == null) {
+      return Scaffold(body: Center(child: Text(tr.confirm_incomplete)));
+    }
     String two(int v) => v.toString().padLeft(2, '0');
     final DateTime start = booking.dateTime;
     final DateTime end = booking.endTime;
@@ -287,29 +294,30 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () async {
-                          // Avoid using BuildContext after awaits except for localization already captured.
-                          final String subject =
-                              tr.confirm_add_calendar_subject;
-                          final String body = tr.confirm_add_calendar_body;
-                          final String ics = booking.toIcsString();
-                          final Directory tempDir =
-                              await getTemporaryDirectory();
-                          final String path =
-                              '${tempDir.path}/cita-${booking.id}.ics';
-                          final File icsFile = File(path);
-                          await icsFile.writeAsString(ics);
-                          await Share.shareXFiles(
-                            <XFile>[
-                              XFile(
-                                path,
-                                mimeType: 'text/calendar',
-                                name: 'cita-${booking.id}.ics',
-                              ),
-                            ],
-                            subject: subject,
-                            text: body,
+                        onPressed: () {
+                          final Event event = Event(
+                            title: booking.serviceName,
+                            description:
+                                'Cita en Barbería para ${booking.customerName}',
+                            location: LocationConfig.address,
+                            startDate: booking.dateTime,
+                            endDate: booking.endTime,
+                            allDay: false,
+                            iosParams: const IOSParams(
+                              reminder: Duration(minutes: 60),
+                              url:
+                                  'https://www.google.com/maps/search/?api=1&query=Av.+Principal+123',
+                            ),
+                            androidParams: const AndroidParams(
+                              emailInvites: [], // Can add customer email here
+                            ),
                           );
+                          if (kDebugMode) {
+                            print(
+                              'Intentando añadir evento al calendario: ${event.title}',
+                            );
+                          }
+                          Add2Calendar.addEvent2Cal(event);
                         },
                         icon: const Icon(Icons.event_available),
                         label: Text(tr.confirm_add_calendar),
@@ -317,9 +325,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                     ),
                   ],
                 ),
-                SizedBox(
-                  height: MediaQuery.of(context).padding.bottom + 80,
-                ), // Space for navigation bar
+                const SizedBox(
+                  height: 100,
+                ), // Fixed space for bottom navigation bar and safety
               ],
             ),
           ),
