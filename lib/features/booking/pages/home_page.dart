@@ -277,13 +277,13 @@ class _HeroSection extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: cs.primary,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
+                child: Text(
                   'NUEVO',
                   style: TextStyle(
-                    color: AppColors.onPrimary,
+                    color: cs.onPrimary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1,
@@ -291,7 +291,7 @@ class _HeroSection extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Icon(Icons.stars, color: AppColors.primary, size: 20),
+              Icon(Icons.stars, color: cs.primary, size: 20),
             ],
           ),
           const SizedBox(height: 16),
@@ -313,8 +313,8 @@ class _HeroSection extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onPrimary,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.onPrimary,
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
                   vertical: 16,
@@ -351,16 +351,10 @@ class _ServiceCard extends StatelessWidget {
         width: 160,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: cs.surfaceContainer,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(AppRadius.m),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: cs.outline.withValues(alpha: 0.5)),
+          boxShadow: AppShadows.soft,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,16 +441,10 @@ class _ActionButton extends StatelessWidget {
         width: 100,
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: cs.outline.withValues(alpha: 0.5)),
+          boxShadow: AppShadows.soft,
         ),
         child: Column(
           children: [

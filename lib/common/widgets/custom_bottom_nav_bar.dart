@@ -100,12 +100,21 @@ class _NavBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return IconButton(
       onPressed: onTap,
       icon: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, color: isSelected ? Colors.white : Colors.grey, size: 28),
+          Icon(
+            icon,
+            color: isSelected
+                ? (isDark ? Colors.white : cs.primary)
+                : (isDark ? Colors.grey : Colors.grey.shade400),
+            size: 28,
+          ),
           if (isSelected) ...<Widget>[
             const SizedBox(height: 4),
             Container(
@@ -152,8 +161,8 @@ class _BNBCustomPainter extends CustomPainter {
     path.lineTo(0, size.height);
     path.close();
 
-    // Shadow?
-    canvas.drawShadow(path, Colors.black, 5, true);
+    // Shadow
+    canvas.drawShadow(path, Colors.black.withValues(alpha: 0.2), 3, true);
     canvas.drawPath(path, paint);
   }
 

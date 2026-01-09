@@ -17,6 +17,7 @@ class ProfilePage extends ConsumerWidget {
         body: Center(child: Text('No has iniciado sesión')),
       );
     }
+    final ColorScheme cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Mi Perfil')),
       body: ListView(
@@ -25,13 +26,13 @@ class ProfilePage extends ConsumerWidget {
           Center(
             child: CircleAvatar(
               radius: 50,
-              backgroundColor: AppColors.primaryContainer,
+              backgroundColor: cs.primaryContainer,
               child: Text(
                 user.name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.onPrimaryContainer,
+                  color: cs.onPrimaryContainer,
                 ),
               ),
             ),
@@ -130,6 +131,25 @@ class _ProfileItem extends StatelessWidget {
                   ],
                 ),
               ),
+              // New content added here based on the instruction's snippet
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'NUEVO',
+                  style: TextStyle(
+                    color: cs.onPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.stars, color: cs.primary, size: 20),
             ],
           ),
         ),
@@ -137,7 +157,7 @@ class _ProfileItem extends StatelessWidget {
           Divider(
             height: 1,
             indent: 60,
-            color: cs.outlineVariant.withValues(alpha: 0.3),
+            color: cs.outlineVariant.withOpacity(0.3),
           ),
       ],
     );

@@ -15,6 +15,7 @@ import 'package:barberia/app/router.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/auth/models/user.dart' as auth_user;
 import 'package:barberia/common/config/location_config.dart';
+import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
@@ -73,16 +74,20 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           notes: draft.notes,
         );
 
-        const String address = 'Av. Principal 123, Ciudad';
+        String two(int v) => v.toString().padLeft(2, '0');
+        const String address = LocationConfig.address;
 
-        const double lat = 14.503056;
-        const double lng = -90.577228;
-        final String encodedAddress = Uri.encodeComponent(address);
-        final String baseMapsUrl =
-            'https://www.google.com/maps/search/?api=1&query=$encodedAddress&ll=$lat,$lng';
-        final String fragment =
-            'appt=${_booking!.id}&svc=${Uri.encodeComponent(_booking!.serviceName)}&dt=${Uri.encodeComponent(_booking!.dateTime.toIso8601String())}';
-        _qrData = '$baseMapsUrl#$fragment';
+        final String qrContent =
+            '''
+            RESERVA CLIPZ
+            ID: APPT-${_booking!.id.substring(_booking!.id.length - 4)}
+            Servicio: ${_booking!.serviceName}
+            Fecha: ${two(_booking!.dateTime.day)}/${two(_booking!.dateTime.month)}/${_booking!.dateTime.year}
+            Hora: ${two(_booking!.dateTime.hour)}:${two(_booking!.dateTime.minute)}
+            Cliente: ${_booking!.customerName}
+            ${_booking!.customerPhone != null ? 'Tel: ${_booking!.customerPhone}\n' : ''}${_booking!.customerEmail != null ? 'Email: ${_booking!.customerEmail}\n' : ''}${_booking!.notes != null ? 'Notas: ${_booking!.notes}\n' : ''}Ub: $address
+            ''';
+        _qrData = qrContent;
         _ensureBookingScheduled();
       }
     }
@@ -230,6 +235,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                               label: booking.customerEmail!,
                             ),
                           _InfoChip(icon: Icons.schedule, label: '$durMin min'),
+                          if (booking.notes != null &&
+                              booking.notes!.isNotEmpty)
+                            _InfoChip(icon: Icons.note, label: booking.notes!),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -266,17 +274,44 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                   children: <Widget>[
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: null, // deshabilitado en demo
+                        onPressed: () {
+                          // Repopulate draft and go to calendar
+                          final notifier = ref.read(
+                            bookingDraftProvider.notifier,
+                          );
+                          notifier.setService(
+                            booking.service ??
+                                Service(
+                                  id: booking.serviceId,
+                                  name: booking.serviceName,
+                                  price: 0,
+                                  durationMinutes:
+                                      booking.service?.durationMinutes ?? 30,
+                                  category: ServiceCategory.hair,
+                                  isActive: true,
+                                ),
+                          );
+                          notifier.setCustomerInfo(
+                            name: booking.customerName,
+                            phone: booking.customerPhone,
+                            email: booking.customerEmail,
+                            notes: booking.notes,
+                          );
+                          context.goNamed(RouteNames.calendar);
+                        },
                         icon: const Icon(Icons.edit_calendar),
-                        label: Text(tr.appointment_rebook_soon),
+                        label: const Text('Reprogramar'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: null, // deshabilitado en demo
+                        onPressed: () => _handleCancel(context, ref, booking),
                         icon: const Icon(Icons.cancel),
-                        label: Text(tr.appointment_cancel_soon),
+                        label: const Text('Cancelar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: cs.error,
+                        ),
                       ),
                     ),
                   ],
@@ -334,6 +369,43 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleCancel(
+    BuildContext context,
+    WidgetRef ref,
+    Booking booking,
+  ) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Cancelar Cita?'),
+        content: const Text('Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Sí, Cancelar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ref.read(bookingsProvider.notifier).cancel(booking.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cita cancelada con éxito')),
+        );
+        context.goNamed(RouteNames.home);
+      }
+    }
   }
 }
 

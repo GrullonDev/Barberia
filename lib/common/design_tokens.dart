@@ -16,12 +16,15 @@ abstract class AppColors {
 
   // Neutral / Surface (Light)
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color background = Color(0xFFF8FAFC); // Slate 50
-  static const Color surfaceContainer = Color(0xFFF1F5F9); // Slate 100
-  static const Color onSurface = Color(0xFF1E293B); // Slate 800
-  static const Color onSurfaceVariant = Color(0xFF64748B); // Slate 500
-  static const Color onBackground = Color(0xFF0F172A); // Slate 900
+  static const Color background = Color(0xFFF9FAFB); // Pure & bright
+  static const Color surfaceContainer = Color(
+    0xFFFFFFFF,
+  ); // Pure white cards look better on slate bg
+  static const Color onSurface = Color(0xFF0F172A); // slate 900
+  static const Color onSurfaceVariant = Color(0xFF475569); // Slate 600
+  static const Color onBackground = Color(0xFF0F172A);
   static const Color outline = Color(0xFFE2E8F0); // Slate 200
+  static const Color outlineVariant = Color(0xFFCBD5E1); // Slate 300
 
   // Neutral / Surface (Dark - Premium)
   static const Color surfaceDark = Color(0xFF1B1F23); // Rich Dark Grey
@@ -68,25 +71,28 @@ abstract class AppRadius {
 abstract class AppShadows {
   static List<BoxShadow> get soft => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.1),
-      blurRadius: 10,
-      offset: const Offset(0, 4),
+      color: Colors.black.withValues(alpha: 0.03),
+      blurRadius: 15,
+      offset: const Offset(0, 5),
+      spreadRadius: 1,
     ),
   ];
 
   static List<BoxShadow> get medium => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.2),
-      blurRadius: 20,
+      color: Colors.black.withValues(alpha: 0.08),
+      blurRadius: 24,
       offset: const Offset(0, 8),
+      spreadRadius: -2,
     ),
   ];
 
   static List<BoxShadow> get glow => [
     BoxShadow(
-      color: AppColors.primary.withValues(alpha: 0.3),
+      color: AppColors.primary.withValues(alpha: 0.25),
       blurRadius: 20,
-      spreadRadius: 2,
+      spreadRadius: 1,
+      offset: const Offset(0, 4),
     ),
   ];
 }

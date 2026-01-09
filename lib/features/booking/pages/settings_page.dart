@@ -333,8 +333,8 @@ class SettingsPage extends ConsumerWidget {
               onTap: () {
                 Navigator.pop(ctx);
                 _launchUrl(
-                  'https://wa.me/1234567890',
-                ); // Replace with actual number
+                  'https://wa.me/50242909548',
+                ); // Developer/Support WhatsApp
               },
             ),
             ListTile(
@@ -343,7 +343,7 @@ class SettingsPage extends ConsumerWidget {
               subtitle: const Text('Contactar al desarrollador'),
               onTap: () {
                 Navigator.pop(ctx);
-                _launchUrl('mailto:support@barberia.com');
+                _launchUrl('mailto:prosystem155@gmail.com');
               },
             ),
             SizedBox(height: MediaQuery.of(ctx).padding.bottom + 16),
@@ -366,7 +366,9 @@ class SettingsPage extends ConsumerWidget {
             'Esta aplicación fue desarrollada para gestionar citas de barbería de manera eficiente.',
           ),
           SizedBox(height: 16),
-          Text('Desarrollador: Jorge Grullon'),
+          Text('Desarrollador: ProSystem'),
+          SizedBox(height: 8),
+          Text('Soporte: prosystem155@gmail.com'),
         ],
       ),
     );

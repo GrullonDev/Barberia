@@ -11,26 +11,20 @@ ThemeData buildTheme({
 
   // Manual ColorScheme construction to ensure strict adherence to our Premium Palette
   // regardless of seed generation (though we keep seed param for potential dynamic user override if verified)
-  final ColorScheme scheme = ColorScheme(
-    brightness: brightness,
-    primary: AppColors.primary,
-    onPrimary: AppColors.onPrimary,
-    primaryContainer: AppColors.primaryContainer,
-    onPrimaryContainer: AppColors.onPrimaryContainer,
-    secondary: AppColors.secondary,
-    onSecondary: AppColors.onSecondary,
-    secondaryContainer: AppColors.secondaryContainer,
-    onSecondaryContainer: AppColors.onSecondaryContainer,
-    surface: dark ? AppColors.surfaceDark : AppColors.surface,
-    onSurface: dark ? AppColors.onSurfaceDark : AppColors.onSurface,
-    // surfaceContainer: dark ? AppColors.surfaceContainerDark : AppColors.surfaceContainer, // Newer Flutter parameter
-    error: AppColors.error,
-    onError: Colors.white,
-    outline: dark ? AppColors.outlineDark : AppColors.outline,
-    onSurfaceVariant: dark
-        ? AppColors.onSurfaceVariantDark
-        : AppColors.onSurfaceVariant,
-  );
+  final ColorScheme scheme =
+      ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: brightness,
+        primary: seed, // Force exact seed for primary for direct user control
+      ).copyWith(
+        surface: dark ? AppColors.surfaceDark : AppColors.surface,
+        onSurface: dark ? AppColors.onSurfaceDark : AppColors.onSurface,
+        error: AppColors.error,
+        outline: dark ? AppColors.outlineDark : AppColors.outline,
+        onSurfaceVariant: dark
+            ? AppColors.onSurfaceVariantDark
+            : AppColors.onSurfaceVariant,
+      );
 
   final TextTheme baseText = AppTypography.textTheme.apply(
     bodyColor: scheme.onSurface,
@@ -64,12 +58,13 @@ ThemeData buildTheme({
 
     cardTheme: CardThemeData(
       color: dark ? AppColors.surfaceContainerDark : AppColors.surface,
-      elevation: 0,
+      elevation: dark ? 0 : 4,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.m),
         side: BorderSide(
-          color: scheme.outline.withValues(alpha: dark ? 0.3 : 0.5),
-          width: 1,
+          color: scheme.outline.withValues(alpha: dark ? 0.3 : 0.6),
+          width: dark ? 0.5 : 1,
         ),
       ),
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -77,7 +72,7 @@ ThemeData buildTheme({
 
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: dark ? const Color(0xFF27272A) : const Color(0xFFF8FAFC),
+      fillColor: dark ? const Color(0xFF27272A) : const Color(0xFFF1F5F9),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       border: OutlineInputBorder(
         borderSide: BorderSide.none,
