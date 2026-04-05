@@ -1,44 +1,37 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:barberia/core/database/database_helper.dart';
 import 'package:barberia/features/auth/models/user.dart';
 
-/// Script para listar solo usuarios CLIENTES
+/// Script de debug: lista solo los usuarios con rol cliente en Firestore.
 Future<void> listClientUsers() async {
+  if (!kDebugMode) {
+    return;
+  }
   try {
-    final DatabaseHelper dbHelper = DatabaseHelper.instance;
-    final List<Map<String, dynamic>> usersData = await dbHelper.getUsersByRole(
-      'client',
-    );
-
-    if (usersData.isEmpty) {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'client')
+        .get();
+    if (snapshot.docs.isEmpty) {
       debugPrint('═══════════════════════════════════════');
       debugPrint('   NO HAY CLIENTES REGISTRADOS');
       debugPrint('═══════════════════════════════════════');
       return;
     }
-
     debugPrint('\n═══════════════════════════════════════');
-    debugPrint('   📋 CLIENTES REGISTRADOS (${usersData.length} total)');
+    debugPrint('   CLIENTES REGISTRADOS (${snapshot.docs.length} total)');
     debugPrint('═══════════════════════════════════════\n');
-
-    for (int i = 0; i < usersData.length; i++) {
-      final Map<String, dynamic> userData = usersData[i];
-      final User user = User.fromMap(userData);
-
-      debugPrint('👤 Cliente #${i + 1}');
+    for (int i = 0; i < snapshot.docs.length; i++) {
+      final user = User.fromFirestore(snapshot.docs[i]);
+      debugPrint('Cliente #${i + 1}');
       debugPrint('   ID: ${user.id}');
       debugPrint('   Nombre: ${user.name}');
       debugPrint('   Email: ${user.email}');
       debugPrint('   Teléfono: ${user.phone ?? "No especificado"}');
-      debugPrint('   Password: ${user.password}');
       debugPrint('───────────────────────────────────────\n');
     }
-
-    debugPrint('═══════════════════════════════════════');
-    debugPrint('   Total de clientes: ${usersData.length}');
     debugPrint('═══════════════════════════════════════\n');
-  } catch (e, stackTrace) {
-    debugPrint('❌ Error al listar clientes: $e');
-    debugPrint('StackTrace: $stackTrace');
+  } catch (e) {
+    debugPrint('Error al listar clientes: $e');
   }
 }

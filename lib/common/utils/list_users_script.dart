@@ -1,44 +1,35 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:barberia/core/database/database_helper.dart';
 import 'package:barberia/features/auth/models/user.dart';
 
-/// Script para listar todos los usuarios en la base de datos
-/// Ejecutar desde main.dart temporalmente
+/// Script de debug: lista todos los usuarios en Firestore.
 Future<void> listAllUsers() async {
+  if (!kDebugMode) {
+    return;
+  }
   try {
-    final DatabaseHelper dbHelper = DatabaseHelper.instance;
-    final List<Map<String, dynamic>> usersData = await dbHelper.getAllUsers();
-
-    if (usersData.isEmpty) {
+    final snapshot = await FirebaseFirestore.instance.collection('users').get();
+    if (snapshot.docs.isEmpty) {
       debugPrint('═══════════════════════════════════════');
-      debugPrint('   NO HAY USUARIOS EN LA BASE DE DATOS');
+      debugPrint('   NO HAY USUARIOS EN FIRESTORE');
       debugPrint('═══════════════════════════════════════');
       return;
     }
-
     debugPrint('\n═══════════════════════════════════════');
-    debugPrint('   LISTA DE USUARIOS (${usersData.length} total)');
+    debugPrint('   LISTA DE USUARIOS (${snapshot.docs.length} total)');
     debugPrint('═══════════════════════════════════════\n');
-
-    for (int i = 0; i < usersData.length; i++) {
-      final Map<String, dynamic> userData = usersData[i];
-      final User user = User.fromMap(userData);
-
-      debugPrint('👤 Usuario #${i + 1}');
+    for (int i = 0; i < snapshot.docs.length; i++) {
+      final user = User.fromFirestore(snapshot.docs[i]);
+      debugPrint('Usuario #${i + 1}');
       debugPrint('   ID: ${user.id}');
       debugPrint('   Nombre: ${user.name}');
       debugPrint('   Email: ${user.email}');
       debugPrint('   Rol: ${user.role.name.toUpperCase()}');
       debugPrint('   Teléfono: ${user.phone ?? "No especificado"}');
-      debugPrint('   Password: ${user.password}'); // Solo para debug
       debugPrint('───────────────────────────────────────\n');
     }
-
-    debugPrint('═══════════════════════════════════════');
-    debugPrint('   FIN DE LA LISTA');
     debugPrint('═══════════════════════════════════════\n');
-  } catch (e, stackTrace) {
-    debugPrint('❌ Error al listar usuarios: $e');
-    debugPrint('StackTrace: $stackTrace');
+  } catch (e) {
+    debugPrint('Error al listar usuarios: $e');
   }
 }

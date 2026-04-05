@@ -1,47 +1,23 @@
-import 'package:barberia/common/utils/list_users_script.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/app.dart';
-import 'package:barberia/core/database/database_helper.dart';
-import 'package:barberia/common/utils/list_clients_script.dart';
+import 'package:barberia/core/firebase/firebase_seed_service.dart';
 import 'package:barberia/core/services/notification_service.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Seed initial Firestore data if collections are empty
+  await FirebaseSeedService().seedIfNeeded();
 
   // Initialize Notifications
   await NotificationService().init();
   await NotificationService().requestPermissions();
-
-  // --- TAREA TEMPORAL: VERIFICAR USUARIOS ---
-  final DatabaseHelper dbHelper = DatabaseHelper.instance;
-  final db = await dbHelper.database;
-  final users = await db.query('users');
-  if (kDebugMode) {
-    print('--- USUARIOS REGISTRADOS EN BD ---');
-    for (var u in users) {
-      print(
-        'ID: ${u['id']}, Email: ${u['email']}, Nombre: ${u['name']}, Rol: ${u['role']}, Password: ${u['password']}',
-      );
-    }
-    if (users.isEmpty) {
-      print('No hay usuarios registrados.');
-    }
-    print('----------------------------------');
-  }
-  // --- FIN DE LA TAREA TEMPORAL ---
-  await listAllUsers();
-
-  // --- LISTAR USUARIOS CLIENTES ---
-  // Este script lista solo los usuarios con rol 'client'
-  // Ejecuta la app y revisa la consola de debug
-  await listClientUsers();
-  // --- FIN LISTAR CLIENTES ---
 
   runApp(const ProviderScope(child: MyApp()));
 }
