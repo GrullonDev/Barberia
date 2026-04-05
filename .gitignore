@@ -171,3 +171,11 @@ linux/
 macOS/
 windows/
 .metadata/
+
+# Node Related
+node_modules/
+pnpm-lock.yaml
+
+# Temporary File Copies
+*pubspec.lock
+untranslated.txt
