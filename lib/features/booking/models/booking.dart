@@ -1,9 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'service.dart';
 
 class Booking {
   final String id;
   final String userId;
-  final int serviceId;
+  final String serviceId;
   final String serviceName; // Denormalized for display if service deleted
   final DateTime dateTime;
   final BookingStatus status;
@@ -30,9 +31,41 @@ class Booking {
   });
 
   DateTime get endTime {
-    // Default to 30 mins if service not loaded, or use service duration
     final duration = service?.durationMinutes ?? 30;
     return dateTime.add(Duration(minutes: duration));
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'userId': userId,
+      'serviceId': serviceId,
+      'serviceName': serviceName,
+      'date': Timestamp.fromDate(dateTime),
+      'status': status.name,
+      'customerName': customerName,
+      'customerEmail': customerEmail,
+      'customerPhone': customerPhone,
+      'notes': notes,
+    };
+  }
+
+  factory Booking.fromFirestore(DocumentSnapshot doc) {
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return Booking(
+      id: doc.id,
+      userId: data['userId'] as String? ?? '',
+      serviceId: data['serviceId'] as String? ?? '',
+      serviceName: data['serviceName'] as String? ?? 'Servicio',
+      dateTime: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      status: BookingStatus.values.firstWhere(
+        (e) => e.name == (data['status'] as String?),
+        orElse: () => BookingStatus.active,
+      ),
+      customerName: data['customerName'] as String? ?? '',
+      customerEmail: data['customerEmail'] as String?,
+      customerPhone: data['customerPhone'] as String?,
+      notes: data['notes'] as String?,
+    );
   }
 
   Map<String, dynamic> toMap() {
@@ -54,9 +87,7 @@ class Booking {
     return Booking(
       id: map['id']?.toString() ?? '',
       userId: map['userId']?.toString() ?? 'guest',
-      serviceId: map['serviceId'] is String
-          ? (int.tryParse(map['serviceId'] as String) ?? 0)
-          : (map['serviceId'] as int? ?? 0),
+      serviceId: map['serviceId']?.toString() ?? '',
       serviceName: map['serviceName']?.toString() ?? 'Servicio',
       dateTime: map['date'] != null
           ? DateTime.tryParse(map['date'] as String) ?? DateTime.now()

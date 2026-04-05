@@ -64,7 +64,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
         _booking = Booking(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           userId: currentUser?.id ?? 'guest_01',
-          serviceId: draft.service?.id ?? 0,
+          serviceId: draft.service?.id ?? '',
           serviceName: draft.service?.name ?? 'Servicio',
           service: draft.service,
           dateTime: draft.dateTime!,

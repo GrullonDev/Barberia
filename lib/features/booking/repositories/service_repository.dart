@@ -1,64 +1,35 @@
-import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:barberia/core/database/database_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:barberia/features/booking/models/service.dart';
 
 class ServiceRepository {
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Future<List<Service>> getServices({bool onlyActive = true}) async {
-    final Database db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'services',
-      where: onlyActive ? 'isActive = ?' : null,
-      whereArgs: onlyActive ? [1] : null,
-    );
-
-    final List<Service> services = List.generate(
-      maps.length,
-      (i) => Service.fromMap(maps[i]),
-    );
-    for (final s in services) {
-      if (kDebugMode) {
-        print('Service loaded: ${s.name} (ID: ${s.id})');
-      }
+    Query<Map<String, dynamic>> query = _db.collection('services');
+    if (onlyActive) {
+      query = query.where('isActive', isEqualTo: true);
     }
-    return services;
+    final snapshot = await query.get();
+    return snapshot.docs.map(Service.fromFirestore).toList();
   }
 
   Future<void> addService(Service service) async {
-    final Database db = await _dbHelper.database;
-    await db.insert(
-      'services',
-      service.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.collection('services').add(service.toFirestore());
   }
 
   Future<void> updateService(Service service) async {
-    final Database db = await _dbHelper.database;
-    await db.update(
-      'services',
-      service.toMap(),
-      where: 'id = ?',
-      whereArgs: [service.id],
-    );
+    if (service.id == null) return;
+    await _db
+        .collection('services')
+        .doc(service.id)
+        .update(service.toFirestore());
   }
 
-  Future<void> deleteService(int id) async {
-    final Database db = await _dbHelper.database;
-    // We might want soft delete, but for now hard delete or set isActive = 0
-    await db.delete('services', where: 'id = ?', whereArgs: [id]);
+  Future<void> deleteService(String id) async {
+    await _db.collection('services').doc(id).delete();
   }
 
-  // Toggle visibility instead of deleting
-  Future<void> toggleServiceVisibility(int id, bool isActive) async {
-    final Database db = await _dbHelper.database;
-    await db.update(
-      'services',
-      {'isActive': isActive ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  Future<void> toggleServiceVisibility(String id, bool isActive) async {
+    await _db.collection('services').doc(id).update({'isActive': isActive});
   }
 }

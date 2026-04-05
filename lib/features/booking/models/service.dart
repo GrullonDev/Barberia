@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Service {
-  final int? id;
+  final String? id;
   final String name;
   final int durationMinutes;
   final double price;
@@ -18,7 +20,7 @@ class Service {
   });
 
   Service copyWith({
-    int? id,
+    String? id,
     String? name,
     int? durationMinutes,
     double? price,
@@ -37,6 +39,33 @@ class Service {
     );
   }
 
+  Map<String, dynamic> toFirestore() {
+    return <String, dynamic>{
+      'name': name,
+      'durationMinutes': durationMinutes,
+      'price': price,
+      'extendedDescription': extendedDescription,
+      'category': category.name,
+      'isActive': isActive,
+    };
+  }
+
+  factory Service.fromFirestore(DocumentSnapshot doc) {
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return Service(
+      id: doc.id,
+      name: data['name'] as String? ?? '',
+      durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 0,
+      price: (data['price'] as num?)?.toDouble() ?? 0.0,
+      category: ServiceCategory.values.firstWhere(
+        (e) => e.name == (data['category'] as String?),
+        orElse: () => ServiceCategory.hair,
+      ),
+      extendedDescription: data['extendedDescription'] as String?,
+      isActive: data['isActive'] as bool? ?? true,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'id': id,
@@ -45,19 +74,17 @@ class Service {
       'price': price,
       'extendedDescription': extendedDescription,
       'category': category.name,
-      'isActive': isActive ? 1 : 0,
+      'isActive': isActive,
     };
   }
 
   factory Service.fromMap(Map<String, dynamic> map) {
     return Service(
-      id: map['id'] is String
-          ? int.tryParse(map['id'] as String)
-          : map['id'] as int?,
+      id: map['id'] as String?,
       name: map['name'] as String? ?? '',
       durationMinutes: map['durationMinutes'] is String
           ? (int.tryParse(map['durationMinutes'] as String) ?? 0)
-          : (map['durationMinutes'] as int? ?? 0),
+          : (map['durationMinutes'] as num?)?.toInt() ?? 0,
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
       category: ServiceCategory.values.firstWhere(
         (ServiceCategory e) => e.name == (map['category'] as String?),
