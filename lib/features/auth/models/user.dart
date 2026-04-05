@@ -1,10 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum UserRole { admin, barber, client }
 
 class User {
   final String id;
   final String name;
   final String email;
-  final String password; // Stored locally for this demo MVP
   final UserRole role;
   final String? phone;
 
@@ -12,7 +13,6 @@ class User {
     required this.id,
     required this.name,
     required this.email,
-    required this.password,
     required this.role,
     this.phone,
   });
@@ -21,7 +21,6 @@ class User {
     String? id,
     String? name,
     String? email,
-    String? password,
     UserRole? role,
     String? phone,
   }) {
@@ -29,38 +28,45 @@ class User {
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
-      password: password ?? this.password,
       role: role ?? this.role,
       phone: phone ?? this.phone,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
       'id': id,
-      'username': name,
+      'name': name,
       'email': email,
-      'password': password,
       'role': role.name,
       'phone': phone,
     };
   }
 
+  factory User.fromFirestore(DocumentSnapshot doc) {
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return User(
+      id: doc.id,
+      name: data['name'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      role: UserRole.values.firstWhere(
+        (e) => e.name == (data['role'] as String?),
+        orElse: () => UserRole.client,
+      ),
+      phone: data['phone'] as String?,
+    );
+  }
+
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
-      id: map['id'] as String,
-      name: map['username'] as String,
-      email: map['email'] as String,
-      password: map['password'] as String,
+      id: map['id'] as String? ?? '',
+      name: (map['name'] ?? map['username']) as String? ?? '',
+      email: map['email'] as String? ?? '',
       role: UserRole.values.firstWhere(
-        (e) => e.name == (map['role'] as String),
+        (e) => e.name == (map['role'] as String?),
         orElse: () => UserRole.client,
       ),
       phone: map['phone'] as String?,
     );
   }
-
-  Map<String, dynamic> toJson() => toMap();
-
-  factory User.fromJson(Map<String, dynamic> json) => User.fromMap(json);
 }
