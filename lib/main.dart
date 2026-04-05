@@ -1,3 +1,5 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -21,11 +23,11 @@ Future<void> main() async {
     'admin',
   );
   if (kDebugMode) {
-    print('--- Actualización de Rol ---');
+    dev.log('--- Actualización de Rol ---');
     if (rowsAffected > 0) {
-      print('Éxito: Se actualizó el rol para el usuario $emailToUpdate.');
+      dev.log('Éxito: Se actualizó el rol para el usuario $emailToUpdate.');
     } else {
-      print(
+      dev.log(
         'Aviso: No se encontró ningún usuario con el email $emailToUpdate.',
       );
     }
