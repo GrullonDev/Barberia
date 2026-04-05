@@ -1,0 +1,48 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "barbershop-ee9c0",
+          "appId": "1:956317826330:android:0c46c91f7d607f812b00a3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "barbershop-ee9c0",
+          "appId": "1:956317826330:ios:4d001a57c0ba16da2b00a3",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "barbershop-ee9c0",
+          "configurations": {
+            "android": "1:956317826330:android:0c46c91f7d607f812b00a3",
+            "ios": "1:956317826330:ios:4d001a57c0ba16da2b00a3"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
