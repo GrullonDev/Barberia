@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:barberia/features/auth/models/user.dart';
 
-const String _adminEmail = 'admin@barberia.com';
-
 class AuthRepository {
   final fb_auth.FirebaseAuth _auth = fb_auth.FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -40,11 +38,12 @@ class AuthRepository {
     );
     final fb_auth.User fbUser = credential.user!;
 
-    // First user OR admin email → admin role
-    final bool isAdmin = email.trim().toLowerCase() == _adminEmail;
-    final usersSnapshot = await _db.collection('users').limit(1).get();
-    final bool isFirst = usersSnapshot.docs.isEmpty;
-    final UserRole role = (isAdmin || isFirst) ? UserRole.admin : UserRole.client;
+    // Todo registro nuevo entra como 'client'.
+    // Los roles admin/barber se asignan MANUALMENTE por un admin existente
+    // (panel admin o consola Firebase), nunca por orden de registro ni por
+    // email hardcoded. Esto evita escalada de privilegios accidental o
+    // intencionada en entornos productivos.
+    const UserRole role = UserRole.client;
 
     final User newUser = User(
       id: fbUser.uid,

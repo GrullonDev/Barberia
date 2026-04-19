@@ -6,7 +6,7 @@ import 'package:barberia/features/booking/repositories/booking_repository.dart';
 import 'package:barberia/features/booking/repositories/service_repository.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/auth/models/user.dart';
-import 'package:barberia/core/services/notification_service.dart';
+import 'package:barberia/core/services/local_notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -161,7 +161,7 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
         const Duration(hours: 1),
       );
       if (scheduledTime.isAfter(DateTime.now())) {
-        await NotificationService().scheduleNotification(
+        await LocalNotificationService().scheduleNotification(
           id: booking.id.hashCode,
           title: 'Recordatorio de Cita',
           body: 'Tu cita para ${booking.serviceName} es en 1 hora.',
@@ -198,7 +198,7 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
       await _repository.cancelBooking(id);
 
       // Cancel Notification
-      await NotificationService().cancelNotification(id.hashCode);
+      await LocalNotificationService().cancelNotification(id.hashCode);
     } catch (e) {
       _loadBookings();
     }

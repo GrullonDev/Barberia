@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/app.dart';
 import 'package:barberia/core/firebase/firebase_seed_service.dart';
-import 'package:barberia/core/services/notification_service.dart';
+import 'package:barberia/core/services/local_notification_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -16,8 +16,8 @@ Future<void> main() async {
   await FirebaseSeedService().seedIfNeeded();
 
   // Initialize Notifications
-  await NotificationService().init();
-  await NotificationService().requestPermissions();
+  await LocalNotificationService().init();
+  await LocalNotificationService().requestPermissions();
 
   runApp(const ProviderScope(child: MyApp()));
 }

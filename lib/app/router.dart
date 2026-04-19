@@ -16,6 +16,10 @@ import 'package:barberia/features/auth/pages/register_page.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
+import 'package:barberia/features/admin/pages/all_bookings_page.dart';
+import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
+import 'package:barberia/features/admin/pages/manage_services_page.dart';
+import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/static/privacy_page.dart';
 
 abstract final class RouteNames {
@@ -30,6 +34,9 @@ abstract final class RouteNames {
   static const String login = 'login';
   static const String register = 'register';
   static const String admin = 'admin';
+  static const String manageServices = 'manage-services';
+  static const String manageBarbers = 'manage-barbers';
+  static const String allBookings = 'all-bookings';
   static const String addService = 'add-service';
 }
 
@@ -169,11 +176,29 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         path: '/admin',
         name: RouteNames.admin,
         builder: (_, __) => const AdminDashboardPage(),
-        routes: [
+        routes: <RouteBase>[
           GoRoute(
-            path: 'add-service',
-            name: RouteNames.addService,
-            builder: (_, __) => const AddEditServicePage(),
+            path: 'services',
+            name: RouteNames.manageServices,
+            builder: (_, __) => const ManageServicesPage(),
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'new',
+                name: RouteNames.addService,
+                builder: (BuildContext context, GoRouterState state) =>
+                    AddEditServicePage(service: state.extra as Service?),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'barbers',
+            name: RouteNames.manageBarbers,
+            builder: (_, __) => const ManageBarbersPage(),
+          ),
+          GoRoute(
+            path: 'bookings',
+            name: RouteNames.allBookings,
+            builder: (_, __) => const AllBookingsPage(),
           ),
         ],
       ),

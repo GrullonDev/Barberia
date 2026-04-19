@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:barberia/features/admin/pages/all_bookings_page.dart';
-import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
-import 'package:barberia/features/admin/pages/manage_services_page.dart';
+import 'package:barberia/app/router.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
@@ -83,11 +82,7 @@ class AdminDashboardPage extends ConsumerWidget {
             title: 'Gestionar Servicios',
             subtitle: 'Agregar, editar o eliminar servicios',
             color: Colors.blue,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ManageServicesPage()),
-              );
-            },
+            onTap: () => context.goNamed(RouteNames.manageServices),
           ),
           const SizedBox(height: 12),
           _AdminActionCard(
@@ -95,11 +90,7 @@ class AdminDashboardPage extends ConsumerWidget {
             title: 'Gestionar Barberos',
             subtitle: 'Administrar el equipo de trabajo',
             color: Colors.orange,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ManageBarbersPage()),
-              );
-            },
+            onTap: () => context.goNamed(RouteNames.manageBarbers),
           ),
           const SizedBox(height: 12),
           _AdminActionCard(
@@ -107,11 +98,7 @@ class AdminDashboardPage extends ConsumerWidget {
             title: 'Ver Todas las Reservas',
             subtitle: 'Lista completa de citas',
             color: Colors.green,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AllBookingsPage()),
-              );
-            },
+            onTap: () => context.goNamed(RouteNames.allBookings),
           ),
         ],
       ),

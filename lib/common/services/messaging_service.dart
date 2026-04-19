@@ -1,7 +1,12 @@
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 
-class NotificationService {
+/// Servicio de mensajería externa: abre WhatsApp o cliente de correo del SO.
+///
+/// No confundir con [LocalNotificationService] (push locales del dispositivo).
+/// Este servicio dispara un `url_launcher` hacia apps externas; se usa para
+/// recordatorios manuales y contacto con el cliente desde el panel admin.
+class MessagingService {
   static Future<void> sendWhatsApp({
     required String phone,
     required String message,

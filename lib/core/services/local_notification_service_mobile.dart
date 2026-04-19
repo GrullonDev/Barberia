@@ -2,12 +2,17 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-class NotificationService {
-  static final NotificationService _instance = NotificationService._internal();
+/// Notificaciones locales del dispositivo (push programadas en el cliente).
+///
+/// No confundir con [MessagingService] en `common/services/messaging_service.dart`,
+/// que es para abrir WhatsApp / mailto externos.
+class LocalNotificationService {
+  static final LocalNotificationService _instance =
+      LocalNotificationService._internal();
 
-  factory NotificationService() => _instance;
+  factory LocalNotificationService() => _instance;
 
-  NotificationService._internal();
+  LocalNotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();

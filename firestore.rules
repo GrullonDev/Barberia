@@ -1,18 +1,111 @@
-rules_version='2'
+rules_version = '2';
+
+// -----------------------------------------------------------------------------
+// Barbería — Reglas de seguridad Firestore
+//
+// Modelo de roles:
+//   - client   → usuario final que reserva (web + móvil)
+//   - barber   → empleado; ve su agenda y citas asignadas
+//   - admin    → dueño; gestiona servicios, barberos, precios, config
+//
+// Notas:
+//   - El rol NO se asigna por orden de registro. Se crea como 'client' por
+//     defecto. Admin/barber se promueven manualmente desde un admin existente.
+//   - Colecciones "futuras" (schedule_blocks, walkins, reputation, config)
+//     ya quedan definidas aquí para evitar re-deploys al activar cada fase.
+//   - Cualquier cosa no contemplada se deniega explícitamente al final.
+// -----------------------------------------------------------------------------
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ---------- Helpers -------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && userDoc().role == role;
+    }
+
+    function isAdmin()  { return hasRole('admin'); }
+    function isBarber() { return hasRole('barber'); }
+    function isStaff()  { return isAdmin() || isBarber(); }
+
+    function isOwnerOf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---------- users ---------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isOwnerOf(userId) || isStaff();
+
+      // Alta: el propio usuario y SOLO como 'client'
+      allow create: if isOwnerOf(userId)
+                    && request.resource.data.role == 'client';
+
+      // Update propio: no puede cambiarse el rol a sí mismo
+      allow update: if isOwnerOf(userId)
+                    && request.resource.data.role == resource.data.role;
+
+      // Admin puede todo (promover rol, asignar barbero, etc.)
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- services (catálogo público) -----------------------------------
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------- bookings ------------------------------------------------------
+    match /bookings/{bookingId} {
+      allow read: if isStaff()
+                  || isOwnerOf(resource.data.userId)
+                  || (isBarber() && resource.data.barberId == request.auth.uid);
+
+      // Cliente auth crea para sí mismo; staff crea a nombre de cualquiera.
+      // Invitados (sin cuenta) reservan vía Cloud Function — no por SDK directo.
+      allow create: if isStaff()
+                    || (isSignedIn() && request.resource.data.userId == request.auth.uid);
+
+      allow update: if isStaff()
+                    || isOwnerOf(resource.data.userId)
+                    || (isBarber() && resource.data.barberId == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------- schedule_blocks (comida, descanso, vacaciones) ----------------
+    match /schedule_blocks/{blockId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isAdmin()
+        || (isBarber() && request.resource.data.barberId == request.auth.uid);
+    }
+
+    // ---------- walkins (cola sin cita) ---------------------------------------
+    match /walkins/{walkinId} {
+      allow read, write: if isStaff();
+    }
+
+    // ---------- reputation (anti no-show, key = teléfono normalizado) ---------
+    match /reputation/{phone} {
+      allow read, write: if isStaff();
+    }
+
+    // ---------- config (horarios, dirección, parámetros globales) -------------
+    match /config/{docId} {
+      allow read: if true;           // público para mostrar horarios en la web
+      allow write: if isAdmin();
+    }
+
+    // ---------- default deny --------------------------------------------------
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 5, 5);
+      allow read, write: if false;
     }
   }
 }

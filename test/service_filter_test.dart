@@ -5,21 +5,21 @@ void main() {
   group('Service category filtering', () {
     const List<Service> services = <Service>[
       Service(
-        id: 1,
+        id: '1',
         name: 'Corte',
         durationMinutes: 30,
         price: 10,
         category: ServiceCategory.hair,
       ),
       Service(
-        id: 2,
+        id: '2',
         name: 'Barba',
         durationMinutes: 20,
         price: 8,
         category: ServiceCategory.beard,
       ),
       Service(
-        id: 3,
+        id: '3',
         name: 'Combo',
         durationMinutes: 45,
         price: 15,

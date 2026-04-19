@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
+import 'package:go_router/go_router.dart';
+import 'package:barberia/app/router.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
@@ -21,11 +22,7 @@ class ManageServicesPage extends ConsumerWidget {
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const AddEditServicePage()));
-        },
+        onPressed: () => context.goNamed(RouteNames.addService),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         icon: const Icon(Icons.add),
@@ -70,14 +67,10 @@ class ManageServicesPage extends ConsumerWidget {
                   children: <Widget>[
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                AddEditServicePage(service: service),
-                          ),
-                        );
-                      },
+                      onPressed: () => context.goNamed(
+                        RouteNames.addService,
+                        extra: service,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
