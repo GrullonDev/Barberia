@@ -62,16 +62,31 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // ---------- barbers (catálogo público para que el cliente elija) ---------
+    match /barbers/{barberId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // ---------- bookings ------------------------------------------------------
+    //
+    // CREATE:
+    //   Solo staff puede escribir directo por SDK. Los clientes (anónimos
+    //   y registrados) reservan por la Cloud Function `reserveSlot`, que
+    //   corre con Admin SDK y bypasea estas reglas. Esto garantiza que
+    //   siempre se ejecute la transacción anti-colisión del motor de slots.
+    //
+    // READ / UPDATE:
+    //   El dueño del booking (userId) puede leerlo y actualizar ciertos
+    //   campos (ej. notes, cancelar). El barbero asignado y los admins/staff
+    //   también leen y editan. DELETE queda solo para admin.
+    // ------------------------------------------------------------------------
     match /bookings/{bookingId} {
       allow read: if isStaff()
                   || isOwnerOf(resource.data.userId)
                   || (isBarber() && resource.data.barberId == request.auth.uid);
 
-      // Cliente auth crea para sí mismo; staff crea a nombre de cualquiera.
-      // Invitados (sin cuenta) reservan vía Cloud Function — no por SDK directo.
-      allow create: if isStaff()
-                    || (isSignedIn() && request.resource.data.userId == request.auth.uid);
+      allow create: if isStaff();
 
       allow update: if isStaff()
                     || isOwnerOf(resource.data.userId)
