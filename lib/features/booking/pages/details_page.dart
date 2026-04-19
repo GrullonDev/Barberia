@@ -11,9 +11,13 @@ import 'package:barberia/app/router.dart';
 import 'package:barberia/common/prefs/reminder_prefs.dart';
 import 'package:barberia/common/utils/form_validators.dart';
 import 'package:barberia/common/utils/gt_phone_formatter.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/auth/models/user.dart' as auth_user;
+import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/booking/services/reserve_slot_service.dart';
 import 'package:barberia/l10n/app_localizations.dart';
 import 'package:barberia/common/utils/responsive_helper.dart';
 
@@ -191,6 +195,29 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
     super.dispose();
   }
 
+  /// Traduce un [ReserveSlotException] a un mensaje amigable para SnackBar.
+  String _messageForError(ReserveSlotException e) {
+    switch (e.kind) {
+      case ReserveSlotErrorKind.alreadyTaken:
+        return 'Ese horario acaba de ser tomado. Elige otro.';
+      case ReserveSlotErrorKind.outsideWorkingHours:
+        return 'Ese horario está fuera del turno del barbero.';
+      case ReserveSlotErrorKind.barberUnavailable:
+        return 'El barbero no está disponible ahora.';
+      case ReserveSlotErrorKind.serviceInactive:
+        return 'Ese servicio ya no está disponible.';
+      case ReserveSlotErrorKind.reputationBlocked:
+        return 'No podemos completar la reserva con este teléfono. '
+            'Contáctanos.';
+      case ReserveSlotErrorKind.network:
+        return 'Problema de conexión. Intenta de nuevo en un momento.';
+      case ReserveSlotErrorKind.invalidInput:
+        return 'Datos incompletos. Revisa el formulario.';
+      case ReserveSlotErrorKind.unknown:
+        return 'No pudimos completar la reserva. Intenta de nuevo.';
+    }
+  }
+
   @override
   Widget build(final BuildContext context) {
     final BookingDraft draft = ref.watch(bookingDraftProvider);
@@ -208,7 +235,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       }
     }
 
-    void submit() {
+    Future<void> submit() async {
       if (!ready) {
         return;
       }
@@ -222,13 +249,24 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         );
         return;
       }
-      // Validación de conflicto horario
+      // Validación optimista local — la autoridad es el CF `reserveSlot`
+      // que corre su propia transacción anti-colisión.
       final Service service = draft.service!;
       final DateTime start = draft.dateTime!;
+      final String? barberId = draft.barberId;
+      if (barberId == null || barberId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No hay barbero asignado. Vuelve al calendario.',
+            ),
+          ),
+        );
+        return;
+      }
       final Duration dur = Duration(minutes: service.durationMinutes);
-      final bool conflict = ref
-          .read(bookingsProvider.notifier)
-          .hasConflict(start, dur);
+      final bool conflict =
+          ref.read(bookingsProvider.notifier).hasConflict(start, dur);
       if (conflict) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -245,10 +283,10 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
             email: _emailCtrl.text.isEmpty ? null : _emailCtrl.text,
             notes: _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
           );
-      // Animación de éxito antes de navegar.
-      // Capture navigators early.
+
+      // Animación de progreso mientras llamamos al CF.
       final NavigatorState rootNav = Navigator.of(context, rootNavigator: true);
-      void goToConfirmation() => context.goNamed(RouteNames.confirmation);
+      final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
       showGeneralDialog(
         context: context,
         barrierDismissible: false,
@@ -261,7 +299,6 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
                 parent: anim,
                 curve: Curves.easeOutBack,
               );
-              // Use dialogCtx instead of outer context to avoid accessing deactivated ancestor.
               final ColorScheme cs = Theme.of(dialogCtx).colorScheme;
               return Opacity(
                 opacity: anim.value,
@@ -301,13 +338,75 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
               );
             },
       );
-      Future<void>.delayed(const Duration(milliseconds: 900), () {
-        if (!mounted) {
-          return; // still mounted; safe to use captured references
+
+      // Llamada real al CF `reserveSlot`. Si falla, mapeamos el error y
+      // volvemos al formulario sin navegar.
+      final ReserveSlotService reserveService =
+          ref.read(reserveSlotServiceProvider);
+      final auth_user.User? currentUser = ref.read(authStateProvider);
+      try {
+        final String phoneTxt = _phoneCtrl.text;
+        final String emailTxt = _emailCtrl.text;
+        final ReserveSlotResult result = await reserveService.reserve(
+          barberId: barberId,
+          serviceId: service.id ?? '',
+          startAt: start,
+          customerName: _nameCtrl.text,
+          customerPhone: phoneTxt.isEmpty ? null : phoneTxt,
+          customerEmail: emailTxt.isEmpty ? null : emailTxt,
+          notes: _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
+          userId: currentUser?.id,
+        );
+
+        if (!mounted) return;
+
+        // Construye Booking con el id real que devolvió el CF, lo publica
+        // en lastConfirmedBookingProvider y lo inserta en el cache.
+        final DateTime nowLocal = DateTime.now();
+        final Booking confirmed = Booking(
+          id: result.bookingId,
+          userId: currentUser?.id ?? 'guest',
+          barberId: barberId,
+          serviceId: service.id ?? '',
+          serviceName: service.name,
+          serviceDurationMinutes: service.durationMinutes,
+          servicePrice: service.price,
+          startAt: start,
+          endAt: result.endAt,
+          status: BookingStatus.pending,
+          customerName: _nameCtrl.text,
+          customerEmail: emailTxt.isEmpty ? null : emailTxt,
+          customerPhone: phoneTxt.isEmpty ? null : phoneTxt,
+          notes: _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
+          createdAt: nowLocal,
+          updatedAt: nowLocal,
+          service: service,
+        );
+        ref.read(lastConfirmedBookingProvider.notifier).state = confirmed;
+        await ref.read(bookingsProvider.notifier).add(confirmed);
+        ref.read(bookingDraftProvider.notifier).reset();
+
+        if (!mounted) return;
+        rootNav.pop(); // cierra el diálogo
+        if (!mounted) return;
+        context.goNamed(RouteNames.confirmation);
+      } on ReserveSlotException catch (e) {
+        if (mounted) {
+          rootNav.pop(); // cierra el diálogo
         }
-        rootNav.pop();
-        goToConfirmation();
-      });
+        messenger.showSnackBar(
+          SnackBar(content: Text(_messageForError(e))),
+        );
+      } catch (_) {
+        if (mounted) {
+          rootNav.pop();
+        }
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('No pudimos completar la reserva. Intenta de nuevo.'),
+          ),
+        );
+      }
     }
 
     final S tr = S.of(context);
@@ -466,7 +565,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
                 message: disabledReason ?? tr.details_confirm,
                 waitDuration: const Duration(milliseconds: 400),
                 child: FilledButton(
-                  onPressed: ready ? submit : null,
+                  onPressed: ready ? () => submit() : null,
                   child: Text(tr.details_confirm),
                 ),
               ),

@@ -1,25 +1,28 @@
-import 'package:barberia/features/auth/models/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import 'package:barberia/common/widgets/scaffold_with_nav_bar.dart';
+import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
+import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
+import 'package:barberia/features/admin/pages/all_bookings_page.dart';
+import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
+import 'package:barberia/features/admin/pages/manage_services_page.dart';
+import 'package:barberia/features/auth/models/user.dart';
+import 'package:barberia/features/auth/pages/login_page.dart';
+import 'package:barberia/features/auth/pages/password_reset_page.dart';
+import 'package:barberia/features/auth/pages/phone_login_page.dart';
+import 'package:barberia/features/auth/pages/profile_page.dart';
+import 'package:barberia/features/auth/pages/register_page.dart';
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/pages/calendar_page.dart';
 import 'package:barberia/features/booking/pages/confirmation_page.dart';
 import 'package:barberia/features/booking/pages/details_page.dart';
 import 'package:barberia/features/booking/pages/home_page.dart';
 import 'package:barberia/features/booking/pages/my_bookings_page.dart';
-import 'package:barberia/features/auth/pages/profile_page.dart';
 import 'package:barberia/features/booking/pages/service_select_page.dart';
 import 'package:barberia/features/booking/pages/settings_page.dart';
-import 'package:barberia/features/auth/pages/login_page.dart';
-import 'package:barberia/features/auth/pages/register_page.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
-import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
-import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
-import 'package:barberia/features/admin/pages/all_bookings_page.dart';
-import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
-import 'package:barberia/features/admin/pages/manage_services_page.dart';
-import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/static/privacy_page.dart';
 
 abstract final class RouteNames {
@@ -33,6 +36,9 @@ abstract final class RouteNames {
   static const String profile = 'profile';
   static const String login = 'login';
   static const String register = 'register';
+  static const String passwordReset = 'password-reset';
+  static const String phoneLogin = 'phone-login';
+  static const String splash = 'splash';
   static const String admin = 'admin';
   static const String manageServices = 'manage-services';
   static const String manageBarbers = 'manage-barbers';
@@ -40,43 +46,86 @@ abstract final class RouteNames {
   static const String addService = 'add-service';
 }
 
+/// Rutas públicas que un usuario anónimo o un cliente sin cuenta pueden
+/// navegar en web para reservar. En mobile el cliente siempre necesita
+/// alguna forma de sesión (email/pass o phone OTP).
+const Set<String> _publicWebPaths = <String>{
+  '/',
+  '/services',
+  '/services/calendar',
+  '/details',
+  '/confirmation',
+  '/privacy',
+  '/login',
+  '/register',
+  '/password-reset',
+  '/phone-login',
+};
+
 final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
   final User? authState = ref.watch(authStateProvider);
+  final AuthBootstrap bootstrap = ref.watch(authBootstrapProvider);
 
   return GoRouter(
     initialLocation: '/',
-    refreshListenable: ValueNotifier(authState), // Simple refresh trigger
+    // Dispara un rebuild cuando cambia auth o bootstrap.
+    refreshListenable: ValueNotifier<Object?>(Object.hash(authState, bootstrap)),
     redirect: (BuildContext context, GoRouterState state) {
-      final bool loggedIn = authState != null;
-      final bool isLoginPage = state.uri.path == '/login';
-      final bool isRegisterPage = state.uri.path == '/register';
-      final bool isAuthRoute = isLoginPage || isRegisterPage;
+      // Mientras Firebase rehidrata la sesión, no redirigimos — la UI
+      // debe mostrar splash. Evita el flash hacia /login en cold start.
+      if (bootstrap == AuthBootstrap.loading) {
+        return state.uri.path == '/splash' ? null : '/splash';
+      }
 
-      // Handle unauthenticated users
+      final bool loggedIn = authState != null;
+      final bool isAnon = authState?.isAnonymous ?? false;
+      final String path = state.uri.path;
+      final bool isAuthRoute = path == '/login' ||
+          path == '/register' ||
+          path == '/password-reset' ||
+          path == '/phone-login';
+      final bool isSplash = path == '/splash';
+
+      // Si ya salimos del bootstrap, nadie se queda en splash.
+      if (isSplash) {
+        return loggedIn ? '/' : '/login';
+      }
+
+      // Sin sesión → solo páginas públicas (en mobile: solo auth routes).
       if (!loggedIn) {
         return isAuthRoute ? null : '/login';
       }
 
-      // Handle authenticated users
+      // Usuario anónimo (solo web): puede navegar flow de reserva público,
+      // pero no accede a /admin ni /my-bookings ni /profile (sin identidad).
+      if (isAnon) {
+        final bool isPublic = _publicWebPaths.contains(path);
+        if (!isPublic) return '/';
+        return null;
+      }
+
+      // Usuario con cuenta → flujo normal.
       final bool hasAdminAccess =
           authState.role == UserRole.admin || authState.role == UserRole.barber;
-      final bool isAdminPath = state.uri.path.startsWith('/admin');
+      final bool isAdminPath = path.startsWith('/admin');
 
       if (isAuthRoute) {
         return hasAdminAccess ? '/admin' : '/';
       }
-
-      if (hasAdminAccess && !isAdminPath && state.uri.path == '/') {
-        return '/admin'; // Force staff to admin section by default if at root
+      if (hasAdminAccess && !isAdminPath && path == '/') {
+        return '/admin';
       }
-
       if (!hasAdminAccess && isAdminPath) {
-        return '/'; // Block client from admin section
+        return '/';
       }
-
       return null;
     },
     routes: <RouteBase>[
+      GoRoute(
+        path: '/splash',
+        name: RouteNames.splash,
+        builder: (_, __) => const _SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         name: RouteNames.login,
@@ -87,17 +136,25 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         name: RouteNames.register,
         builder: (_, __) => const RegisterPage(),
       ),
+      GoRoute(
+        path: '/password-reset',
+        name: RouteNames.passwordReset,
+        builder: (_, __) => const PasswordResetPage(),
+      ),
+      GoRoute(
+        path: '/phone-login',
+        name: RouteNames.phoneLogin,
+        builder: (_, __) => const PhoneLoginPage(),
+      ),
       StatefulShellRoute.indexedStack(
-        builder:
-            (
-              BuildContext context,
-              GoRouterState state,
-              StatefulNavigationShell navigationShell,
-            ) {
-              return ScaffoldWithNavBar(navigationShell: navigationShell);
-            },
+        builder: (
+          BuildContext context,
+          GoRouterState state,
+          StatefulNavigationShell navigationShell,
+        ) {
+          return ScaffoldWithNavBar(navigationShell: navigationShell);
+        },
         branches: <StatefulShellBranch>[
-          // Branch Home
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
@@ -136,8 +193,6 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
               ),
             ],
           ),
-
-          // Branch My Bookings
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
@@ -147,8 +202,6 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
               ),
             ],
           ),
-
-          // Branch Settings
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
@@ -158,8 +211,6 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
               ),
             ],
           ),
-
-          // Branch Profile
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
@@ -171,7 +222,6 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
           ),
         ],
       ),
-      // Admin Routes
       GoRoute(
         path: '/admin',
         name: RouteNames.admin,
@@ -205,3 +255,23 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
     ],
   );
 });
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(Icons.content_cut, size: 64),
+            SizedBox(height: 16),
+            CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}

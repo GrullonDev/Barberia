@@ -128,6 +128,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     onPressed: () => context.pushNamed('register'),
                     child: const Text('¿No tienes cuenta? Regístrate'),
                   ),
+                  TextButton(
+                    onPressed: () => context.pushNamed('password-reset'),
+                    child: const Text('¿Olvidaste tu contraseña?'),
+                  ),
+                  TextButton(
+                    onPressed: () => context.pushNamed('phone-login'),
+                    child: const Text('Ingresar con teléfono'),
+                  ),
                 ],
               ),
             ),

@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,12 +11,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:barberia/app/router.dart';
-import 'package:barberia/features/auth/providers/auth_providers.dart';
-import 'package:barberia/features/auth/models/user.dart' as auth_user;
 import 'package:barberia/common/config/location_config.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/models/booking.dart';
-import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/ticket_view.dart';
 import 'package:barberia/l10n/app_localizations.dart';
@@ -30,80 +26,35 @@ class ConfirmationPage extends ConsumerStatefulWidget {
 }
 
 class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
-  Booking? _booking;
-  String? _qrData;
-  bool _enqueued = false;
-
-  void _ensureBookingScheduled() {
-    if (_enqueued || _booking == null) {
-      return;
-    }
-    _enqueued = true;
-
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final List<Booking> current = ref.read(bookingsProvider);
-      if (!current.any((final Booking b) => b.id == _booking!.id)) {
-        ref.read(bookingsProvider.notifier).add(_booking!);
-        ref.read(bookingDraftProvider.notifier).reset();
-      }
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    if (_booking == null) {
-      final BookingDraft draft = ref.read(bookingDraftProvider);
-      if (draft.service != null &&
-          draft.dateTime != null &&
-          draft.name != null &&
-          (draft.phone != null || draft.email != null)) {
-        final auth_user.User? currentUser = ref.read(authStateProvider);
-        _booking = Booking(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          userId: currentUser?.id ?? 'guest_01',
-          serviceId: draft.service?.id ?? '',
-          serviceName: draft.service?.name ?? 'Servicio',
-          service: draft.service,
-          dateTime: draft.dateTime!,
-          customerName: draft.name!,
-          customerPhone: draft.phone,
-          customerEmail: draft.email,
-          notes: draft.notes,
-        );
-
-        String two(int v) => v.toString().padLeft(2, '0');
-        const String address = LocationConfig.address;
-
-        final String qrContent =
-            '''
-            RESERVA CLIPZ
-            ID: APPT-${_booking!.id.substring(_booking!.id.length - 4)}
-            Servicio: ${_booking!.serviceName}
-            Fecha: ${two(_booking!.dateTime.day)}/${two(_booking!.dateTime.month)}/${_booking!.dateTime.year}
-            Hora: ${two(_booking!.dateTime.hour)}:${two(_booking!.dateTime.minute)}
-            Cliente: ${_booking!.customerName}
-            ${_booking!.customerPhone != null ? 'Tel: ${_booking!.customerPhone}\n' : ''}${_booking!.customerEmail != null ? 'Email: ${_booking!.customerEmail}\n' : ''}${_booking!.notes != null ? 'Notas: ${_booking!.notes}\n' : ''}Ub: $address
-            ''';
-        _qrData = qrContent;
-        _ensureBookingScheduled();
-      }
-    }
+  /// Genera el contenido del QR a partir del booking confirmado.
+  /// Se recomputa por build porque el booking vive en un provider (no en
+  /// state local), lo que mantiene consistente el ticket si el booking
+  /// cambia de status.
+  String _buildQrContent(Booking booking) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    const String address = LocationConfig.address;
+    return '''
+        RESERVA CLIPZ
+        ID: APPT-${booking.id.substring(booking.id.length - 4)}
+        Servicio: ${booking.serviceName}
+        Fecha: ${two(booking.dateTime.day)}/${two(booking.dateTime.month)}/${booking.dateTime.year}
+        Hora: ${two(booking.dateTime.hour)}:${two(booking.dateTime.minute)}
+        Cliente: ${booking.customerName}
+        ${booking.customerPhone != null ? 'Tel: ${booking.customerPhone}\n' : ''}${booking.customerEmail != null ? 'Email: ${booking.customerEmail}\n' : ''}${booking.notes != null ? 'Notas: ${booking.notes}\n' : ''}Ub: $address
+        ''';
   }
 
   @override
   Widget build(final BuildContext context) {
     final S tr = S.of(context);
-    final Booking? booking = _booking;
+    // El booking confirmado por el CF se publica desde `details_page.submit()`.
+    // Si el usuario llega aquí sin un booking confirmado (p. ej. deep link
+    // directo), mostramos el estado incompleto.
+    final Booking? booking = ref.watch(lastConfirmedBookingProvider);
     if (booking == null) {
       return Scaffold(body: Center(child: Text(tr.confirm_incomplete)));
     }
-    final String? qrData = _qrData;
-    if (qrData == null) {
-      return Scaffold(body: Center(child: Text(tr.confirm_incomplete)));
-    }
+    final String qrData = _buildQrContent(booking);
     String two(int v) => v.toString().padLeft(2, '0');
     final DateTime start = booking.dateTime;
     final DateTime end = booking.endTime;

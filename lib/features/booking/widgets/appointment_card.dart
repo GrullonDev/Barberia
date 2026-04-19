@@ -202,7 +202,7 @@ class AppointmentCard extends ConsumerWidget {
                       labelSoon: tr.appointment_rebook_soon,
                       semanticsLabel: tr.appointment_rebook,
                       onTap: rebookFlow,
-                      enabled: booking.status == BookingStatus.active,
+                      enabled: booking.occupiesSlot,
                     ),
                     const SizedBox(height: 4),
                     actionButton(
@@ -211,7 +211,7 @@ class AppointmentCard extends ConsumerWidget {
                       labelSoon: tr.appointment_cancel_soon,
                       semanticsLabel: tr.appointment_cancel,
                       onTap: confirmCancel,
-                      enabled: booking.status == BookingStatus.active && !past,
+                      enabled: booking.occupiesSlot && !past,
                     ),
                   ],
                 ),

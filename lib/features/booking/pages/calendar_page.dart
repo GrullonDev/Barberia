@@ -8,6 +8,8 @@ import 'package:table_calendar/table_calendar.dart';
 
 import 'package:barberia/app/router.dart';
 import 'package:barberia/common/design_tokens.dart';
+import 'package:barberia/features/barber/models/barber.dart';
+import 'package:barberia/features/barber/providers/barber_providers.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
@@ -21,16 +23,17 @@ class CalendarPage extends ConsumerStatefulWidget {
   ConsumerState<CalendarPage> createState() => _CalendarPageState();
 }
 
-enum SlotState { available, occupied, hold, disabled }
+/// Estados UI del slot. Derivados del motor real:
+/// - `available`: lo devolvió `SlotEngine.generateAvailable`.
+/// - `occupied`: cae dentro de un booking activo del día (derivación cosmética).
+/// - `disabled`: fuera de horario laboral o en el pasado.
+enum SlotState { available, occupied, disabled }
 
 class _CalendarPageState extends ConsumerState<CalendarPage> {
   late DateTime _focusedDay;
   DateTime? _selectedDay;
   final DateTime _today = DateTime.now();
   late final DateTime _lastDay;
-  // Horario de atención (Guatemala) 08:00 - 19:00
-  static const int _openHour = 8;
-  static const int _closeHour = 19; // hora límite (no inclusiva en generación)
 
   @override
   void initState() {
@@ -39,42 +42,68 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     _lastDay = _focusedDay.add(const Duration(days: 30));
     final BookingDraft draft = ref.read(bookingDraftProvider);
     _selectedDay = draft.date;
+
+    // Auto-seleccionar el primer barbero disponible si el draft no trae uno.
+    // Se hace en post-frame para no tocar state durante initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(bookingDraftProvider).barberId != null) return;
+      ref.read(availableBarbersProvider.future).then((List<Barber> barbers) {
+        if (!mounted || barbers.isEmpty) return;
+        final Barber first = barbers.firstWhere(
+          (Barber b) => b.isAvailable,
+          orElse: () => barbers.first,
+        );
+        ref.read(bookingDraftProvider.notifier).setBarberId(first.id);
+      });
+    });
   }
 
-  Map<DateTime, SlotState> _generateSlots(final DateTime day) {
-    // Mock: genera slots cada 30 min en la mañana y cada 45 min después de 13:00.
-    final List<DateTime> slots = <DateTime>[];
-    int minute = 0;
-    for (int h = _openHour; h < _closeHour; h++) {
-      final bool afterNoon = h >= 13;
-      final int step = afterNoon ? 45 : 30;
-      minute = 0;
-      while (minute < 60) {
-        slots.add(DateTime(day.year, day.month, day.day, h, minute));
-        minute += step;
-      }
-    }
+  /// Genera el mapa visual del día combinando los slots libres del motor
+  /// con la derivación cosmética de ocupados desde `bookingsProvider`.
+  ///
+  /// El paso es el tamaño del servicio seleccionado (default 30 min), para
+  /// que los chips del bottom sheet cuadren con la granularidad real que
+  /// el CF usará al validar.
+  Map<DateTime, SlotState> _buildDaySlots({
+    required DateTime day,
+    required Barber barber,
+    required List<DateTime> availableFromEngine,
+    required int durationMinutes,
+  }) {
+    final List<int>? wh = barber.workingHours[day.weekday];
+    if (wh == null || wh.length < 2) return <DateTime, SlotState>{};
 
+    final int openH = wh[0];
+    final int closeH = wh[1];
     final DateTime now = DateTime.now();
     final bool isToday =
         day.year == now.year && day.month == now.month && day.day == now.day;
 
+    // Set O(1) de slots libres según el motor (autoridad de disponibilidad).
+    final Set<DateTime> availableSet = availableFromEngine.toSet();
+
+    // Nota: `dayBookings` se consulta a través del bookingsProvider, pero
+    // todo slot ocupado por un booking activo ya fue descartado por
+    // `SlotEngine.generateAvailable`. Por tanto, "no en availableSet y no
+    // en el pasado" ya implica "ocupado" desde el punto de vista del UI.
+
     final Map<DateTime, SlotState> map = <DateTime, SlotState>{};
-    for (final DateTime dt in slots) {
-      SlotState state = SlotState.available;
-      final int mod = dt.hour * 60 + dt.minute;
-      if (mod % 7 == 0) {
-        state = SlotState.occupied;
-      } else if (mod % 11 == 0) {
-        state = SlotState.hold;
-      }
-      // Horario fuera del rango (seguridad extra) o pasado si es hoy.
-      if (dt.hour < _openHour ||
-          dt.hour >= _closeHour ||
-          (isToday && dt.isBefore(now))) {
+    DateTime cursor = DateTime(day.year, day.month, day.day, openH);
+    final DateTime dayClose = DateTime(day.year, day.month, day.day, closeH);
+    final Duration step = Duration(minutes: durationMinutes);
+
+    while (!cursor.add(step).isAfter(dayClose)) {
+      SlotState state;
+      if (isToday && cursor.isBefore(now)) {
         state = SlotState.disabled;
+      } else if (availableSet.contains(cursor)) {
+        state = SlotState.available;
+      } else {
+        state = SlotState.occupied;
       }
-      map[dt] = state;
+      map[cursor] = state;
+      cursor = cursor.add(step);
     }
     return map;
   }
@@ -90,14 +119,28 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   Future<void> _openSlotsSheet(final DateTime day) async {
     final BookingDraft draft = ref.read(bookingDraftProvider);
 
-    // Pre-generate slots (would be fetched from backend in real app)
-    final Map<DateTime, SlotState> slots = _generateSlots(day);
-    final List<MapEntry<DateTime, SlotState>> morning = slots.entries
-        .where((final MapEntry<DateTime, SlotState> e) => e.key.hour < 13)
-        .toList();
-    final List<MapEntry<DateTime, SlotState>> afternoon = slots.entries
-        .where((final MapEntry<DateTime, SlotState> e) => e.key.hour >= 13)
-        .toList();
+    // Prerrequisitos: necesitamos servicio y barbero para llamar al motor.
+    final Service? service = draft.service;
+    final String? barberId = draft.barberId;
+    if (service == null || barberId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            service == null
+                ? 'Selecciona un servicio primero.'
+                : 'Cargando barberos disponibles...',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final AvailableSlotsArgs args = AvailableSlotsArgs(
+      barberId: barberId,
+      day: day,
+      serviceId: service.id ?? '',
+      durationMinutes: service.durationMinutes,
+    );
 
     DateTime? picked;
     await showModalBottomSheet<void>(
@@ -110,119 +153,178 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (final BuildContext ctx) {
-        final S tr = S.of(ctx);
-        final ColorScheme cs = Theme.of(ctx).colorScheme;
-        final String headerRange = tr.calendar_schedule_range('08:00', '19:00');
-        // Simulated loading future
-        final Future<void> loadFuture = Future<void>.delayed(
-          const Duration(milliseconds: 600),
-        );
-        Widget section(String title, List<MapEntry<DateTime, SlotState>> list) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                style: Theme.of(
-                  ctx,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: list.map((final MapEntry<DateTime, SlotState> e) {
-                  final DateTime dt = e.key;
-                  final SlotState st = e.value;
-                  final String label =
-                      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
-                          .replaceAll(':00', ':00');
-                  final bool disabled =
-                      st == SlotState.disabled ||
-                      st == SlotState.occupied ||
-                      st == SlotState.hold;
-                  Color bg;
-                  Color fg;
-                  BoxBorder? border;
-                  switch (st) {
-                    case SlotState.available:
-                      bg = cs.surfaceContainerHigh;
-                      fg = cs.onSurface;
-                      break;
-                    case SlotState.occupied:
-                      bg = cs.surfaceContainerHighest.withValues(alpha: 0.5);
-                      fg = cs.onSurfaceVariant.withValues(alpha: 0.5);
-                      break;
-                    case SlotState.hold:
-                      bg = cs.tertiaryContainer;
-                      fg = cs.onTertiaryContainer;
-                      break;
-                    case SlotState.disabled:
-                      bg = Colors.transparent;
-                      fg = cs.onSurfaceVariant.withValues(alpha: 0.3);
-                      border = Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.5),
-                      );
-                      break;
-                  }
+        return Consumer(
+          builder: (BuildContext consumerCtx, WidgetRef innerRef, _) {
+            final S tr = S.of(consumerCtx);
+            final ColorScheme cs = Theme.of(consumerCtx).colorScheme;
+            final String headerRange =
+                tr.calendar_schedule_range('08:00', '19:00');
 
-                  // Highlight selection during this session if needed,
-                  // but here 'picked' is local to method.
+            final AsyncValue<List<DateTime>> slotsAsync =
+                innerRef.watch(availableSlotsProvider(args));
+            final AsyncValue<List<Barber>> barbersAsync =
+                innerRef.watch(availableBarbersProvider);
 
-                  return Opacity(
-                    opacity: disabled ? 0.6 : 1,
-                    child: InkWell(
-                      onTap: disabled
-                          ? null
-                          : () {
-                              HapticFeedback.selectionClick();
-                              picked = dt;
-                              Navigator.of(ctx).pop();
-                            },
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: bg,
+            Widget section(
+              String title,
+              List<MapEntry<DateTime, SlotState>> list,
+            ) {
+              if (list.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: Theme.of(consumerCtx).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: list.map((final MapEntry<DateTime, SlotState> e) {
+                      final DateTime dt = e.key;
+                      final SlotState st = e.value;
+                      final String label =
+                          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                      final bool disabled = st != SlotState.available;
+                      Color bg;
+                      Color fg;
+                      BoxBorder? border;
+                      switch (st) {
+                        case SlotState.available:
+                          bg = cs.surfaceContainerHigh;
+                          fg = cs.onSurface;
+                          break;
+                        case SlotState.occupied:
+                          bg = cs.surfaceContainerHighest
+                              .withValues(alpha: 0.5);
+                          fg = cs.onSurfaceVariant.withValues(alpha: 0.5);
+                          break;
+                        case SlotState.disabled:
+                          bg = Colors.transparent;
+                          fg = cs.onSurfaceVariant.withValues(alpha: 0.3);
+                          border = Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.5),
+                          );
+                          break;
+                      }
+
+                      return Opacity(
+                        opacity: disabled ? 0.6 : 1,
+                        child: InkWell(
+                          onTap: disabled
+                              ? null
+                              : () {
+                                  HapticFeedback.selectionClick();
+                                  picked = dt;
+                                  Navigator.of(consumerCtx).pop();
+                                },
                           borderRadius: BorderRadius.circular(24),
-                          border: border,
-                        ),
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: fg,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: bg,
+                              borderRadius: BorderRadius.circular(24),
+                              border: border,
+                            ),
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: fg,
+                              ),
+                            ),
                           ),
                         ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              );
+            }
+
+            Widget content = slotsAsync.when(
+              data: (List<DateTime> available) {
+                final Barber barber = barbersAsync.maybeWhen(
+                  data: (List<Barber> list) => list.firstWhere(
+                    (Barber b) => b.id == barberId,
+                    orElse: () => Barber(
+                      id: barberId,
+                      name: '',
+                      workingHours: Barber.defaultWorkingHours(),
+                    ),
+                  ),
+                  orElse: () => Barber(
+                    id: barberId,
+                    name: '',
+                    workingHours: Barber.defaultWorkingHours(),
+                  ),
+                );
+                final Map<DateTime, SlotState> slots = _buildDaySlots(
+                  day: day,
+                  barber: barber,
+                  availableFromEngine: available,
+                  durationMinutes: service.durationMinutes,
+                );
+                final List<MapEntry<DateTime, SlotState>> morning =
+                    slots.entries
+                        .where((MapEntry<DateTime, SlotState> e) =>
+                            e.key.hour < 13)
+                        .toList();
+                final List<MapEntry<DateTime, SlotState>> afternoon =
+                    slots.entries
+                        .where((MapEntry<DateTime, SlotState> e) =>
+                            e.key.hour >= 13)
+                        .toList();
+                if (morning.isEmpty && afternoon.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Text(
+                        'Sin horarios para este día.',
+                        style: Theme.of(consumerCtx).textTheme.bodyMedium,
                       ),
                     ),
                   );
-                }).toList(),
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    section(tr.calendar_morning, morning),
+                    section(tr.calendar_afternoon, afternoon),
+                  ],
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
               ),
-              const SizedBox(height: 24),
-            ],
-          );
-        }
+              error: (Object err, _) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Text(
+                    'No se pudieron cargar los horarios.',
+                    style: Theme.of(consumerCtx).textTheme.bodyMedium,
+                  ),
+                ),
+              ),
+            );
 
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: ResponsiveHelper.getResponsivePadding(context),
-              right: ResponsiveHelper.getResponsivePadding(context),
-              top: 8,
-              bottom:
-                  MediaQuery.of(ctx).viewInsets.bottom +
-                  ResponsiveHelper.getSpacing(context, mobile: 24),
-            ),
-            child: FutureBuilder<void>(
-              future: loadFuture,
-              builder: (final BuildContext _, final AsyncSnapshot<void> snap) {
-                final bool loaded =
-                    snap.connectionState == ConnectionState.done;
-                return SingleChildScrollView(
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: ResponsiveHelper.getResponsivePadding(context),
+                  right: ResponsiveHelper.getResponsivePadding(context),
+                  top: 8,
+                  bottom: MediaQuery.of(consumerCtx).viewInsets.bottom +
+                      ResponsiveHelper.getSpacing(context, mobile: 24),
+                ),
+                child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -234,7 +336,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                             children: <Widget>[
                               Text(
                                 '${day.day}/${day.month}',
-                                style: Theme.of(ctx).textTheme.headlineMedium
+                                style: Theme.of(consumerCtx)
+                                    .textTheme
+                                    .headlineMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: cs.primary,
@@ -242,7 +346,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                               ),
                               Text(
                                 headerRange,
-                                style: Theme.of(ctx).textTheme.bodySmall,
+                                style: Theme.of(consumerCtx)
+                                    .textTheme
+                                    .bodySmall,
                               ),
                             ],
                           ),
@@ -254,18 +360,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      if (!loaded)
-                        const Center(child: CircularProgressIndicator())
-                      else ...<Widget>[
-                        section(tr.calendar_morning, morning),
-                        section(tr.calendar_afternoon, afternoon),
-                      ],
+                      content,
                     ],
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -598,15 +699,9 @@ class _SlotLegend extends StatelessWidget {
           label: tr.calendar_legend_available,
         ),
         _LegendItem(
-          color: Theme.of(context)
-              .colorScheme
-              .tertiaryContainer, // Placeholder for occupied color if needed or use specific color
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           label: tr.calendar_legend_occupied,
           opacity: 0.5,
-        ),
-        _LegendItem(
-          color: Theme.of(context).colorScheme.tertiaryContainer,
-          label: tr.calendar_legend_hold,
         ),
       ],
     );

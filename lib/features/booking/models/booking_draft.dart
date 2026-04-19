@@ -2,6 +2,7 @@ import 'service.dart';
 
 class BookingDraft {
   final Service? service;
+  final String? barberId;
   final DateTime? date;
   final DateTime? dateTime; // date + hour combined
   final String? name;
@@ -11,6 +12,7 @@ class BookingDraft {
 
   const BookingDraft({
     this.service,
+    this.barberId,
     this.date,
     this.dateTime,
     this.name,
@@ -21,6 +23,7 @@ class BookingDraft {
 
   BookingDraft copyWith({
     Service? service,
+    String? barberId,
     DateTime? date,
     DateTime? dateTime,
     String? name,
@@ -29,6 +32,7 @@ class BookingDraft {
     String? notes,
   }) => BookingDraft(
     service: service ?? this.service,
+    barberId: barberId ?? this.barberId,
     date: date ?? this.date,
     dateTime: dateTime ?? this.dateTime,
     name: name ?? this.name,
