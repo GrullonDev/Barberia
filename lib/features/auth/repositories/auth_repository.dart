@@ -26,7 +26,9 @@ class AuthRepository {
       email: email.trim(),
       password: password,
     );
-    if (credential.user == null) return null;
+    if (credential.user == null) {
+      return null;
+    }
     _currentUser = await _fetchUserProfile(credential.user!.uid);
     return _currentUser;
   }
@@ -77,7 +79,9 @@ class AuthRepository {
 
   Future<User?> _fetchUserProfile(String uid) async {
     final doc = await _db.collection('users').doc(uid).get();
-    if (!doc.exists) return null;
+    if (!doc.exists) {
+      return null;
+    }
     return User.fromFirestore(doc);
   }
 }

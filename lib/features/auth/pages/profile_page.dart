@@ -157,7 +157,7 @@ class _ProfileItem extends StatelessWidget {
           Divider(
             height: 1,
             indent: 60,
-            color: cs.outlineVariant.withOpacity(0.3),
+            color: cs.outlineVariant.withValues(alpha: 0.3),
           ),
       ],
     );

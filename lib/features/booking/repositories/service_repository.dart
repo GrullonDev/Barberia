@@ -18,7 +18,9 @@ class ServiceRepository {
   }
 
   Future<void> updateService(Service service) async {
-    if (service.id == null) return;
+    if (service.id == null) {
+      return;
+    }
     await _db
         .collection('services')
         .doc(service.id)

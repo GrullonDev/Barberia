@@ -41,7 +41,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     _enqueued = true;
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       final List<Booking> current = ref.read(bookingsProvider);
       if (!current.any((final Booking b) => b.id == _booking!.id)) {
         ref.read(bookingsProvider.notifier).add(_booking!);

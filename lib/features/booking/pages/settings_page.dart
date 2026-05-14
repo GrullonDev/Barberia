@@ -228,7 +228,9 @@ class SettingsPage extends ConsumerWidget {
                   prefixIcon: Icon(Icons.lock),
                 ),
                 validator: (v) {
-                  if (v != passCtrl.text) return 'Las contraseñas no coinciden';
+                  if (v != passCtrl.text) {
+                    return 'Las contraseñas no coinciden';
+                  }
                   return null;
                 },
               ),
