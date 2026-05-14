@@ -74,19 +74,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           notes: draft.notes,
         );
 
-        String two(int v) => v.toString().padLeft(2, '0');
-        const String address = LocationConfig.address;
-
-        final String qrContent =
-            '''
-            RESERVA CLIPZ
-            ID: APPT-${_booking!.id.substring(_booking!.id.length - 4)}
-            Servicio: ${_booking!.serviceName}
-            Fecha: ${two(_booking!.dateTime.day)}/${two(_booking!.dateTime.month)}/${_booking!.dateTime.year}
-            Hora: ${two(_booking!.dateTime.hour)}:${two(_booking!.dateTime.minute)}
-            Cliente: ${_booking!.customerName}
-            ${_booking!.customerPhone != null ? 'Tel: ${_booking!.customerPhone}\n' : ''}${_booking!.customerEmail != null ? 'Email: ${_booking!.customerEmail}\n' : ''}${_booking!.notes != null ? 'Notas: ${_booking!.notes}\n' : ''}Ub: $address
-            ''';
+        final String qrContent = LocationConfig.buildBookingUrl(_booking!.id);
         _qrData = qrContent;
         _ensureBookingScheduled();
       }
@@ -114,7 +102,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     final int durMin = booking.service?.durationMinutes ?? 30;
 
     final ColorScheme cs = Theme.of(context).colorScheme;
-    const String address = LocationConfig.address;
+    final String address = LocationConfig.address;
     final Uri mapsUri = LocationConfig.googleMapsUri();
     final Uri wazeUri = LocationConfig.wazeUri();
 
@@ -244,7 +232,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.location_on),
-                        title: const Text(address),
+                        title: Text(address),
                         subtitle: Text(tr.confirm_open_in_maps),
                         onTap: () async {
                           // Try Google Maps first, fallback to Waze if available, else browser.

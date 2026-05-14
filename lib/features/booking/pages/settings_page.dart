@@ -356,11 +356,11 @@ class SettingsPage extends ConsumerWidget {
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => AboutDialog(
+      builder: (ctx) => const AboutDialog(
         applicationName: 'Barbería App',
         applicationVersion: '1.0.0',
-        applicationIcon: const Icon(Icons.content_cut, size: 48),
-        children: const [
+        applicationIcon: Icon(Icons.content_cut, size: 48),
+        children: [
           SizedBox(height: 16),
           Text(
             'Esta aplicación fue desarrollada para gestionar citas de barbería de manera eficiente.',

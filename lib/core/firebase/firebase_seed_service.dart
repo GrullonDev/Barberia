@@ -14,8 +14,8 @@ class FirebaseSeedService {
     final snapshot = await _db.collection('services').limit(1).get();
     if (snapshot.docs.isNotEmpty) {
       if (kDebugMode) {
-      debugPrint('[Seed] Services already exist, skipping.');
-    }
+        debugPrint('[Seed] Services already exist, skipping.');
+      }
       return;
     }
 
@@ -52,7 +52,8 @@ class FirebaseSeedService {
         'price': 120.0,
         'durationMinutes': 60,
         'category': 'hair',
-        'extendedDescription': 'Corte moderno fade con navaja y acabado perfecto.',
+        'extendedDescription':
+            'Corte moderno fade con navaja y acabado perfecto.',
         'isActive': true,
       },
     ];

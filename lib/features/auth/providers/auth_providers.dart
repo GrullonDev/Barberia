@@ -33,8 +33,18 @@ class AuthNotifier extends StateNotifier<User?> {
     }
   }
 
-  Future<void> register(String name, String email, String password, {String? phone}) async {
-    final user = await _repository.register(name, email, password, phone: phone);
+  Future<void> register(
+    String name,
+    String email,
+    String password, {
+    String? phone,
+  }) async {
+    final user = await _repository.register(
+      name,
+      email,
+      password,
+      phone: phone,
+    );
     state = user;
   }
 
