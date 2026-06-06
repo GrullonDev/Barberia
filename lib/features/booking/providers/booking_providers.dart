@@ -242,7 +242,9 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   }
 
   Future<void> _loadBookings() async {
-    if (_user == null) return;
+    if (_user == null) {
+      return;
+    }
     try {
       final List<Booking> bookings;
       if (_user.role == UserRole.admin || _user.role == UserRole.barber) {

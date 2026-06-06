@@ -61,7 +61,8 @@ class FirebaseSeedService {
         'price': 120.0,
         'durationMinutes': 60,
         'category': 'hair',
-        'extendedDescription': 'Corte moderno fade con navaja y acabado perfecto.',
+        'extendedDescription':
+            'Corte moderno fade con navaja y acabado perfecto.',
         'isActive': true,
       },
     ];

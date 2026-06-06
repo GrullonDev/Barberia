@@ -26,22 +26,57 @@ class ConfirmationPage extends ConsumerStatefulWidget {
 }
 
 class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
-  /// Genera el contenido del QR a partir del booking confirmado.
-  /// Se recomputa por build porque el booking vive en un provider (no en
-  /// state local), lo que mantiene consistente el ticket si el booking
-  /// cambia de status.
-  String _buildQrContent(Booking booking) {
-    String two(int v) => v.toString().padLeft(2, '0');
-    const String address = LocationConfig.address;
-    return '''
-        RESERVA CLIPZ
-        ID: APPT-${booking.id.substring(booking.id.length - 4)}
-        Servicio: ${booking.serviceName}
-        Fecha: ${two(booking.dateTime.day)}/${two(booking.dateTime.month)}/${booking.dateTime.year}
-        Hora: ${two(booking.dateTime.hour)}:${two(booking.dateTime.minute)}
-        Cliente: ${booking.customerName}
-        ${booking.customerPhone != null ? 'Tel: ${booking.customerPhone}\n' : ''}${booking.customerEmail != null ? 'Email: ${booking.customerEmail}\n' : ''}${booking.notes != null ? 'Notas: ${booking.notes}\n' : ''}Ub: $address
-        ''';
+  Booking? _booking;
+  String? _qrData;
+  bool _enqueued = false;
+
+  void _ensureBookingScheduled() {
+    if (_enqueued || _booking == null) {
+      return;
+    }
+    _enqueued = true;
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final List<Booking> current = ref.read(bookingsProvider);
+      if (!current.any((final Booking b) => b.id == _booking!.id)) {
+        ref.read(bookingsProvider.notifier).add(_booking!);
+        ref.read(bookingDraftProvider.notifier).reset();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_booking == null) {
+      final BookingDraft draft = ref.read(bookingDraftProvider);
+      if (draft.service != null &&
+          draft.dateTime != null &&
+          draft.name != null &&
+          (draft.phone != null || draft.email != null)) {
+        final auth_user.User? currentUser = ref.read(authStateProvider);
+        _booking = Booking(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: currentUser?.id ?? 'guest_01',
+          serviceId: draft.service?.id ?? '',
+          serviceName: draft.service?.name ?? 'Servicio',
+          service: draft.service,
+          dateTime: draft.dateTime!,
+          customerName: draft.name!,
+          customerPhone: draft.phone,
+          customerEmail: draft.email,
+          notes: draft.notes,
+        );
+
+        final String qrContent = LocationConfig.buildBookingUrl(_booking!.id);
+        _qrData = qrContent;
+        _ensureBookingScheduled();
+      }
+    }
   }
 
   @override
@@ -65,7 +100,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     final int durMin = booking.service?.durationMinutes ?? 30;
 
     final ColorScheme cs = Theme.of(context).colorScheme;
-    const String address = LocationConfig.address;
+    final String address = LocationConfig.address;
     final Uri mapsUri = LocationConfig.googleMapsUri();
     final Uri wazeUri = LocationConfig.wazeUri();
 
@@ -195,7 +230,7 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.location_on),
-                        title: const Text(address),
+                        title: Text(address),
                         subtitle: Text(tr.confirm_open_in_maps),
                         onTap: () async {
                           // Try Google Maps first, fallback to Waze if available, else browser.

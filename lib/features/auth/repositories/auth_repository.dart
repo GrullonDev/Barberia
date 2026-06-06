@@ -25,8 +25,8 @@ import 'package:barberia/features/auth/models/user.dart';
 /// el loop infinito de redirección hacia /login.
 class AuthRepository {
   AuthRepository({fb_auth.FirebaseAuth? auth, FirebaseFirestore? db})
-      : _auth = auth ?? fb_auth.FirebaseAuth.instance,
-        _db = db ?? FirebaseFirestore.instance;
+    : _auth = auth ?? fb_auth.FirebaseAuth.instance,
+      _db = db ?? FirebaseFirestore.instance;
 
   final fb_auth.FirebaseAuth _auth;
   final FirebaseFirestore _db;
@@ -56,11 +56,8 @@ class AuthRepository {
   // ---------------------------------------------------------------------------
 
   Future<User?> login(String email, String password) async {
-    final fb_auth.UserCredential credential =
-        await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    final fb_auth.UserCredential credential = await _auth
+        .signInWithEmailAndPassword(email: email.trim(), password: password);
     if (credential.user == null) return null;
     _currentUser = await _ensureUserProfile(credential.user!);
     return _currentUser;
@@ -72,11 +69,11 @@ class AuthRepository {
     String password, {
     String? phone,
   }) async {
-    final fb_auth.UserCredential credential =
-        await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    final fb_auth.UserCredential credential = await _auth
+        .createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        );
     final fb_auth.User fbUser = credential.user!;
 
     // Todo registro nuevo entra como 'client' (ver Phase 0). Admin/barber
@@ -159,13 +156,11 @@ class AuthRepository {
     if (vid == null) {
       throw StateError('Llama antes a sendPhoneCode.');
     }
-    final fb_auth.PhoneAuthCredential credential =
-        fb_auth.PhoneAuthProvider.credential(
-      verificationId: vid,
-      smsCode: smsCode,
+    final fb_auth.PhoneAuthCredential credential = fb_auth
+        .PhoneAuthProvider.credential(verificationId: vid, smsCode: smsCode);
+    final fb_auth.UserCredential userCred = await _auth.signInWithCredential(
+      credential,
     );
-    final fb_auth.UserCredential userCred =
-        await _auth.signInWithCredential(credential);
     if (userCred.user == null) return null;
     _currentUser = await _ensureUserProfile(userCred.user!);
     _pendingPhoneVerificationId = null;
@@ -211,8 +206,9 @@ class AuthRepository {
   /// Soluciona el loop de redirección cuando hay fbUser pero falta doc espejo
   /// (por ejemplo tras signInAnonymously o por crashes a mitad de registro).
   Future<User> _ensureUserProfile(fb_auth.User fbUser) async {
-    final DocumentReference<Map<String, dynamic>> ref =
-        _db.collection('users').doc(fbUser.uid);
+    final DocumentReference<Map<String, dynamic>> ref = _db
+        .collection('users')
+        .doc(fbUser.uid);
     final DocumentSnapshot<Map<String, dynamic>> snap = await ref.get();
 
     if (snap.exists) {

@@ -79,7 +79,7 @@ ThemeData buildTheme({
         borderRadius: BorderRadius.circular(AppRadius.m),
       ),
       enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: Colors.transparent),
+        borderSide: const BorderSide(color: Colors.transparent),
         borderRadius: BorderRadius.circular(AppRadius.m),
       ),
       focusedBorder: OutlineInputBorder(

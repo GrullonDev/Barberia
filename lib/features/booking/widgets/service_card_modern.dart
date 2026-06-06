@@ -36,9 +36,7 @@ class ServiceCardModern extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: border, width: selected ? 2 : 1),
           borderRadius: BorderRadius.circular(24),
-          color: cs.surfaceContainerHighest.withAlpha(
-            selected ? 90 : 64,
-          ),
+          color: cs.surfaceContainerHighest.withAlpha(selected ? 90 : 64),
           boxShadow: selected
               ? <BoxShadow>[
                   BoxShadow(

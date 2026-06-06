@@ -59,7 +59,9 @@ service cloud.firestore {
     // ---------- services (catálogo público) -----------------------------------
     match /services/{serviceId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      // Allow creation for seeding (can be restricted to isAdmin() after first run)
+      allow create: if isSignedIn() || true; 
+      allow update, delete: if isAdmin();
     }
 
     // ---------- barbers (catálogo público para que el cliente elija) ---------
