@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:barberia/common/widgets/scaffold_with_nav_bar.dart';
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
+import 'package:barberia/features/admin/pages/admin_config_page.dart';
 import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
 import 'package:barberia/features/admin/pages/all_bookings_page.dart';
 import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
@@ -44,6 +45,7 @@ abstract final class RouteNames {
   static const String manageBarbers = 'manage-barbers';
   static const String allBookings = 'all-bookings';
   static const String addService = 'add-service';
+  static const String adminConfig = 'admin-config';
 }
 
 /// Rutas públicas que un usuario anónimo o un cliente sin cuenta pueden
@@ -249,6 +251,11 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
             path: 'bookings',
             name: RouteNames.allBookings,
             builder: (_, __) => const AllBookingsPage(),
+          ),
+          GoRoute(
+            path: 'config',
+            name: RouteNames.adminConfig,
+            builder: (_, __) => const AdminConfigPage(),
           ),
         ],
       ),

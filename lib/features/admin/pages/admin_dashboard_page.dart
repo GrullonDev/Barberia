@@ -100,6 +100,14 @@ class AdminDashboardPage extends ConsumerWidget {
             color: Colors.green,
             onTap: () => context.goNamed(RouteNames.allBookings),
           ),
+          const SizedBox(height: 12),
+          _AdminActionCard(
+            icon: Icons.settings,
+            title: 'Configuración del Negocio',
+            subtitle: 'Nombre, contacto, dirección y dominio web',
+            color: Colors.purple,
+            onTap: () => context.goNamed(RouteNames.adminConfig),
+          ),
         ],
       ),
     );

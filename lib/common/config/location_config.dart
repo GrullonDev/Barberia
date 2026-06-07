@@ -28,8 +28,9 @@ class LocationConfig {
   }
 
   /// Build the URL for a specific booking to be used in QR codes
-  static String buildBookingUrl(String bookingId) {
-    return '$landingBaseUrl/booking/$bookingId';
+  static String buildBookingUrl(String bookingId, {String? baseUrl}) {
+    final String base = baseUrl ?? landingBaseUrl;
+    return '$base/booking/$bookingId';
   }
 
   /// Build Waze deep link.

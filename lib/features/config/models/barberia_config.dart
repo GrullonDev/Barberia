@@ -21,6 +21,7 @@ class BarberiaConfig {
   final String? phone;
   final String? whatsappPhone;
   final String? logoUrl;
+  final String? landingBaseUrl; // Custom web domain URL
 
   // Política anti no-show
   final int autoReleaseHours;  // horas antes sin confirmar para liberar
@@ -38,6 +39,7 @@ class BarberiaConfig {
     this.phone,
     this.whatsappPhone,
     this.logoUrl,
+    this.landingBaseUrl,
     this.autoReleaseHours = 4,
     this.maxNoShows = 3,
     this.requireConfirmation = true,
@@ -54,6 +56,7 @@ class BarberiaConfig {
     String? phone,
     String? whatsappPhone,
     String? logoUrl,
+    String? landingBaseUrl,
     int? autoReleaseHours,
     int? maxNoShows,
     bool? requireConfirmation,
@@ -68,6 +71,7 @@ class BarberiaConfig {
         phone: phone ?? this.phone,
         whatsappPhone: whatsappPhone ?? this.whatsappPhone,
         logoUrl: logoUrl ?? this.logoUrl,
+        landingBaseUrl: landingBaseUrl ?? this.landingBaseUrl,
         autoReleaseHours: autoReleaseHours ?? this.autoReleaseHours,
         maxNoShows: maxNoShows ?? this.maxNoShows,
         requireConfirmation: requireConfirmation ?? this.requireConfirmation,
@@ -84,6 +88,7 @@ class BarberiaConfig {
         'phone': phone,
         'whatsappPhone': whatsappPhone,
         'logoUrl': logoUrl,
+        'landingBaseUrl': landingBaseUrl,
         'autoReleaseHours': autoReleaseHours,
         'maxNoShows': maxNoShows,
         'requireConfirmation': requireConfirmation,
@@ -103,6 +108,7 @@ class BarberiaConfig {
       phone: data['phone'] as String?,
       whatsappPhone: data['whatsappPhone'] as String?,
       logoUrl: data['logoUrl'] as String?,
+      landingBaseUrl: data['landingBaseUrl'] as String?,
       autoReleaseHours: (data['autoReleaseHours'] as num?)?.toInt() ?? 4,
       maxNoShows: (data['maxNoShows'] as num?)?.toInt() ?? 3,
       requireConfirmation: data['requireConfirmation'] as bool? ?? true,

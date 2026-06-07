@@ -318,6 +318,17 @@
             }
 
             try {
+                // Obtener configuración global de la barbería
+                let config = {};
+                try {
+                    const configDoc = await db.collection('config').doc('barberia').get();
+                    if (configDoc.exists) {
+                        config = configDoc.data();
+                    }
+                } catch (configErr) {
+                    console.warn("No se pudo cargar la configuración de Firestore:", configErr);
+                }
+
                 const doc = await db.collection('bookings').doc(bookingId).get();
                 
                 if (!doc.exists) {
@@ -326,14 +337,14 @@
                 }
 
                 const data = doc.data();
-                renderBooking(bookingId, data);
+                renderBooking(bookingId, data, config);
             } catch (error) {
                 console.error(error);
                 showError("Error al conectar con el servidor.");
             }
         }
 
-        function renderBooking(id, data) {
+        function renderBooking(id, data, config) {
             const content = document.getElementById('content');
             const date = data.date.toDate();
             const formattedDate = date.toLocaleDateString('es-ES', { 
@@ -343,9 +354,50 @@
                 hour: '2-digit', minute: '2-digit' 
             });
 
-            const statusClass = data.status === 'canceled' ? 'status-canceled' : 'status-active';
-            const statusLabel = data.status === 'canceled' ? 'Cancelada' : 'Confirmada';
-            const canCancel = data.status === 'active' && date > new Date();
+            // Actualizar logo, titulo y footer dinámicamente si vienen en la configuración
+            if (config.businessName) {
+                const logoEl = document.querySelector('.logo');
+                if (logoEl) logoEl.textContent = config.businessName.toUpperCase();
+                document.title = `Reserva - ${config.businessName}`;
+                const footerEl = document.querySelector('footer');
+                if (footerEl) footerEl.innerHTML = `&copy; 2026 ${config.businessName}. Todos los derechos reservados.`;
+            }
+
+            const statusClass = (data.status === 'canceled' || data.status === 'noShow') ? 'status-canceled' : 'status-active';
+            const statusLabel = data.status === 'canceled' ? 'Cancelada' : (data.status === 'noShow' ? 'No asistió' : 'Confirmada');
+            const canCancel = (data.status === 'active' || data.status === 'pending' || data.status === 'confirmed') && date > new Date();
+
+            // URL dinámica de Google Maps
+            const address = config.address || 'Av. Principal 123';
+            let mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+            if (config.lat && config.lng) {
+                mapsUrl += `&ll=${config.lat},${config.lng}`;
+            }
+
+            // Construir botones de contacto dinámicos
+            let contactButtonsHtml = '';
+            if (config.phone) {
+                contactButtonsHtml += `
+                    <a href="tel:${config.phone}" class="btn btn-secondary">
+                        Llamar a la barbería (${config.phone})
+                    </a>
+                `;
+            } else {
+                contactButtonsHtml += `
+                    <a href="tel:+123456789" class="btn btn-secondary">
+                        Llamar a la barbería
+                    </a>
+                `;
+            }
+
+            if (config.whatsappPhone) {
+                contactButtonsHtml += `
+                    <a href="https://wa.me/${config.whatsappPhone.replace(/[^0-9]/g, '')}" target="_blank" class="btn btn-secondary" style="background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); color: #81c784; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.517 2.266 2.27 3.507 5.289 3.507 8.491-.005 6.66-5.344 11.997-11.959 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.18 1.449 4.825 1.451 5.436 0 9.86-4.42 9.863-9.864.001-2.637-1.03-5.114-2.905-6.989-1.874-1.873-4.353-2.903-6.994-2.903-5.442 0-9.866 4.42-9.87 9.865-.001 1.83.479 3.618 1.392 5.181L1.895 21.93l6.232-1.635l-1.48.859zm10.742-7.403c-.29-.145-1.716-.848-1.98-.943-.264-.096-.456-.145-.648.145-.192.29-.744.943-.912 1.135-.168.19-.336.214-.627.069-.29-.145-1.22-.449-2.324-1.433-.86-.767-1.44-1.714-1.609-2.005-.168-.29-.018-.448.128-.592.13-.13.29-.336.436-.504.145-.168.193-.288.29-.48.096-.192.048-.36-.024-.504-.072-.144-.648-1.56-.888-2.136-.233-.56-.47-.482-.648-.492-.168-.008-.36-.01-.552-.01-.192 0-.504.072-.768.36-.264.288-1.008.984-1.008 2.4 0 1.416 1.032 2.784 1.176 2.976.144.192 2.03 3.1 4.92 4.35.687.297 1.224.475 1.642.607.69.219 1.32.188 1.817.114.553-.082 1.716-.7 1.957-1.378.24-.678.24-1.258.168-1.378-.072-.12-.264-.216-.554-.36z"/></svg>
+                        Escribir por WhatsApp
+                    </a>
+                `;
+            }
 
             content.innerHTML = `
                 <div class="card">
@@ -383,13 +435,11 @@
                         </div>
                     </div>
 
-                    <a href="https://www.google.com/maps/search/?api=1&query=Av.+Principal+123" target="_blank" class="btn">
+                    <a href="${mapsUrl}" target="_blank" class="btn">
                         ¿Cómo llegar?
                     </a>
                     
-                    <a href="tel:+123456789" class="btn btn-secondary">
-                        Llamar a la barbería
-                    </a>
+                    ${contactButtonsHtml}
 
                     ${canCancel ? `
                         <button onclick="confirmCancel('${id}')" class="btn btn-secondary" style="color: var(--error); border-color: rgba(244, 67, 54, 0.2); margin-top: 25px;">

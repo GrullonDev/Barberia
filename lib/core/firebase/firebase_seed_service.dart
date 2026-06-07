@@ -98,6 +98,7 @@ class FirebaseSeedService {
       'address': '',
       'phone': null,
       'whatsappPhone': null,
+      'landingBaseUrl': 'https://barbershop-ee9c0.web.app',
       'autoReleaseHours': 4,
       'maxNoShows': 3,
       'requireConfirmation': true,
