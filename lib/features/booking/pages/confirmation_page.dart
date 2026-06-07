@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,8 +13,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:barberia/app/router.dart';
 import 'package:barberia/common/config/location_config.dart';
+import 'package:barberia/features/auth/models/user.dart' as auth_user;
+import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/config/providers/barberia_config_providers.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/models/booking.dart';
+import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
 import 'package:barberia/features/booking/widgets/ticket_view.dart';
 import 'package:barberia/l10n/app_localizations.dart';
@@ -27,7 +32,6 @@ class ConfirmationPage extends ConsumerStatefulWidget {
 
 class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
   Booking? _booking;
-  String? _qrData;
   bool _enqueued = false;
 
   void _ensureBookingScheduled() {
@@ -48,6 +52,11 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
     });
   }
 
+  String _buildQrContent(Booking booking) {
+    final config = ref.watch(barberiaConfigProvider).valueOrNull;
+    return LocationConfig.buildBookingUrl(booking.id, baseUrl: config?.landingBaseUrl);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -59,21 +68,26 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           draft.name != null &&
           (draft.phone != null || draft.email != null)) {
         final auth_user.User? currentUser = ref.read(authStateProvider);
+        final DateTime nowLocal = DateTime.now();
         _booking = Booking(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          id: nowLocal.millisecondsSinceEpoch.toString(),
           userId: currentUser?.id ?? 'guest_01',
           serviceId: draft.service?.id ?? '',
           serviceName: draft.service?.name ?? 'Servicio',
-          service: draft.service,
-          dateTime: draft.dateTime!,
+          startAt: draft.dateTime!,
+          endAt: draft.dateTime!.add(Duration(minutes: draft.service?.durationMinutes ?? 30)),
           customerName: draft.name!,
+          createdAt: nowLocal,
+          updatedAt: nowLocal,
+          barberId: draft.barberId ?? '',
+          serviceDurationMinutes: draft.service?.durationMinutes ?? 30,
+          servicePrice: draft.service?.price ?? 0,
           customerPhone: draft.phone,
           customerEmail: draft.email,
           notes: draft.notes,
+          service: draft.service,
         );
 
-        final String qrContent = LocationConfig.buildBookingUrl(_booking!.id);
-        _qrData = qrContent;
         _ensureBookingScheduled();
       }
     }
