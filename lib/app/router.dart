@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/common/widgets/scaffold_with_nav_bar.dart';
+import 'package:barberia/features/booking/pages/barber_select_page.dart';
 import 'package:barberia/features/booking/pages/calendar_page.dart';
 import 'package:barberia/features/booking/pages/confirmation_page.dart';
 import 'package:barberia/features/booking/pages/details_page.dart';
@@ -15,11 +16,15 @@ import 'package:barberia/features/auth/pages/login_page.dart';
 import 'package:barberia/features/auth/pages/register_page.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
+import 'package:barberia/features/gallery/models/hair_style.dart';
+import 'package:barberia/features/gallery/pages/custom_cut_personalizer_page.dart';
+import 'package:barberia/features/gallery/pages/gallery_page.dart';
 import 'package:barberia/features/static/privacy_page.dart';
 
 abstract final class RouteNames {
   static const String home = 'home';
   static const String services = 'services';
+  static const String barberSelect = 'barber-select';
   static const String calendar = 'calendar';
   static const String details = 'details';
   static const String confirmation = 'confirmation';
@@ -29,6 +34,8 @@ abstract final class RouteNames {
   static const String login = 'login';
   static const String register = 'register';
   static const String admin = 'admin';
+  static const String gallery = 'gallery';
+  static const String personalize = 'personalize';
 }
 
 final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
@@ -39,21 +46,39 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
     refreshListenable: ValueNotifier(authState), // Simple refresh trigger
     redirect: (BuildContext context, GoRouterState state) {
       final bool loggedIn = authState != null;
-      final bool isLoginPage = state.uri.path == '/login';
-      final bool isRegisterPage = state.uri.path == '/register';
+      final String path = state.uri.path;
+      final bool isLoginPage = path == '/login';
+      final bool isRegisterPage = path == '/register';
       final bool isAuthRoute = isLoginPage || isRegisterPage;
+      final bool isAdminPath = path.startsWith('/admin');
+      // Creating a custom haircut requires an account.
+      final bool isPersonalizePath = path.endsWith('/personalize');
 
       // Handle unauthenticated users
       if (!loggedIn) {
-        return isAuthRoute ? null : '/login';
+        if (isAuthRoute) {
+          return null;
+        }
+        if (isAdminPath || isPersonalizePath) {
+          final String from = Uri.encodeComponent(state.uri.toString());
+          return '/login?from=$from';
+        }
+        // Everyone can browse and book without an account.
+        return null;
       }
 
       // Handle authenticated users
       final bool isAdmin = authState.role == UserRole.admin;
-      final bool isAdminPath = state.uri.path.startsWith('/admin');
 
       if (isAuthRoute) {
-        return isAdmin ? '/admin' : '/';
+        if (isAdmin) {
+          return '/admin';
+        }
+        final String? from = state.uri.queryParameters['from'];
+        if (from != null && from.isNotEmpty && !from.startsWith('/admin')) {
+          return from;
+        }
+        return '/';
       }
 
       if (isAdmin && !isAdminPath) {
@@ -101,6 +126,11 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
                     builder: (_, __) => const ServiceSelectPage(),
                     routes: <RouteBase>[
                       GoRoute(
+                        path: 'barber',
+                        name: RouteNames.barberSelect,
+                        builder: (_, __) => const BarberSelectPage(),
+                      ),
+                      GoRoute(
                         path: 'calendar',
                         name: RouteNames.calendar,
                         builder: (_, __) => const CalendarPage(),
@@ -121,6 +151,21 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
                     path: 'privacy',
                     name: RouteNames.privacy,
                     builder: (_, __) => const PrivacyPage(),
+                  ),
+                  GoRoute(
+                    path: 'gallery',
+                    name: RouteNames.gallery,
+                    builder: (_, __) => const GalleryPage(),
+                    routes: <RouteBase>[
+                      GoRoute(
+                        path: 'personalize',
+                        name: RouteNames.personalize,
+                        builder: (_, final GoRouterState state) =>
+                            CustomCutPersonalizerPage(
+                              initialStyle: state.extra as HairStyle?,
+                            ),
+                      ),
+                    ],
                   ),
                 ],
               ),
