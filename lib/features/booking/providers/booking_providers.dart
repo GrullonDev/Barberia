@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:barberia/features/booking/models/barber.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
@@ -27,6 +28,8 @@ class BookingDraftNotifier extends StateNotifier<BookingDraft> {
 
   void setService(final Service service) =>
       state = state.copyWith(service: service);
+  void setBarber(final Barber barber) =>
+      state = state.copyWith(barber: barber);
   void setDate(final DateTime date) => state = state.copyWith(date: date);
   void setDateTime(final DateTime dateTime) =>
       state = state.copyWith(dateTime: dateTime);

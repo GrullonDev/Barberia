@@ -16,7 +16,9 @@ class DatabaseHelper {
     if (_database != null) {
       return _database!;
     }
-    final String dbName = dotenv.env['DB_NAME'] ?? 'default_barberia.db';
+    final String dbName = dotenv.isInitialized
+        ? (dotenv.env['DB_NAME'] ?? 'default_barberia.db')
+        : 'default_barberia.db';
     _database = await _initDB(dbName);
     return _database!;
   }

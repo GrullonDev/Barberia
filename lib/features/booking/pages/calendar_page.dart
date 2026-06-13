@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'package:barberia/app/router.dart';
+import 'package:barberia/common/widgets/booking_stepper.dart';
 import 'package:barberia/features/booking/models/booking_draft.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
@@ -281,6 +282,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       appBar: AppBar(title: Text(tr.calendar_title)),
       body: Column(
         children: <Widget>[
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: BookingStepper(currentStep: 2),
+          ),
           // Quick picks
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,

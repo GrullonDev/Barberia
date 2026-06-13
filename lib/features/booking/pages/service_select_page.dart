@@ -130,7 +130,7 @@ class ServiceSelectPage extends ConsumerWidget {
                     onPressed: () {
                       ref.read(bookingDraftProvider.notifier).setService(s);
                       Navigator.of(ctx).pop();
-                      context.goNamed(RouteNames.calendar);
+                      context.goNamed(RouteNames.barberSelect);
                     },
                     style: FilledButton.styleFrom(
                       shape: RoundedRectangleBorder(
