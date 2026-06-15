@@ -29,7 +29,9 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
-      return isSignedIn() && userDoc().role == role;
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == role;
     }
 
     function isAdmin()  { return hasRole('admin'); }
@@ -59,9 +61,7 @@ service cloud.firestore {
     // ---------- services (catálogo público) -----------------------------------
     match /services/{serviceId} {
       allow read: if true;
-      // Allow creation for seeding (can be restricted to isAdmin() after first run)
-      allow create: if isSignedIn() || true; 
-      allow update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     // ---------- barbers (catálogo público para que el cliente elija) ---------
