@@ -46,10 +46,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     // Auto-seleccionar el primer barbero disponible si el draft no trae uno.
     // Se hace en post-frame para no tocar state durante initState.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (ref.read(bookingDraftProvider).barberId != null) return;
+      if (!mounted) {
+        return;
+      }
+      if (ref.read(bookingDraftProvider).barberId != null) {
+        return;
+      }
       ref.read(availableBarbersProvider.future).then((List<Barber> barbers) {
-        if (!mounted || barbers.isEmpty) return;
+        if (!mounted || barbers.isEmpty) {
+          return;
+        }
         final Barber first = barbers.firstWhere(
           (Barber b) => b.isAvailable,
           orElse: () => barbers.first,
@@ -72,7 +78,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     required int durationMinutes,
   }) {
     final List<int>? wh = barber.workingHours[day.weekday];
-    if (wh == null || wh.length < 2) return <DateTime, SlotState>{};
+    if (wh == null || wh.length < 2) {
+      return <DateTime, SlotState>{};
+    }
 
     final int openH = wh[0];
     final int closeH = wh[1];
@@ -157,19 +165,25 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           builder: (BuildContext consumerCtx, WidgetRef innerRef, _) {
             final S tr = S.of(consumerCtx);
             final ColorScheme cs = Theme.of(consumerCtx).colorScheme;
-            final String headerRange =
-                tr.calendar_schedule_range('08:00', '19:00');
+            final String headerRange = tr.calendar_schedule_range(
+              '08:00',
+              '19:00',
+            );
 
-            final AsyncValue<List<DateTime>> slotsAsync =
-                innerRef.watch(availableSlotsProvider(args));
-            final AsyncValue<List<Barber>> barbersAsync =
-                innerRef.watch(availableBarbersProvider);
+            final AsyncValue<List<DateTime>> slotsAsync = innerRef.watch(
+              availableSlotsProvider(args),
+            );
+            final AsyncValue<List<Barber>> barbersAsync = innerRef.watch(
+              availableBarbersProvider,
+            );
 
             Widget section(
               String title,
               List<MapEntry<DateTime, SlotState>> list,
             ) {
-              if (list.isEmpty) return const SizedBox.shrink();
+              if (list.isEmpty) {
+                return const SizedBox.shrink();
+              }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -197,8 +211,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                           fg = cs.onSurface;
                           break;
                         case SlotState.occupied:
-                          bg = cs.surfaceContainerHighest
-                              .withValues(alpha: 0.5);
+                          bg = cs.surfaceContainerHighest.withValues(
+                            alpha: 0.5,
+                          );
                           fg = cs.onSurfaceVariant.withValues(alpha: 0.5);
                           break;
                         case SlotState.disabled:
@@ -271,16 +286,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   availableFromEngine: available,
                   durationMinutes: service.durationMinutes,
                 );
-                final List<MapEntry<DateTime, SlotState>> morning =
-                    slots.entries
-                        .where((MapEntry<DateTime, SlotState> e) =>
-                            e.key.hour < 13)
-                        .toList();
-                final List<MapEntry<DateTime, SlotState>> afternoon =
-                    slots.entries
-                        .where((MapEntry<DateTime, SlotState> e) =>
-                            e.key.hour >= 13)
-                        .toList();
+                final List<MapEntry<DateTime, SlotState>> morning = slots
+                    .entries
+                    .where((MapEntry<DateTime, SlotState> e) => e.key.hour < 13)
+                    .toList();
+                final List<MapEntry<DateTime, SlotState>> afternoon = slots
+                    .entries
+                    .where(
+                      (MapEntry<DateTime, SlotState> e) => e.key.hour >= 13,
+                    )
+                    .toList();
                 if (morning.isEmpty && afternoon.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 32),
@@ -321,7 +336,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   left: ResponsiveHelper.getResponsivePadding(context),
                   right: ResponsiveHelper.getResponsivePadding(context),
                   top: 8,
-                  bottom: MediaQuery.of(consumerCtx).viewInsets.bottom +
+                  bottom:
+                      MediaQuery.of(consumerCtx).viewInsets.bottom +
                       ResponsiveHelper.getSpacing(context, mobile: 24),
                 ),
                 child: SingleChildScrollView(
@@ -346,9 +362,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                               ),
                               Text(
                                 headerRange,
-                                style: Theme.of(consumerCtx)
-                                    .textTheme
-                                    .bodySmall,
+                                style: Theme.of(
+                                  consumerCtx,
+                                ).textTheme.bodySmall,
                               ),
                             ],
                           ),

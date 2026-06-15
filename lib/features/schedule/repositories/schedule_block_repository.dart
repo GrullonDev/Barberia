@@ -37,13 +37,16 @@ class ScheduleBlockRepository {
         .where('barberId', isEqualTo: barberId)
         .orderBy('startTime')
         .snapshots()
-        .map((QuerySnapshot<Map<String, dynamic>> snap) =>
-            snap.docs.map(ScheduleBlock.fromFirestore).toList());
+        .map(
+          (QuerySnapshot<Map<String, dynamic>> snap) =>
+              snap.docs.map(ScheduleBlock.fromFirestore).toList(),
+        );
   }
 
   Future<String> create(ScheduleBlock block) async {
-    final DocumentReference<Map<String, dynamic>> ref =
-        await _col.add(block.toFirestore());
+    final DocumentReference<Map<String, dynamic>> ref = await _col.add(
+      block.toFirestore(),
+    );
     return ref.id;
   }
 

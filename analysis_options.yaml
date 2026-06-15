@@ -81,3 +81,4 @@ analyzer:
     type_argument_not_matching_bounds: error
     unchecked_use_of_nullable_value: error
     avoid_classes_with_only_static_members: ignore
+    use_build_context_synchronously: ignore

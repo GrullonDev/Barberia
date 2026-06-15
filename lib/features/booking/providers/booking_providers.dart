@@ -64,14 +64,14 @@ class AvailableSlotsArgs {
 
   @override
   int get hashCode => Object.hash(
-        barberId,
-        day.year,
-        day.month,
-        day.day,
-        serviceId,
-        durationMinutes,
-        slotMinutes,
-      );
+    barberId,
+    day.year,
+    day.month,
+    day.day,
+    serviceId,
+    durationMinutes,
+    slotMinutes,
+  );
 }
 
 /// Slots libres del día dado para un barbero + servicio. Memoizado por args
@@ -79,42 +79,49 @@ class AvailableSlotsArgs {
 /// en cada rebuild del calendario. La autoridad final sigue siendo
 /// `reserveSlot` (que corre su propia transacción anti-colisión).
 final FutureProviderFamily<List<DateTime>, AvailableSlotsArgs>
-    availableSlotsProvider =
-    FutureProvider.family<List<DateTime>, AvailableSlotsArgs>(
-  (Ref ref, AvailableSlotsArgs args) async {
-    final List<Barber> barbers =
-        await ref.watch(availableBarbersProvider.future);
-    final Barber barber = barbers.firstWhere(
-      (Barber b) => b.id == args.barberId,
-      orElse: () => Barber(
-        id: args.barberId,
-        name: '',
-        workingHours: Barber.defaultWorkingHours(),
-      ),
-    );
+availableSlotsProvider =
+    FutureProvider.family<List<DateTime>, AvailableSlotsArgs>((
+      Ref ref,
+      AvailableSlotsArgs args,
+    ) async {
+      final List<Barber> barbers = await ref.watch(
+        availableBarbersProvider.future,
+      );
+      final Barber barber = barbers.firstWhere(
+        (Barber b) => b.id == args.barberId,
+        orElse: () => Barber(
+          id: args.barberId,
+          name: '',
+          workingHours: Barber.defaultWorkingHours(),
+        ),
+      );
 
-    final List<Booking> allBookings = ref.watch(bookingsProvider);
-    final List<Booking> dayBookings =
-        SlotEngine.bookingsForDay(allBookings, args.day);
+      final List<Booking> allBookings = ref.watch(bookingsProvider);
+      final List<Booking> dayBookings = SlotEngine.bookingsForDay(
+        allBookings,
+        args.day,
+      );
 
-    final List<ScheduleBlock> blocks =
-        ref.watch(scheduleBlocksForBarberProvider(args.barberId)).maybeWhen(
-              data: (List<ScheduleBlock> data) => data,
-              orElse: () => const <ScheduleBlock>[],
-            );
-    final List<ScheduleBlock> dayBlocks =
-        SlotEngine.blocksForDay(blocks, args.day);
+      final List<ScheduleBlock> blocks = ref
+          .watch(scheduleBlocksForBarberProvider(args.barberId))
+          .maybeWhen(
+            data: (List<ScheduleBlock> data) => data,
+            orElse: () => const <ScheduleBlock>[],
+          );
+      final List<ScheduleBlock> dayBlocks = SlotEngine.blocksForDay(
+        blocks,
+        args.day,
+      );
 
-    return SlotEngine.generateAvailable(
-      date: args.day,
-      durationMinutes: args.durationMinutes,
-      slotMinutes: args.slotMinutes,
-      barber: barber,
-      existingBookings: dayBookings,
-      blocks: dayBlocks,
-    );
-  },
-);
+      return SlotEngine.generateAvailable(
+        date: args.day,
+        durationMinutes: args.durationMinutes,
+        slotMinutes: args.slotMinutes,
+        barber: barber,
+        existingBookings: dayBookings,
+        blocks: dayBlocks,
+      );
+    });
 
 // Providers
 final StateNotifierProvider<BookingDraftNotifier, BookingDraft>

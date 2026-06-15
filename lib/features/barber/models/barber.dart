@@ -38,37 +38,36 @@ class Barber {
     bool? isAvailable,
     Map<int, List<int>?>? workingHours,
   }) => Barber(
-        id: id,
-        name: name ?? this.name,
-        specialty: specialty ?? this.specialty,
-        photoUrl: photoUrl ?? this.photoUrl,
-        isAvailable: isAvailable ?? this.isAvailable,
-        workingHours: workingHours ?? this.workingHours,
-      );
+    id: id,
+    name: name ?? this.name,
+    specialty: specialty ?? this.specialty,
+    photoUrl: photoUrl ?? this.photoUrl,
+    isAvailable: isAvailable ?? this.isAvailable,
+    workingHours: workingHours ?? this.workingHours,
+  );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
-        'name': name,
-        'specialty': specialty,
-        'photoUrl': photoUrl,
-        'isAvailable': isAvailable,
-        // Firestore no soporta keys numéricas; persistimos como string
-        'workingHours': workingHours.map(
-          (int day, List<int>? range) => MapEntry<String, List<int>?>(
-            day.toString(),
-            range,
-          ),
-        ),
-      };
+    'name': name,
+    'specialty': specialty,
+    'photoUrl': photoUrl,
+    'isAvailable': isAvailable,
+    // Firestore no soporta keys numéricas; persistimos como string
+    'workingHours': workingHours.map(
+      (int day, List<int>? range) =>
+          MapEntry<String, List<int>?>(day.toString(), range),
+    ),
+  };
 
   factory Barber.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     final Map<String, dynamic> rawHours =
-        (data['workingHours'] as Map<String, dynamic>?) ??
-            <String, dynamic>{};
+        (data['workingHours'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final Map<int, List<int>?> hours = <int, List<int>?>{};
     rawHours.forEach((String key, dynamic value) {
       final int? day = int.tryParse(key);
-      if (day == null) return;
+      if (day == null) {
+        return;
+      }
       if (value == null) {
         hours[day] = null;
       } else if (value is List) {
@@ -87,12 +86,12 @@ class Barber {
 
   /// Horario por defecto para un barbero recién creado (lunes–sábado 9–19).
   static Map<int, List<int>?> defaultWorkingHours() => <int, List<int>?>{
-        1: <int>[9, 19], // lunes
-        2: <int>[9, 19],
-        3: <int>[9, 19],
-        4: <int>[9, 19],
-        5: <int>[9, 19],
-        6: <int>[9, 19], // sábado
-        7: null,         // domingo cerrado por defecto
-      };
+    1: <int>[9, 19], // lunes
+    2: <int>[9, 19],
+    3: <int>[9, 19],
+    4: <int>[9, 19],
+    5: <int>[9, 19],
+    6: <int>[9, 19], // sábado
+    7: null, // domingo cerrado por defecto
+  };
 }

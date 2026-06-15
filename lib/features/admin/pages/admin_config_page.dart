@@ -13,7 +13,7 @@ class AdminConfigPage extends ConsumerStatefulWidget {
 
 class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  
+
   late final TextEditingController _businessNameCtrl;
   late final TextEditingController _addressCtrl;
   late final TextEditingController _latCtrl;
@@ -56,7 +56,9 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
   }
 
   void _initFields(BarberiaConfig config) {
-    if (_initialized) return;
+    if (_initialized) {
+      return;
+    }
     _businessNameCtrl.text = config.businessName;
     _addressCtrl.text = config.address;
     _latCtrl.text = config.lat?.toString() ?? '';
@@ -70,10 +72,12 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
   }
 
   Future<void> _save(BarberiaConfig currentConfig) async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
     setState(() => _saving = true);
-    
+
     try {
       final updatedConfig = currentConfig.copyWith(
         businessName: _businessNameCtrl.text.trim(),
@@ -81,14 +85,18 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
         lat: double.tryParse(_latCtrl.text),
         lng: double.tryParse(_lngCtrl.text),
         phone: _phoneCtrl.text.isEmpty ? null : _phoneCtrl.text.trim(),
-        whatsappPhone: _whatsappCtrl.text.isEmpty ? null : _whatsappCtrl.text.trim(),
-        landingBaseUrl: _domainCtrl.text.isEmpty ? null : _domainCtrl.text.trim(),
+        whatsappPhone: _whatsappCtrl.text.isEmpty
+            ? null
+            : _whatsappCtrl.text.trim(),
+        landingBaseUrl: _domainCtrl.text.isEmpty
+            ? null
+            : _domainCtrl.text.trim(),
         openHour: int.parse(_openHourCtrl.text),
         closeHour: int.parse(_closeHourCtrl.text),
       );
 
       await ref.read(barberiaConfigRepositoryProvider).upsert(updatedConfig);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Configuración guardada exitosamente')),
@@ -113,16 +121,16 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
     final configAsync = ref.watch(barberiaConfigProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configuración del Negocio'),
-      ),
+      appBar: AppBar(title: const Text('Configuración del Negocio')),
       body: configAsync.when(
         data: (config) {
           _initFields(config);
           return Form(
             key: _formKey,
             child: ListView(
-              padding: EdgeInsets.all(ResponsiveHelper.getResponsivePadding(context)),
+              padding: EdgeInsets.all(
+                ResponsiveHelper.getResponsivePadding(context),
+              ),
               children: [
                 Text(
                   'Personalización General',
@@ -139,7 +147,8 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                     hintText: 'Ej. Clipz Barbería',
                     prefixIcon: Icon(Icons.business),
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Requerido' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -150,7 +159,9 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                     prefixIcon: Icon(Icons.language),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
+                    if (v == null || v.trim().isEmpty) {
+                      return null;
+                    }
                     if (!v.startsWith('http://') && !v.startsWith('https://')) {
                       return 'Debe iniciar con http:// o https://';
                     }
@@ -206,14 +217,20 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _latCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Latitud',
                           hintText: 'Ej. 14.503056',
                         ),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return null;
-                          if (double.tryParse(v) == null) return 'Inválido';
+                          if (v == null || v.trim().isEmpty) {
+                            return null;
+                          }
+                          if (double.tryParse(v) == null) {
+                            return 'Inválido';
+                          }
                           return null;
                         },
                       ),
@@ -222,14 +239,20 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _lngCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Longitud',
                           hintText: 'Ej. -90.577228',
                         ),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return null;
-                          if (double.tryParse(v) == null) return 'Inválido';
+                          if (v == null || v.trim().isEmpty) {
+                            return null;
+                          }
+                          if (double.tryParse(v) == null) {
+                            return 'Inválido';
+                          }
                           return null;
                         },
                       ),
@@ -255,9 +278,13 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                           labelText: 'Hora Apertura (0-23)',
                         ),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Requerido';
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Requerido';
+                          }
                           final val = int.tryParse(v);
-                          if (val == null || val < 0 || val > 23) return 'Inválido';
+                          if (val == null || val < 0 || val > 23) {
+                            return 'Inválido';
+                          }
                           return null;
                         },
                       ),
@@ -271,9 +298,13 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                           labelText: 'Hora Cierre (0-23)',
                         ),
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Requerido';
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Requerido';
+                          }
                           final val = int.tryParse(v);
-                          if (val == null || val < 0 || val > 23) return 'Inválido';
+                          if (val == null || val < 0 || val > 23) {
+                            return 'Inválido';
+                          }
                           return null;
                         },
                       ),
@@ -283,9 +314,16 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                 const SizedBox(height: 40),
                 FilledButton.icon(
                   onPressed: _saving ? null : () => _save(config),
-                  icon: _saving 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save),
                   label: const Text('Guardar Configuración'),
                 ),
                 const SizedBox(height: 80),
@@ -294,7 +332,8 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error al cargar la configuración: $err')),
+        error: (err, stack) =>
+            Center(child: Text('Error al cargar la configuración: $err')),
       ),
     );
   }

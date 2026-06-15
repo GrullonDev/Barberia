@@ -257,16 +257,15 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       if (barberId == null || barberId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'No hay barbero asignado. Vuelve al calendario.',
-            ),
+            content: Text('No hay barbero asignado. Vuelve al calendario.'),
           ),
         );
         return;
       }
       final Duration dur = Duration(minutes: service.durationMinutes);
-      final bool conflict =
-          ref.read(bookingsProvider.notifier).hasConflict(start, dur);
+      final bool conflict = ref
+          .read(bookingsProvider.notifier)
+          .hasConflict(start, dur);
       if (conflict) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -341,8 +340,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
 
       // Llamada real al CF `reserveSlot`. Si falla, mapeamos el error y
       // volvemos al formulario sin navegar.
-      final ReserveSlotService reserveService =
-          ref.read(reserveSlotServiceProvider);
+      final ReserveSlotService reserveService = ref.read(
+        reserveSlotServiceProvider,
+      );
       final auth_user.User? currentUser = ref.read(authStateProvider);
       try {
         final String phoneTxt = _phoneCtrl.text;
@@ -358,7 +358,9 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
           userId: currentUser?.id,
         );
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         // Construye Booking con el id real que devolvió el CF, lo publica
         // en lastConfirmedBookingProvider y lo inserta en el cache.
@@ -386,17 +388,19 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
         await ref.read(bookingsProvider.notifier).add(confirmed);
         ref.read(bookingDraftProvider.notifier).reset();
 
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         rootNav.pop(); // cierra el diálogo
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         context.goNamed(RouteNames.confirmation);
       } on ReserveSlotException catch (e) {
         if (mounted) {
           rootNav.pop(); // cierra el diálogo
         }
-        messenger.showSnackBar(
-          SnackBar(content: Text(_messageForError(e))),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(_messageForError(e))));
       } catch (_) {
         if (mounted) {
           rootNav.pop();

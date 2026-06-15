@@ -58,7 +58,9 @@ class AuthRepository {
   Future<User?> login(String email, String password) async {
     final fb_auth.UserCredential credential = await _auth
         .signInWithEmailAndPassword(email: email.trim(), password: password);
-    if (credential.user == null) return null;
+    if (credential.user == null) {
+      return null;
+    }
     _currentUser = await _ensureUserProfile(credential.user!);
     return _currentUser;
   }
@@ -137,11 +139,15 @@ class AuthRepository {
         // Android auto-retrieval: ignorado para forzar flujo manual simple.
       },
       verificationFailed: (fb_auth.FirebaseAuthException e) {
-        if (!completer.isCompleted) completer.completeError(e);
+        if (!completer.isCompleted) {
+          completer.completeError(e);
+        }
       },
       codeSent: (String verificationId, int? resendToken) {
         _pendingPhoneVerificationId = verificationId;
-        if (!completer.isCompleted) completer.complete(verificationId);
+        if (!completer.isCompleted) {
+          completer.complete(verificationId);
+        }
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _pendingPhoneVerificationId = verificationId;
@@ -161,7 +167,9 @@ class AuthRepository {
     final fb_auth.UserCredential userCred = await _auth.signInWithCredential(
       credential,
     );
-    if (userCred.user == null) return null;
+    if (userCred.user == null) {
+      return null;
+    }
     _currentUser = await _ensureUserProfile(userCred.user!);
     _pendingPhoneVerificationId = null;
     return _currentUser;
@@ -183,7 +191,9 @@ class AuthRepository {
       return _currentUser;
     }
     final fb_auth.UserCredential cred = await _auth.signInAnonymously();
-    if (cred.user == null) return null;
+    if (cred.user == null) {
+      return null;
+    }
     _currentUser = await _ensureUserProfile(cred.user!);
     return _currentUser;
   }

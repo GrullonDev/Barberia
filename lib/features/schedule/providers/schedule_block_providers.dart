@@ -7,8 +7,11 @@ final Provider<ScheduleBlockRepository> scheduleBlockRepositoryProvider =
 
 /// Stream de bloques de un barbero específico (para su agenda).
 final StreamProviderFamily<List<ScheduleBlock>, String>
-    scheduleBlocksForBarberProvider =
-    StreamProvider.family<List<ScheduleBlock>, String>((Ref ref, String barberId) {
+scheduleBlocksForBarberProvider =
+    StreamProvider.family<List<ScheduleBlock>, String>((
+      Ref ref,
+      String barberId,
+    ) {
       return ref
           .watch(scheduleBlockRepositoryProvider)
           .watchForBarber(barberId);

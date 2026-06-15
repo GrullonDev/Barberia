@@ -41,7 +41,9 @@ class SlotEngine {
     // DateTime.weekday: 1=Mon ... 7=Sun. Barber.workingHours usa la misma
     // convención, tanto en memoria como persistido (keys string "1".."7").
     final List<int>? wh = barber.workingHours[date.weekday];
-    if (wh == null || wh.length < 2) return <DateTime>[];
+    if (wh == null || wh.length < 2) {
+      return <DateTime>[];
+    }
 
     final int openH = wh[0];
     final int closeH = wh[1];
@@ -72,7 +74,9 @@ class SlotEngine {
       final bool conflicts =
           bookedRanges.any(candidate.overlaps) ||
           blockRanges.any(candidate.overlaps);
-      if (!conflicts) out.add(cursor);
+      if (!conflicts) {
+        out.add(cursor);
+      }
       cursor = cursor.add(step);
     }
 

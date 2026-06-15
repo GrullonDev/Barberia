@@ -71,7 +71,9 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
   return GoRouter(
     initialLocation: '/',
     // Dispara un rebuild cuando cambia auth o bootstrap.
-    refreshListenable: ValueNotifier<Object?>(Object.hash(authState, bootstrap)),
+    refreshListenable: ValueNotifier<Object?>(
+      Object.hash(authState, bootstrap),
+    ),
     redirect: (BuildContext context, GoRouterState state) {
       // Mientras Firebase rehidrata la sesión, no redirigimos — la UI
       // debe mostrar splash. Evita el flash hacia /login en cold start.
@@ -82,7 +84,8 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
       final bool loggedIn = authState != null;
       final bool isAnon = authState?.isAnonymous ?? false;
       final String path = state.uri.path;
-      final bool isAuthRoute = path == '/login' ||
+      final bool isAuthRoute =
+          path == '/login' ||
           path == '/register' ||
           path == '/password-reset' ||
           path == '/phone-login';
@@ -102,7 +105,9 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
       // pero no accede a /admin ni /my-bookings ni /profile (sin identidad).
       if (isAnon) {
         final bool isPublic = _publicWebPaths.contains(path);
-        if (!isPublic) return '/';
+        if (!isPublic) {
+          return '/';
+        }
         return null;
       }
 
@@ -149,13 +154,14 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         builder: (_, __) => const PhoneLoginPage(),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (
-          BuildContext context,
-          GoRouterState state,
-          StatefulNavigationShell navigationShell,
-        ) {
-          return ScaffoldWithNavBar(navigationShell: navigationShell);
-        },
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) {
+              return ScaffoldWithNavBar(navigationShell: navigationShell);
+            },
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[

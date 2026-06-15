@@ -20,6 +20,8 @@ final StreamProvider<List<Barber>> allBarbersStreamProvider =
 /// Barbero por id (para mostrar nombre/foto en un AppointmentCard).
 final FutureProviderFamily<Barber?, String> barberByIdProvider =
     FutureProvider.family<Barber?, String>((Ref ref, String id) async {
-      if (id.isEmpty) return null;
+      if (id.isEmpty) {
+        return null;
+      }
       return ref.watch(barberRepositoryProvider).getById(id);
     });

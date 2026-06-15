@@ -49,25 +49,25 @@ class ScheduleBlock {
     ScheduleRecurrence? recurrence,
     String? notes,
   }) => ScheduleBlock(
-        id: id,
-        barberId: barberId,
-        startTime: startTime ?? this.startTime,
-        endTime: endTime ?? this.endTime,
-        reason: reason ?? this.reason,
-        recurrence: recurrence ?? this.recurrence,
-        notes: notes ?? this.notes,
-        createdAt: createdAt,
-      );
+    id: id,
+    barberId: barberId,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime ?? this.endTime,
+    reason: reason ?? this.reason,
+    recurrence: recurrence ?? this.recurrence,
+    notes: notes ?? this.notes,
+    createdAt: createdAt,
+  );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
-        'barberId': barberId,
-        'startTime': Timestamp.fromDate(startTime),
-        'endTime': Timestamp.fromDate(endTime),
-        'reason': reason.name,
-        'recurrence': recurrence.name,
-        'notes': notes,
-        'createdAt': Timestamp.fromDate(createdAt),
-      };
+    'barberId': barberId,
+    'startTime': Timestamp.fromDate(startTime),
+    'endTime': Timestamp.fromDate(endTime),
+    'reason': reason.name,
+    'recurrence': recurrence.name,
+    'notes': notes,
+    'createdAt': Timestamp.fromDate(createdAt),
+  };
 
   factory ScheduleBlock.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;

@@ -54,7 +54,10 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
 
   String _buildQrContent(Booking booking) {
     final config = ref.watch(barberiaConfigProvider).valueOrNull;
-    return LocationConfig.buildBookingUrl(booking.id, baseUrl: config?.landingBaseUrl);
+    return LocationConfig.buildBookingUrl(
+      booking.id,
+      baseUrl: config?.landingBaseUrl,
+    );
   }
 
   @override
@@ -75,7 +78,9 @@ class _ConfirmationPageState extends ConsumerState<ConfirmationPage> {
           serviceId: draft.service?.id ?? '',
           serviceName: draft.service?.name ?? 'Servicio',
           startAt: draft.dateTime!,
-          endAt: draft.dateTime!.add(Duration(minutes: draft.service?.durationMinutes ?? 30)),
+          endAt: draft.dateTime!.add(
+            Duration(minutes: draft.service?.durationMinutes ?? 30),
+          ),
           customerName: draft.name!,
           createdAt: nowLocal,
           updatedAt: nowLocal,
