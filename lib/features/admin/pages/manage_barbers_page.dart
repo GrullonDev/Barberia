@@ -1,80 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/common/design_tokens.dart';
-
-// Prototype Model
-class Barber {
-  final String id;
-  final String name;
-  final String specialty;
-  final bool isAvailable;
-
-  Barber({
-    required this.id,
-    required this.name,
-    required this.specialty,
-    this.isAvailable = true,
-  });
-
-  Barber copyWith({String? name, String? specialty, bool? isAvailable}) {
-    return Barber(
-      id: id,
-      name: name ?? this.name,
-      specialty: specialty ?? this.specialty,
-      isAvailable: isAvailable ?? this.isAvailable,
-    );
-  }
-}
-
-// In-memory State Notifier for Prototype
-class BarbersNotifier extends StateNotifier<List<Barber>> {
-  BarbersNotifier()
-    : super(<Barber>[
-        Barber(id: '1', name: 'Juan Pérez', specialty: 'Corte Clásico'),
-        Barber(id: '2', name: 'Carlos Díaz', specialty: 'Barba & Fade'),
-        Barber(id: '3', name: 'Ana Gómez', specialty: 'Coloración'),
-      ]);
-
-  void add(String name, String specialty) {
-    if (name.isEmpty || specialty.isEmpty) {
-      return;
-    }
-    state = <Barber>[
-      ...state,
-      Barber(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        specialty: specialty,
-      ),
-    ];
-  }
-
-  void toggleAvailability(String id) {
-    state = <Barber>[
-      for (final Barber barber in state)
-        if (barber.id == id)
-          barber.copyWith(isAvailable: !barber.isAvailable)
-        else
-          barber,
-    ];
-  }
-
-  void remove(String id) {
-    state = state.where((Barber b) => b.id != id).toList();
-  }
-}
-
-final StateNotifierProvider<BarbersNotifier, List<Barber>> barbersProvider =
-    StateNotifierProvider<BarbersNotifier, List<Barber>>((final Ref ref) {
-      return BarbersNotifier();
-    });
+import 'package:barberia/features/barber/models/barber.dart';
+import 'package:barberia/features/barber/providers/barber_providers.dart';
 
 class ManageBarbersPage extends ConsumerWidget {
   const ManageBarbersPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<Barber> barbers = ref.watch(barbersProvider);
+    final AsyncValue<List<Barber>> barbersAsync = ref.watch(
+      allBarbersStreamProvider,
+    );
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
 
@@ -84,15 +21,17 @@ class ManageBarbersPage extends ConsumerWidget {
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddBarberDialog(context, ref),
+        onPressed: () => _showAddEditBarberDialog(context, ref),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         icon: const Icon(Icons.person_add),
         label: const Text('NUEVO BARBERO'),
         elevation: 4,
       ),
-      body: barbers.isEmpty
-          ? Center(
+      body: barbersAsync.when(
+        data: (List<Barber> barbers) {
+          if (barbers.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
@@ -125,67 +64,109 @@ class ManageBarbersPage extends ConsumerWidget {
                   ),
                 ],
               ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-              itemCount: barbers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (BuildContext context, int index) {
-                final Barber barber = barbers[index];
-                return _BarberCard(barber: barber);
-              },
-            ),
-    );
-  }
-
-  void _showAddBarberDialog(BuildContext context, WidgetRef ref) {
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController specialtyController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Agregar Barbero'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre',
-                prefixIcon: Icon(Icons.person_outline),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: specialtyController,
-              decoration: const InputDecoration(
-                labelText: 'Especialidad',
-                prefixIcon: Icon(Icons.content_cut_outlined),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              ref
-                  .read(barbersProvider.notifier)
-                  .add(nameController.text, specialtyController.text);
-              Navigator.pop(context);
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+            itemCount: barbers.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (BuildContext context, int index) {
+              final Barber barber = barbers[index];
+              return _BarberCard(barber: barber);
             },
-            child: const Text('Guardar'),
-          ),
-        ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (Object err, StackTrace stack) =>
+            Center(child: Text('Error: $err')),
       ),
     );
   }
+}
+
+/// Dialogo de alta/edición. Si [barber] es null, crea uno nuevo.
+void _showAddEditBarberDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  Barber? barber,
+}) {
+  final bool isEditing = barber != null;
+  final TextEditingController nameController = TextEditingController(
+    text: barber?.name ?? '',
+  );
+  final TextEditingController specialtyController = TextEditingController(
+    text: barber?.specialty ?? '',
+  );
+
+  showDialog<void>(
+    context: context,
+    builder: (BuildContext dialogContext) => AlertDialog(
+      title: Text(isEditing ? 'Editar Barbero' : 'Agregar Barbero'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            controller: nameController,
+            decoration: const InputDecoration(
+              labelText: 'Nombre',
+              prefixIcon: Icon(Icons.person_outline),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: specialtyController,
+            decoration: const InputDecoration(
+              labelText: 'Especialidad',
+              prefixIcon: Icon(Icons.content_cut_outlined),
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final String name = nameController.text.trim();
+            final String specialty = specialtyController.text.trim();
+            if (name.isEmpty) {
+              return;
+            }
+
+            final Barber toSave = isEditing
+                ? barber.copyWith(
+                    name: name,
+                    specialty: specialty.isEmpty ? null : specialty,
+                  )
+                : Barber(
+                    id: ref.read(barberRepositoryProvider).newId(),
+                    name: name,
+                    specialty: specialty.isEmpty ? null : specialty,
+                    workingHours: Barber.defaultWorkingHours(),
+                  );
+
+            try {
+              await ref.read(barberRepositoryProvider).upsert(toSave);
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
+            } catch (e) {
+              if (dialogContext.mounted) {
+                ScaffoldMessenger.of(
+                  dialogContext,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            }
+          },
+          child: const Text('Guardar'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _BarberCard extends ConsumerWidget {
@@ -215,9 +196,7 @@ class _BarberCard extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            // Future feature: Edit barber
-          },
+          onTap: () => _showAddEditBarberDialog(context, ref, barber: barber),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -225,14 +204,21 @@ class _BarberCard extends ConsumerWidget {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: cs.primary.withValues(alpha: 0.1),
-                  child: Text(
-                    barber.name.isNotEmpty ? barber.name[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
+                  backgroundImage: barber.photoUrl != null
+                      ? NetworkImage(barber.photoUrl!)
+                      : null,
+                  child: barber.photoUrl == null
+                      ? Text(
+                          barber.name.isNotEmpty
+                              ? barber.name[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -247,23 +233,25 @@ class _BarberCard extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.secondaryContainer.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          barber.specialty,
-                          style: txt.bodySmall?.copyWith(
-                            color: cs.onSecondaryContainer,
-                            fontWeight: FontWeight.w500,
+                      if (barber.specialty != null &&
+                          barber.specialty!.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.secondaryContainer.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            barber.specialty!,
+                            style: txt.bodySmall?.copyWith(
+                              color: cs.onSecondaryContainer,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -272,9 +260,19 @@ class _BarberCard extends ConsumerWidget {
                     Switch(
                       value: barber.isAvailable,
                       activeThumbColor: cs.primary,
-                      onChanged: (_) => ref
-                          .read(barbersProvider.notifier)
-                          .toggleAvailability(barber.id),
+                      onChanged: (bool value) async {
+                        try {
+                          await ref
+                              .read(barberRepositoryProvider)
+                              .setAvailability(id: barber.id, available: value);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        }
+                      },
                     ),
                     IconButton(
                       icon: const Icon(
@@ -295,9 +293,9 @@ class _BarberCard extends ConsumerWidget {
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref, Barber barber) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (BuildContext ctx) => AlertDialog(
         title: const Text('¿Eliminar barbero?'),
         content: Text(
           'Estás a punto de eliminar a ${barber.name}. Esta acción no se puede deshacer.',
@@ -308,9 +306,17 @@ class _BarberCard extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () {
-              ref.read(barbersProvider.notifier).remove(barber.id);
+            onPressed: () async {
               Navigator.pop(ctx);
+              try {
+                await ref.read(barberRepositoryProvider).delete(barber.id);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Eliminar'),
