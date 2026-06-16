@@ -305,6 +305,10 @@ class _AdminConfigPageState extends ConsumerState<AdminConfigPage> {
                           if (val == null || val < 0 || val > 23) {
                             return 'Inválido';
                           }
+                          final open = int.tryParse(_openHourCtrl.text);
+                          if (open != null && val <= open) {
+                            return 'Debe ser mayor que apertura';
+                          }
                           return null;
                         },
                       ),

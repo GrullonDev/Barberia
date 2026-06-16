@@ -23,6 +23,10 @@ class BarberiaConfig {
   final String? logoUrl;
   final String? landingBaseUrl; // Custom web domain URL
 
+  /// Días de apertura (índice 0 = lunes … 6 = domingo). `true` = abierto.
+  /// Longitud siempre 7; se rellena con el default si llega incompleto de Firestore.
+  final List<bool> openDays;
+
   // Política anti no-show
   final int autoReleaseHours; // horas antes sin confirmar para liberar
   final int maxNoShows; // nº de no-shows antes de bloquear
@@ -40,6 +44,7 @@ class BarberiaConfig {
     this.whatsappPhone,
     this.logoUrl,
     this.landingBaseUrl,
+    this.openDays = const <bool>[true, true, true, true, true, true, false],
     this.autoReleaseHours = 4,
     this.maxNoShows = 3,
     this.requireConfirmation = true,
@@ -57,6 +62,7 @@ class BarberiaConfig {
     String? whatsappPhone,
     String? logoUrl,
     String? landingBaseUrl,
+    List<bool>? openDays,
     int? autoReleaseHours,
     int? maxNoShows,
     bool? requireConfirmation,
@@ -72,6 +78,7 @@ class BarberiaConfig {
     whatsappPhone: whatsappPhone ?? this.whatsappPhone,
     logoUrl: logoUrl ?? this.logoUrl,
     landingBaseUrl: landingBaseUrl ?? this.landingBaseUrl,
+    openDays: openDays ?? this.openDays,
     autoReleaseHours: autoReleaseHours ?? this.autoReleaseHours,
     maxNoShows: maxNoShows ?? this.maxNoShows,
     requireConfirmation: requireConfirmation ?? this.requireConfirmation,
@@ -89,6 +96,7 @@ class BarberiaConfig {
     'whatsappPhone': whatsappPhone,
     'logoUrl': logoUrl,
     'landingBaseUrl': landingBaseUrl,
+    'openDays': openDays,
     'autoReleaseHours': autoReleaseHours,
     'maxNoShows': maxNoShows,
     'requireConfirmation': requireConfirmation,
@@ -109,9 +117,22 @@ class BarberiaConfig {
       whatsappPhone: data['whatsappPhone'] as String?,
       logoUrl: data['logoUrl'] as String?,
       landingBaseUrl: data['landingBaseUrl'] as String?,
+      openDays: _parseOpenDays(data['openDays']),
       autoReleaseHours: (data['autoReleaseHours'] as num?)?.toInt() ?? 4,
       maxNoShows: (data['maxNoShows'] as num?)?.toInt() ?? 3,
       requireConfirmation: data['requireConfirmation'] as bool? ?? true,
     );
+  }
+
+  static List<bool> _parseOpenDays(dynamic raw) {
+    const List<bool> defaults = <bool>[true, true, true, true, true, true, false];
+    if (raw is! List) {
+      return defaults;
+    }
+    final List<bool> result = raw.map((dynamic e) => e as bool? ?? true).toList();
+    if (result.length != 7) {
+      return defaults;
+    }
+    return result;
   }
 }
