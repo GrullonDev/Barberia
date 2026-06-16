@@ -28,8 +28,11 @@ class ManageBarbersPage extends ConsumerWidget {
 
     // Weekly performance stats
     final now = DateTime.now();
-    final weekStart = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final weekStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
     final weekBookings = bookings
         .where(
           (b) =>
@@ -51,9 +54,8 @@ class ManageBarbersPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: _kBg,
       body: barbersAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: _kGold),
-        ),
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: _kGold)),
         error: (e, _) => Center(
           child: Text('Error: $e', style: const TextStyle(color: _kGray)),
         ),
@@ -112,21 +114,17 @@ class ManageBarbersPage extends ConsumerWidget {
                     barber: barbers[i],
                     bookings: bookings,
                     onEdit: () => _showEditDialog(context, ref, barbers[i]),
-                    onDelete: () =>
-                        _confirmDelete(context, ref, barbers[i]),
+                    onDelete: () => _confirmDelete(context, ref, barbers[i]),
                     onToggle: (val) async {
                       try {
                         await ref
                             .read(barberRepositoryProvider)
-                            .setAvailability(
-                              id: barbers[i].id,
-                              available: val,
-                            );
+                            .setAvailability(id: barbers[i].id, available: val);
                       } catch (e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
                         }
                       }
                     },
@@ -214,18 +212,18 @@ class _BarberCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isPending = barber.inviteStatus == 'pending';
     final bool inSession = bookings.any(
-      (b) =>
-          b.barberId == barber.id && b.status == BookingStatus.inProgress,
+      (b) => b.barberId == barber.id && b.status == BookingStatus.inProgress,
     );
-    final nextList = bookings
-        .where(
-          (b) =>
-              b.barberId == barber.id &&
-              b.startAt.isAfter(DateTime.now()) &&
-              b.status != BookingStatus.canceled,
-        )
-        .toList()
-      ..sort((a, b) => a.startAt.compareTo(b.startAt));
+    final nextList =
+        bookings
+            .where(
+              (b) =>
+                  b.barberId == barber.id &&
+                  b.startAt.isAfter(DateTime.now()) &&
+                  b.status != BookingStatus.canceled,
+            )
+            .toList()
+          ..sort((a, b) => a.startAt.compareTo(b.startAt));
 
     Color statusColor;
     String statusText;
@@ -259,8 +257,7 @@ class _BarberCard extends StatelessWidget {
                 // Photo
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: barber.photoUrl != null &&
-                          barber.photoUrl!.isNotEmpty
+                  child: barber.photoUrl != null && barber.photoUrl!.isNotEmpty
                       ? Image.network(
                           barber.photoUrl!,
                           width: 80,
@@ -299,10 +296,7 @@ class _BarberCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           barber.specialty!,
-                          style: const TextStyle(
-                            color: _kGray,
-                            fontSize: 12,
-                          ),
+                          style: const TextStyle(color: _kGray, fontSize: 12),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -371,15 +365,12 @@ class _BarberCard extends StatelessWidget {
           // Bottom row: quote + actions
           Container(
             decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: _kBorder, width: 0.5),
-              ),
+              border: Border(top: BorderSide(color: _kBorder, width: 0.5)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
-                if (barber.specialty != null &&
-                    barber.specialty!.isNotEmpty)
+                if (barber.specialty != null && barber.specialty!.isNotEmpty)
                   Flexible(
                     child: Text(
                       '"${barber.specialty}"',
@@ -605,10 +596,7 @@ class _EmptyState extends StatelessWidget {
             child: Icon(Icons.people_outline, size: 40, color: _kGray),
           ),
           SizedBox(height: 20),
-          Text(
-            'No barbers yet',
-            style: TextStyle(color: _kGray, fontSize: 14),
-          ),
+          Text('No barbers yet', style: TextStyle(color: _kGray, fontSize: 14)),
           SizedBox(height: 8),
           Text(
             'Invite your first barber to get started',
@@ -634,10 +622,7 @@ void _showInviteDialog(BuildContext context, WidgetRef ref) {
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setState) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text(
-          'Invite Barber',
-          style: TextStyle(color: _kWhite),
-        ),
+        title: const Text('Invite Barber', style: TextStyle(color: _kWhite)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -694,17 +679,15 @@ void _showInviteDialog(BuildContext context, WidgetRef ref) {
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Invitation sent!'),
-                          ),
+                          const SnackBar(content: Text('Invitation sent!')),
                         );
                       }
                     } catch (e) {
                       setState(() => loading = false);
                       if (ctx.mounted) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
+                        ScaffoldMessenger.of(
+                          ctx,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
                       }
                     }
                   },
@@ -731,18 +714,13 @@ void _showInviteDialog(BuildContext context, WidgetRef ref) {
 
 void _showEditDialog(BuildContext context, WidgetRef ref, Barber barber) {
   final nameCtrl = TextEditingController(text: barber.name);
-  final specialtyCtrl = TextEditingController(
-    text: barber.specialty ?? '',
-  );
+  final specialtyCtrl = TextEditingController(text: barber.specialty ?? '');
 
   showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
-      title: const Text(
-        'Edit Profile',
-        style: TextStyle(color: _kWhite),
-      ),
+      title: const Text('Edit Profile', style: TextStyle(color: _kWhite)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -769,20 +747,22 @@ void _showEditDialog(BuildContext context, WidgetRef ref, Barber barber) {
             final name = nameCtrl.text.trim();
             if (name.isEmpty) return;
             try {
-              await ref.read(barberRepositoryProvider).upsert(
-                barber.copyWith(
-                  name: name,
-                  specialty: specialtyCtrl.text.trim().isEmpty
-                      ? null
-                      : specialtyCtrl.text.trim(),
-                ),
-              );
+              await ref
+                  .read(barberRepositoryProvider)
+                  .upsert(
+                    barber.copyWith(
+                      name: name,
+                      specialty: specialtyCtrl.text.trim().isEmpty
+                          ? null
+                          : specialtyCtrl.text.trim(),
+                    ),
+                  );
               if (ctx.mounted) Navigator.pop(ctx);
             } catch (e) {
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
+                ScaffoldMessenger.of(
+                  ctx,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             }
           },
@@ -805,10 +785,7 @@ void _confirmDelete(BuildContext context, WidgetRef ref, Barber barber) {
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
-      title: const Text(
-        'Remove Barber?',
-        style: TextStyle(color: _kWhite),
-      ),
+      title: const Text('Remove Barber?', style: TextStyle(color: _kWhite)),
       content: Text(
         'This will remove ${barber.name} and revoke their access. This cannot be undone.',
         style: const TextStyle(color: _kGray),
@@ -827,9 +804,9 @@ void _confirmDelete(BuildContext context, WidgetRef ref, Barber barber) {
                   .removeBarber(barber.id);
             } catch (e) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             }
           },

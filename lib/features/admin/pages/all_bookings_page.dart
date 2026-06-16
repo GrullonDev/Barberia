@@ -44,9 +44,7 @@ class _AllBookingsPageState extends ConsumerState<AllBookingsPage> {
               d.day == today.day;
         }).toList();
       case 2:
-        filtered = all
-            .where((b) => b.status == BookingStatus.pending)
-            .toList();
+        filtered = all.where((b) => b.status == BookingStatus.pending).toList();
       default:
         filtered = List.of(all);
     }
@@ -57,7 +55,7 @@ class _AllBookingsPageState extends ConsumerState<AllBookingsPage> {
       body: CustomScrollView(
         slivers: [
           // Header
-          SliverAppBar(
+          const SliverAppBar(
             backgroundColor: _kBg,
             pinned: true,
             automaticallyImplyLeading: false,
@@ -68,11 +66,11 @@ class _AllBookingsPageState extends ConsumerState<AllBookingsPage> {
               background: SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Bookings',
                         style: TextStyle(
                           color: _kWhite,
@@ -80,10 +78,10 @@ class _AllBookingsPageState extends ConsumerState<AllBookingsPage> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         'Manage your lounge schedule',
-                        style: const TextStyle(color: _kGray, fontSize: 12),
+                        style: TextStyle(color: _kGray, fontSize: 12),
                       ),
                     ],
                   ),
@@ -113,12 +111,10 @@ class _AllBookingsPageState extends ConsumerState<AllBookingsPage> {
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (ctx, i) {
-                  final Barber? barber = barbers
-                      .cast<Barber?>()
-                      .firstWhere(
-                        (b) => b?.id == filtered[i].barberId,
-                        orElse: () => null,
-                      );
+                  final Barber? barber = barbers.cast<Barber?>().firstWhere(
+                    (b) => b?.id == filtered[i].barberId,
+                    orElse: () => null,
+                  );
                   return _BookingCard(booking: filtered[i], barber: barber);
                 },
               ),
@@ -184,8 +180,7 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (statusColor, statusLabel, accentColor) =
-        _statusInfo(booking.status);
+    final (statusColor, statusLabel, accentColor) = _statusInfo(booking.status);
     final timeRange =
         '${DateFormat('hh:mm a').format(booking.startAt)} — ${DateFormat('hh:mm a').format(booking.endAt)}';
 
@@ -215,10 +210,7 @@ class _BookingCard extends StatelessWidget {
                               letterSpacing: 0.3,
                             ),
                           ),
-                          _StatusBadge(
-                            label: statusLabel,
-                            color: statusColor,
-                          ),
+                          _StatusBadge(label: statusLabel, color: statusColor),
                         ],
                       ),
                       const SizedBox(height: 8),

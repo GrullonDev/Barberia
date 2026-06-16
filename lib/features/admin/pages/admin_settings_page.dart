@@ -38,7 +38,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
       body: CustomScrollView(
         slivers: [
           // Header
-          SliverAppBar(
+          const SliverAppBar(
             backgroundColor: _kBg,
             automaticallyImplyLeading: false,
             pinned: true,
@@ -46,7 +46,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             expandedHeight: 80,
-            flexibleSpace: const FlexibleSpaceBar(
+            flexibleSpace: FlexibleSpaceBar(
               background: SafeArea(
                 bottom: false,
                 child: Padding(
@@ -103,8 +103,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           SliverToBoxAdapter(
             child: configAsync.when(
               data: (config) => _BusinessInfoSection(config: config),
-              loading: () =>
-                  const _SectionSkeleton(label: 'BUSINESS INFO'),
+              loading: () => const _SectionSkeleton(label: 'BUSINESS INFO'),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                 child: Text(
@@ -119,8 +118,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           SliverToBoxAdapter(
             child: servicesAsync.when(
               data: (services) => _ServicesSection(services: services),
-              loading: () =>
-                  const _SectionSkeleton(label: 'MANAGE SERVICES'),
+              loading: () => const _SectionSkeleton(label: 'MANAGE SERVICES'),
               error: (_, __) => const SizedBox.shrink(),
             ),
           ),
@@ -186,10 +184,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text(
-          'Delete Account?',
-          style: TextStyle(color: _kWhite),
-        ),
+        title: const Text('Delete Account?', style: TextStyle(color: _kWhite)),
         content: const Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: _kGray),
@@ -504,8 +499,7 @@ class _ServicesSection extends StatelessWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       s.name,
@@ -572,7 +566,11 @@ class _OperatingHoursSection extends StatelessWidget {
 
   String _fmtHour(int h) {
     final suffix = h < 12 ? 'AM' : 'PM';
-    final h12 = h == 0 ? 12 : h > 12 ? h - 12 : h;
+    final h12 = h == 0
+        ? 12
+        : h > 12
+        ? h - 12
+        : h;
     return '${h12.toString().padLeft(2, '0')}:00 $suffix';
   }
 

@@ -7,7 +7,7 @@ const Color _kUnselected = Color(0xFF505050);
 const Color _kTopBorder = Color(0xFF2A2A2A);
 
 class AdminScaffold extends StatelessWidget {
-  const AdminScaffold({super.key, required this.navigationShell});
+  const AdminScaffold({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 

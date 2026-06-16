@@ -78,9 +78,9 @@ class AdminDashboardPage extends ConsumerWidget {
 
     // Sales trend: last 7 days booking counts (normalised)
     final trendRaw = List.generate(7, (i) {
-      return dayBookings(today.subtract(Duration(days: 6 - i)))
-          .length
-          .toDouble();
+      return dayBookings(
+        today.subtract(Duration(days: 6 - i)),
+      ).length.toDouble();
     });
     final maxTrend = trendRaw.reduce((a, b) => a > b ? a : b);
     final trendNorm = maxTrend > 0
@@ -94,10 +94,9 @@ class AdminDashboardPage extends ConsumerWidget {
     });
 
     // Next appointment
-    final upcoming = bookings
-        .where((b) => b.startAt.isAfter(now) && isActive(b))
-        .toList()
-      ..sort((a, b) => a.startAt.compareTo(b.startAt));
+    final upcoming =
+        bookings.where((b) => b.startAt.isAfter(now) && isActive(b)).toList()
+          ..sort((a, b) => a.startAt.compareTo(b.startAt));
     final Booking? next = upcoming.isEmpty ? null : upcoming.first;
 
     // On duty barbers
@@ -105,16 +104,14 @@ class AdminDashboardPage extends ConsumerWidget {
     final onDuty = barbers.where((b) => b.isAvailable).toList();
 
     // Greeting
-    final firstName =
-        user?.name.split(' ').first.toUpperCase() ?? 'ADMIN';
+    final firstName = user?.name.split(' ').first.toUpperCase() ?? 'ADMIN';
     final greet = now.hour < 12
         ? 'GOOD MORNING'
         : now.hour < 17
         ? 'GOOD AFTERNOON'
         : 'GOOD EVENING';
     final businessName =
-        configAsync.valueOrNull?.businessName.toUpperCase() ??
-        'THE GENTLEMAN';
+        configAsync.valueOrNull?.businessName.toUpperCase() ?? 'THE GENTLEMAN';
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -125,8 +122,7 @@ class AdminDashboardPage extends ConsumerWidget {
             avatar: user?.name.isNotEmpty == true
                 ? user!.name[0].toUpperCase()
                 : 'A',
-            onAvatarTap: () =>
-                ref.read(authStateProvider.notifier).logout(),
+            onAvatarTap: () => ref.read(authStateProvider.notifier).logout(),
           ),
 
           // Greeting
@@ -171,9 +167,7 @@ class AdminDashboardPage extends ConsumerWidget {
                       badge: growthPct >= 0
                           ? '+${growthPct.toStringAsFixed(0)}%'
                           : '${growthPct.toStringAsFixed(0)}%',
-                      badgeColor: growthPct >= 0
-                          ? _kGreen
-                          : Colors.redAccent,
+                      badgeColor: growthPct >= 0 ? _kGreen : Colors.redAccent,
                       label: "TODAY'S\nEARNINGS",
                       value: NumberFormat.currency(
                         symbol: r'$',
@@ -231,8 +225,7 @@ class AdminDashboardPage extends ConsumerWidget {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () =>
-                            context.goNamed(RouteNames.allBookings),
+                        onTap: () => context.goNamed(RouteNames.allBookings),
                         child: const Text(
                           'View All',
                           style: TextStyle(
@@ -248,10 +241,7 @@ class AdminDashboardPage extends ConsumerWidget {
                   const SizedBox(height: 12),
                   next == null
                       ? const _EmptyCard('No upcoming appointments')
-                      : _NextAppointmentCard(
-                          booking: next,
-                          barbers: barbers,
-                        ),
+                      : _NextAppointmentCard(booking: next, barbers: barbers),
                 ],
               ),
             ),
@@ -400,10 +390,7 @@ class _StatCard extends StatelessWidget {
             children: [
               Icon(icon, color: _kGold, size: 22),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
@@ -466,10 +453,10 @@ class _SalesTrendCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -486,7 +473,7 @@ class _SalesTrendCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Icon(Icons.trending_up, color: _kGold, size: 20),
+              Icon(Icons.trending_up, color: _kGold, size: 20),
             ],
           ),
           const SizedBox(height: 20),
@@ -507,9 +494,7 @@ class _SalesTrendCard extends StatelessWidget {
                           child: FractionallySizedBox(
                             heightFactor: v,
                             child: Container(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 3,
-                              ),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
                               decoration: BoxDecoration(
                                 color: isHighlight
                                     ? _kGold
@@ -552,19 +537,17 @@ String _formatBarberName(String name) {
 }
 
 class _NextAppointmentCard extends StatelessWidget {
-  const _NextAppointmentCard({
-    required this.booking,
-    required this.barbers,
-  });
+  const _NextAppointmentCard({required this.booking, required this.barbers});
 
   final Booking booking;
   final List<Barber> barbers;
 
   @override
   Widget build(BuildContext context) {
-    final Barber? barber = barbers
-        .cast<Barber?>()
-        .firstWhere((b) => b?.id == booking.barberId, orElse: () => null);
+    final Barber? barber = barbers.cast<Barber?>().firstWhere(
+      (b) => b?.id == booking.barberId,
+      orElse: () => null,
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -699,8 +682,7 @@ class _OnDutyCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: barber.photoUrl != null &&
-                          barber.photoUrl!.isNotEmpty
+                  child: barber.photoUrl != null && barber.photoUrl!.isNotEmpty
                       ? Image.network(
                           barber.photoUrl!,
                           width: 76,
