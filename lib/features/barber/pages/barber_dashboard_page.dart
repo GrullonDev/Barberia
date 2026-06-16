@@ -168,9 +168,7 @@ class _BarberDashboardPageState extends ConsumerState<BarberDashboardPage> {
         icon: const Icon(Icons.menu, color: _kText),
         onPressed: () {},
       ),
-      title: const Text(
-        'THE GENTLEMAN',
-      ),
+      title: const Text('THE GENTLEMAN'),
       titleTextStyle: barberBrandStyle(fontSize: 22, height: 1),
       centerTitle: true,
       actions: <Widget>[
@@ -219,10 +217,7 @@ class _ActiveSessionCard extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Text(
-              'Active Session',
-              style: barberHeadingStyle(fontSize: 28),
-            ),
+            Text('Active Session', style: barberHeadingStyle(fontSize: 28)),
             if (active)
               Row(
                 children: <Widget>[
@@ -367,10 +362,7 @@ class _QueueSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Text(
-              'Next in Queue',
-              style: barberHeadingStyle(fontSize: 28),
-            ),
+            Text('Next in Queue', style: barberHeadingStyle(fontSize: 28)),
             GestureDetector(
               onTap: () => context.go('/barber/schedule'),
               child: const Text(
@@ -491,10 +483,7 @@ class _DailyPerformanceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          'Daily Performance',
-          style: barberHeadingStyle(fontSize: 28),
-        ),
+        Text('Daily Performance', style: barberHeadingStyle(fontSize: 28)),
         const SizedBox(height: 12),
         Row(
           children: <Widget>[
@@ -611,10 +600,7 @@ class _FullTimelineSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Text(
-              'Full Timeline',
-              style: barberHeadingStyle(fontSize: 28),
-            ),
+            Text('Full Timeline', style: barberHeadingStyle(fontSize: 28)),
             const Icon(Icons.calendar_today_outlined, color: _kGold, size: 20),
           ],
         ),

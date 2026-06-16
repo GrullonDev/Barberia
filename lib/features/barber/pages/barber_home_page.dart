@@ -22,11 +22,14 @@ class BarberHomePage extends ConsumerWidget {
     }
 
     // Filter bookings that belong to this barber only.
-    final List<Booking> myBookings = allBookings
-        .where((Booking b) =>
-            b.barberId == user.id && b.status != BookingStatus.canceled)
-        .toList()
-      ..sort((Booking a, Booking b) => a.startAt.compareTo(b.startAt));
+    final List<Booking> myBookings =
+        allBookings
+            .where(
+              (Booking b) =>
+                  b.barberId == user.id && b.status != BookingStatus.canceled,
+            )
+            .toList()
+          ..sort((Booking a, Booking b) => a.startAt.compareTo(b.startAt));
 
     final DateTime now = DateTime.now();
     final DateTime todayStart = DateTime(now.year, now.month, now.day);
@@ -34,15 +37,23 @@ class BarberHomePage extends ConsumerWidget {
     final DateTime dayAfterStart = tomorrowStart.add(const Duration(days: 1));
 
     final List<Booking> todayBookings = myBookings
-        .where((Booking b) =>
-            b.startAt.isAfter(todayStart.subtract(const Duration(seconds: 1))) &&
-            b.startAt.isBefore(tomorrowStart))
+        .where(
+          (Booking b) =>
+              b.startAt.isAfter(
+                todayStart.subtract(const Duration(seconds: 1)),
+              ) &&
+              b.startAt.isBefore(tomorrowStart),
+        )
         .toList();
 
     final List<Booking> upcomingBookings = myBookings
-        .where((Booking b) =>
-            b.startAt.isAfter(tomorrowStart.subtract(const Duration(seconds: 1))) &&
-            b.startAt.isBefore(dayAfterStart.add(const Duration(days: 6))))
+        .where(
+          (Booking b) =>
+              b.startAt.isAfter(
+                tomorrowStart.subtract(const Duration(seconds: 1)),
+              ) &&
+              b.startAt.isBefore(dayAfterStart.add(const Duration(days: 6))),
+        )
         .toList();
 
     return Scaffold(
@@ -116,13 +127,12 @@ class BarberHomePage extends ConsumerWidget {
 
             // Today's appointments
             SliverToBoxAdapter(
-              child: _SectionHeader(
-                title: 'Hoy',
-                count: todayBookings.length,
-              ),
+              child: _SectionHeader(title: 'Hoy', count: todayBookings.length),
             ),
             if (todayBookings.isEmpty)
-              const SliverToBoxAdapter(child: _EmptySlot(message: 'Sin citas para hoy'))
+              const SliverToBoxAdapter(
+                child: _EmptySlot(message: 'Sin citas para hoy'),
+              )
             else
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -224,17 +234,23 @@ class _EmptySlot extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
         ),
         child: Row(
           children: <Widget>[
             Icon(
               Icons.event_available_outlined,
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 12),
             Text(
@@ -264,12 +280,12 @@ class _AppointmentCard extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final TextTheme txt = Theme.of(context).textTheme;
 
-    final String timeLabel =
-        DateFormat('HH:mm').format(booking.startAt);
-    final String endLabel =
-        DateFormat('HH:mm').format(booking.endAt);
-    final String dateLabel =
-        DateFormat('EEE d MMM', 'es').format(booking.startAt);
+    final String timeLabel = DateFormat('HH:mm').format(booking.startAt);
+    final String endLabel = DateFormat('HH:mm').format(booking.endAt);
+    final String dateLabel = DateFormat(
+      'EEE d MMM',
+      'es',
+    ).format(booking.startAt);
 
     final Color statusColor = _statusColor(booking.status, cs);
     final String statusLabel = _statusLabel(booking.status);
@@ -326,7 +342,9 @@ class _AppointmentCard extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     booking.customerName,
-                    style: txt.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: txt.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
@@ -339,11 +357,17 @@ class _AppointmentCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: <Widget>[
-                        Icon(Icons.phone_outlined, size: 12, color: cs.onSurfaceVariant),
+                        Icon(
+                          Icons.phone_outlined,
+                          size: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           booking.customerPhone!,
-                          style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                          style: txt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -362,11 +386,17 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.4), width: 0.8),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.4),
+                      width: 0.8,
+                    ),
                   ),
                   child: Text(
                     statusLabel,

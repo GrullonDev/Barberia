@@ -90,7 +90,9 @@ class BarberTopBar extends StatelessWidget {
             child: CircleAvatar(
               radius: avatarRadius - 2,
               backgroundColor: barberSurface,
-              backgroundImage: photoUrl == null ? null : NetworkImage(photoUrl!),
+              backgroundImage: photoUrl == null
+                  ? null
+                  : NetworkImage(photoUrl!),
               child: photoUrl != null
                   ? null
                   : Text(
@@ -107,4 +109,3 @@ class BarberTopBar extends StatelessWidget {
     );
   }
 }
-

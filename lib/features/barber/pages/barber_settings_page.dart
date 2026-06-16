@@ -422,10 +422,7 @@ class _Panel extends StatelessWidget {
             Row(
               children: <Widget>[
                 Expanded(
-                  child: Text(
-                    title!,
-                    style: barberHeadingStyle(fontSize: 24),
-                  ),
+                  child: Text(title!, style: barberHeadingStyle(fontSize: 24)),
                 ),
                 if (icon != null) Icon(icon, color: _kText),
               ],

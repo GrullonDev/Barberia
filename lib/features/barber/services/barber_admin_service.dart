@@ -21,12 +21,13 @@ class BarberAdminService {
   }) async {
     final HttpsCallable callable = _functions.httpsCallable('inviteBarber');
     try {
-      final HttpsCallableResult<dynamic> result = await callable
-          .call<dynamic>(<String, dynamic>{
-            'name': name,
-            'email': email,
-            if (specialty != null && specialty.isNotEmpty) 'specialty': specialty,
-          });
+      final HttpsCallableResult<dynamic> result = await callable.call<dynamic>(
+        <String, dynamic>{
+          'name': name,
+          'email': email,
+          if (specialty != null && specialty.isNotEmpty) 'specialty': specialty,
+        },
+      );
       final Map<Object?, Object?> data =
           result.data as Map<Object?, Object?>? ?? <Object?, Object?>{};
       return data['barberId'] as String? ?? '';
