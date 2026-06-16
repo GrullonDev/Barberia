@@ -581,14 +581,26 @@ class _OperatingHoursSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'OPERATING HOURS',
-            style: TextStyle(
-              color: _kWhite,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.5,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'OPERATING HOURS',
+                style: TextStyle(
+                  color: _kWhite,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              GestureDetector(
+                onTap: () => context.goNamed(RouteNames.adminConfig),
+                child: const Text(
+                  'Edit',
+                  style: TextStyle(color: _kGold, fontSize: 13),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Container(
@@ -608,8 +620,8 @@ class _OperatingHoursSection extends StatelessWidget {
                 endIndent: 16,
               ),
               itemBuilder: (ctx, i) {
+                final bool isClosed = !config.openDays[i];
                 final bool isWeekend = i >= 5;
-                final bool isClosed = i == 6;
                 final String hours = isClosed
                     ? 'CLOSED'
                     : '${_fmtHour(config.openHour)} - ${_fmtHour(config.closeHour)}';
@@ -624,7 +636,11 @@ class _OperatingHoursSection extends StatelessWidget {
                       Text(
                         _days[i],
                         style: TextStyle(
-                          color: isWeekend ? _kGold : _kWhite,
+                          color: isClosed
+                              ? _kGray
+                              : isWeekend
+                              ? _kGold
+                              : _kWhite,
                           fontSize: 14,
                           fontWeight: isWeekend
                               ? FontWeight.w600
