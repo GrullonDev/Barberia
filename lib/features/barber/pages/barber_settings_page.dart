@@ -6,8 +6,6 @@ import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/barber/models/barber.dart';
 import 'package:barberia/features/barber/providers/barber_providers.dart';
 import 'package:barberia/features/barber/widgets/barber_chrome.dart';
-import 'package:barberia/features/config/models/barberia_config.dart';
-import 'package:barberia/features/config/providers/barberia_config_providers.dart';
 
 const Color _kBg = Color(0xFF0B0B0B);
 const Color _kSurface = Color(0xFF181A1A);
@@ -37,7 +35,6 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
   bool _pushNotifications = true;
   bool _emailUpdates = false;
   bool _seeded = false;
-  Map<int, List<int>?> _workingHours = Barber.defaultWorkingHours();
 
   @override
   void dispose() {
@@ -51,9 +48,6 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
   Widget build(BuildContext context) {
     final User? user = ref.watch(authStateProvider);
     final AsyncValue<Barber?> profile = ref.watch(currentBarberProfileProvider);
-    final BarberiaConfig config =
-        ref.watch(barberiaConfigProvider).valueOrNull ??
-        const BarberiaConfig();
 
     if (user == null) {
       return const Scaffold(
@@ -279,31 +273,6 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
                   ),
                   const SizedBox(height: 22),
                   _Panel(
-                    title: 'Availability',
-                    icon: Icons.calendar_month,
-                    child: Column(
-                      children: List<Widget>.generate(7, (int index) {
-                        final int day = index + 1;
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: day == 7 ? 0 : 14),
-                          child: _AvailabilityRow(
-                            day: _dayLabel(day),
-                            available: _workingHours[day] != null,
-                            onChanged: (bool available) => setState(() {
-                              _workingHours = <int, List<int>?>{
-                                ..._workingHours,
-                                day: available
-                                    ? _availabilityRange(config)
-                                    : null,
-                              };
-                            }),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  _Panel(
                     title: 'Notifications',
                     child: Column(
                       children: <Widget>[
@@ -388,29 +357,18 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
         ..clear()
         ..addAll(barber.specialties);
     }
-    _workingHours = _normalizedHours(barber.workingHours);
     _seeded = true;
   }
 
   Future<void> _save(Barber current) async {
-    final BarberiaConfig config =
-        ref.read(barberiaConfigProvider).valueOrNull ?? const BarberiaConfig();
-    final Map<int, List<int>?> workingHours = _availabilityWithinConfig(
-      _workingHours,
-      config,
-    );
-    _workingHours = workingHours;
     final Barber updated = current.copyWith(
       name: _nameController.text.trim(),
       title: _titleController.text.trim(),
       bio: _bioController.text.trim(),
       specialties: List<String>.from(_specialties),
-      workingHours: workingHours,
     );
     try {
-      await ref
-          .read(barberRepositoryProvider)
-          .updateOwnProfileAndAvailability(updated);
+      await ref.read(barberRepositoryProvider).updateOwnProfile(updated);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -423,51 +381,6 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
         );
       }
     }
-  }
-
-  Map<int, List<int>?> _availabilityWithinConfig(
-    Map<int, List<int>?> hours,
-    BarberiaConfig config,
-  ) {
-    final List<int> globalRange = _availabilityRange(config);
-    return hours.map((int day, List<int>? dayRange) {
-      if (dayRange == null || dayRange.length < 2) {
-        return MapEntry<int, List<int>?>(day, null);
-      }
-      return MapEntry<int, List<int>?>(day, List<int>.from(globalRange));
-    });
-  }
-
-  List<int> _availabilityRange(BarberiaConfig config) {
-    final int open = config.openHour.clamp(0, 22).toInt();
-    final int close = config.closeHour <= open
-        ? open + 1
-        : config.closeHour.clamp(open + 1, 23).toInt();
-    return <int>[open, close];
-  }
-
-  Map<int, List<int>?> _normalizedHours(Map<int, List<int>?> hours) {
-    final Map<int, List<int>?> normalized = Barber.defaultWorkingHours();
-    for (int day = 1; day <= 7; day++) {
-      final List<int>? range = hours[day];
-      normalized[day] = range == null || range.length < 2
-          ? null
-          : <int>[range[0], range[1]];
-    }
-    return normalized;
-  }
-
-  String _dayLabel(int day) {
-    const Map<int, String> labels = <int, String>{
-      1: 'Mon',
-      2: 'Tue',
-      3: 'Wed',
-      4: 'Thu',
-      5: 'Fri',
-      6: 'Sat',
-      7: 'Sun',
-    };
-    return labels[day] ?? '';
   }
 }
 
@@ -534,54 +447,6 @@ class _LanguageRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AvailabilityRow extends StatelessWidget {
-  const _AvailabilityRow({
-    required this.day,
-    required this.available,
-    required this.onChanged,
-  });
-
-  final String day;
-  final bool available;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Checkbox(
-          value: available,
-          onChanged: (bool? value) {
-            onChanged(value ?? false);
-          },
-          activeColor: _kGold,
-          checkColor: Colors.white,
-          side: const BorderSide(color: _kBorder),
-        ),
-        SizedBox(
-          width: 46,
-          child: Text(
-            day,
-            style: TextStyle(
-              color: available ? _kText : _kDim,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const Spacer(),
-        Text(
-          available ? 'Available' : 'Unavailable',
-          style: TextStyle(
-            color: available ? _kGold : const Color(0xFFD8A09A),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
     );
   }
 }

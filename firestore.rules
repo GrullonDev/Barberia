@@ -89,8 +89,7 @@ service cloud.firestore {
                          'specialties',
                          'photoUrl',
                          'bio',
-                         'title',
-                         'workingHours'
+                         'title'
                        ]))
                     );
     }
