@@ -92,7 +92,7 @@ class _CustomCutPersonalizerPageState extends State<CustomCutPersonalizerPage> {
   }
 
   void _goToBooking() {
-    context.goNamed(RouteNames.services);
+    context.goNamed(RouteNames.bookingExperience);
   }
 }
 
