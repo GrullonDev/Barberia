@@ -58,6 +58,22 @@ class BarberRepository {
         .set(barber.toFirestore(), SetOptions(merge: true));
   }
 
+  Future<void> updateOwnProfileAndAvailability(Barber barber) async {
+    await _col.doc(barber.id).update(<String, dynamic>{
+      'name': barber.name,
+      'specialty': barber.specialties.isNotEmpty
+          ? barber.specialties.first
+          : barber.specialty,
+      'specialties': barber.specialties,
+      'bio': barber.bio,
+      'title': barber.title,
+      'workingHours': barber.workingHours.map(
+        (int day, List<int>? range) =>
+            MapEntry<String, List<int>?>(day.toString(), range),
+      ),
+    });
+  }
+
   Future<void> setAvailability({
     required String id,
     required bool available,

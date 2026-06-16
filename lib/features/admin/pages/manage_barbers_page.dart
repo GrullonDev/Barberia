@@ -664,7 +664,9 @@ void _showInviteDialog(BuildContext context, WidgetRef ref) {
                 : () async {
                     final name = nameCtrl.text.trim();
                     final email = emailCtrl.text.trim();
-                    if (name.isEmpty || email.isEmpty) return;
+                    if (name.isEmpty || email.isEmpty) {
+                      return;
+                    }
                     setState(() => loading = true);
                     try {
                       await ref
@@ -676,7 +678,9 @@ void _showInviteDialog(BuildContext context, WidgetRef ref) {
                                 ? null
                                 : specialtyCtrl.text.trim(),
                           );
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                      }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Invitation sent!')),
@@ -745,7 +749,9 @@ void _showEditDialog(BuildContext context, WidgetRef ref, Barber barber) {
         ElevatedButton(
           onPressed: () async {
             final name = nameCtrl.text.trim();
-            if (name.isEmpty) return;
+            if (name.isEmpty) {
+              return;
+            }
             try {
               await ref
                   .read(barberRepositoryProvider)
@@ -757,7 +763,9 @@ void _showEditDialog(BuildContext context, WidgetRef ref, Barber barber) {
                           : specialtyCtrl.text.trim(),
                     ),
                   );
-              if (ctx.mounted) Navigator.pop(ctx);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+              }
             } catch (e) {
               if (ctx.mounted) {
                 ScaffoldMessenger.of(
