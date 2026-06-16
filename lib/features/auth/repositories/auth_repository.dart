@@ -237,15 +237,19 @@ class AuthRepository {
       final Map<String, dynamic> data = snap.data()!;
       if ((data['inviteStatus'] as String?) == 'pending') {
         // Mark invite as accepted. Users can update their own doc (role unchanged).
-        ref.update(<String, dynamic>{'inviteStatus': 'active'}).ignore();
-        // Also update the barbers/{uid} doc (allowed by Firestore rule for barbers).
-        if ((data['role'] as String?) == 'barber') {
-          _db
-              .collection('barbers')
-              .doc(fbUser.uid)
-              .update(<String, dynamic>{'inviteStatus': 'active'})
-              .ignore();
-        }
+        // Execute sequentially to avoid race conditions in security rule validation.
+        () async {
+          try {
+            await ref.update(<String, dynamic>{'inviteStatus': 'active'});
+            if ((data['role'] as String?) == 'barber') {
+              await _db.collection('barbers').doc(fbUser.uid).update(<String, dynamic>{
+                'inviteStatus': 'active',
+              });
+            }
+          } catch (e) {
+            debugPrint('[AuthRepository] Failed to update invite status: $e');
+          }
+        }();
       }
       return User.fromFirestore(snap);
     }
