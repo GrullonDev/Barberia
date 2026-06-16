@@ -842,27 +842,29 @@ class _FeatureBand extends StatelessWidget {
                       ),
                     ],
                   )
-                : const Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Expanded(flex: 2, child: _PrestigePanel()),
-                      SizedBox(width: 26),
-                      Expanded(
-                        child: _InfoCard(
-                          icon: Icons.schedule,
-                          title: '45 MINUTOS',
-                          body: 'Dedicacion completa',
+                : const IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Expanded(flex: 2, child: _PrestigePanel()),
+                        SizedBox(width: 26),
+                        Expanded(
+                          child: _InfoCard(
+                            icon: Icons.schedule,
+                            title: '45 MINUTOS',
+                            body: 'Dedicacion completa',
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 26),
-                      Expanded(
-                        child: _InfoCard(
-                          icon: Icons.local_cafe_outlined,
-                          title: 'COMPLIMENTARY',
-                          body: 'Single malt o cafe artesanal',
+                        SizedBox(width: 26),
+                        Expanded(
+                          child: _InfoCard(
+                            icon: Icons.local_cafe_outlined,
+                            title: 'COMPLIMENTARY',
+                            body: 'Single malt o cafe artesanal',
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
           ),
         ),
