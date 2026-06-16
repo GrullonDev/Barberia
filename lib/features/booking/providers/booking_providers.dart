@@ -331,6 +331,26 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
     return false;
   }
 
+  Future<void> updateStatus(
+    String id,
+    BookingStatus status, {
+    CancelReason? cancelReason,
+  }) async {
+    state = <Booking>[
+      for (final Booking b in state)
+        if (b.id == id) b.copyWith(status: status, cancelReason: cancelReason) else b,
+    ];
+    try {
+      await _repository.updateStatus(
+        id: id,
+        status: status,
+        cancelReason: cancelReason,
+      );
+    } catch (_) {
+      await _loadBookings();
+    }
+  }
+
   Future<void> rebook(String id, DateTime newStart) async {
     state = <Booking>[
       for (final Booking b in state)

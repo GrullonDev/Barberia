@@ -338,6 +338,15 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
             },
       );
 
+      // Garantiza que haya sesión Firebase antes de llamar al CF (el callable
+      // SDK adjunta el token automáticamente cuando hay usuario). En web, el
+      // usuario puede llegar aquí con la sesión anónima aún pendiente.
+      if (ref.read(authStateProvider) == null) {
+        await ref
+            .read(authStateProvider.notifier)
+            .signInAnonymouslyIfWeb();
+      }
+
       // Llamada real al CF `reserveSlot`. Si falla, mapeamos el error y
       // volvemos al formulario sin navegar.
       final ReserveSlotService reserveService = ref.read(
