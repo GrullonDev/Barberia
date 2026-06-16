@@ -83,7 +83,15 @@ service cloud.firestore {
                       ||
                       // Caso 2: Editar perfil (no modifica inviteStatus, ni cambia de active a otra cosa)
                       (resource.data.inviteStatus == 'active'
-                       && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['inviteStatus', 'inviteEmail', 'id']))
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                         'name',
+                         'specialty',
+                         'specialties',
+                         'photoUrl',
+                         'bio',
+                         'title',
+                         'workingHours'
+                       ]))
                     );
     }
 
@@ -135,6 +143,15 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if true;           // público para mostrar horarios en la web
       allow write: if isAdmin();
+    }
+
+    // ---------- admin_notifications ------------------------------------------
+    match /admin_notifications/{notificationId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isBarber()
+                    && request.resource.data.type == 'barber_active'
+                    && request.resource.data.barberId == request.auth.uid
+                    && request.resource.data.read == false;
     }
 
     // ---------- default deny --------------------------------------------------

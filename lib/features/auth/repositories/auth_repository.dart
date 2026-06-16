@@ -74,6 +74,7 @@ class AuthRepository {
       return null;
     }
     _currentUser = await _ensureUserProfile(credential.user!);
+    await _notifyAdminsIfBarberActive(_currentUser);
     return _currentUser;
   }
 
@@ -183,6 +184,7 @@ class AuthRepository {
       return null;
     }
     _currentUser = await _ensureUserProfile(userCred.user!);
+    await _notifyAdminsIfBarberActive(_currentUser);
     _pendingPhoneVerificationId = null;
     return _currentUser;
   }
@@ -270,5 +272,24 @@ class AuthRepository {
     );
     await ref.set(fallback.toFirestore());
     return fallback;
+  }
+
+  Future<void> _notifyAdminsIfBarberActive(User? user) async {
+    if (user == null || user.role != UserRole.barber) {
+      return;
+    }
+    try {
+      await _db.collection('admin_notifications').add(<String, dynamic>{
+        'type': 'barber_active',
+        'barberId': user.id,
+        'barberName': user.name,
+        'title': 'Barber active',
+        'body': '${user.name.isEmpty ? 'A barber' : user.name} is active now.',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('[AuthRepository] Failed to notify admin: $e');
+    }
   }
 }
