@@ -10,13 +10,16 @@ class ScaffoldWithNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDesktop = MediaQuery.sizeOf(context).width >= 900;
     return Scaffold(
       body: navigationShell,
-      extendBody: true, // Important for the curved effect over content
-      bottomNavigationBar: CustomBottomNavBar(
-        navigationShell: navigationShell,
-        onFabPressed: () => context.pushNamed(RouteNames.services),
-      ),
+      extendBody: !isDesktop,
+      bottomNavigationBar: isDesktop
+          ? null
+          : CustomBottomNavBar(
+              navigationShell: navigationShell,
+              onFabPressed: () => context.pushNamed(RouteNames.services),
+            ),
     );
   }
 }

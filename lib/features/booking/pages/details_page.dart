@@ -342,9 +342,7 @@ class _DetailsPageState extends ConsumerState<DetailsPage> {
       // SDK adjunta el token automáticamente cuando hay usuario). En web, el
       // usuario puede llegar aquí con la sesión anónima aún pendiente.
       if (ref.read(authStateProvider) == null) {
-        await ref
-            .read(authStateProvider.notifier)
-            .signInAnonymouslyIfWeb();
+        await ref.read(authStateProvider.notifier).signInAnonymouslyIfWeb();
       }
 
       // Llamada real al CF `reserveSlot`. Si falla, mapeamos el error y

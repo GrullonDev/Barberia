@@ -338,7 +338,10 @@ class BookingsNotifier extends StateNotifier<List<Booking>> {
   }) async {
     state = <Booking>[
       for (final Booking b in state)
-        if (b.id == id) b.copyWith(status: status, cancelReason: cancelReason) else b,
+        if (b.id == id)
+          b.copyWith(status: status, cancelReason: cancelReason)
+        else
+          b,
     ];
     try {
       await _repository.updateStatus(
