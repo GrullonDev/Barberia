@@ -14,8 +14,20 @@ class Barber {
   final String id; // = users/{uid}
   final String name;
   final String? specialty;
+  final List<String> specialties;
   final String? photoUrl;
   final bool isAvailable;
+  final String? bio;
+  final String? title;
+
+  /// Email al que se envió la invitación. Nulo para barberos creados
+  /// manualmente antes del flujo de invitación.
+  final String? inviteEmail;
+
+  /// Estado de la invitación: 'pending' hasta que el barbero activa su cuenta,
+  /// 'active' una vez que inicia sesión por primera vez. Nulo para barberos
+  /// pre-existentes sin flujo de invitación.
+  final String? inviteStatus;
 
   /// Horario laboral del barbero por día de la semana (1=lunes ... 7=domingo).
   /// `null` en un día = no trabaja ese día. `[startHour, endHour]` en formato
@@ -26,31 +38,49 @@ class Barber {
     required this.id,
     required this.name,
     this.specialty,
+    this.specialties = const <String>[],
     this.photoUrl,
     this.isAvailable = true,
+    this.bio,
+    this.title,
+    this.inviteEmail,
+    this.inviteStatus,
     this.workingHours = const <int, List<int>?>{},
   });
 
   Barber copyWith({
     String? name,
     String? specialty,
+    List<String>? specialties,
     String? photoUrl,
     bool? isAvailable,
+    String? bio,
+    String? title,
+    String? inviteEmail,
+    String? inviteStatus,
     Map<int, List<int>?>? workingHours,
   }) => Barber(
     id: id,
     name: name ?? this.name,
     specialty: specialty ?? this.specialty,
+    specialties: specialties ?? this.specialties,
     photoUrl: photoUrl ?? this.photoUrl,
     isAvailable: isAvailable ?? this.isAvailable,
+    bio: bio ?? this.bio,
+    title: title ?? this.title,
+    inviteEmail: inviteEmail ?? this.inviteEmail,
+    inviteStatus: inviteStatus ?? this.inviteStatus,
     workingHours: workingHours ?? this.workingHours,
   );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
     'name': name,
-    'specialty': specialty,
+    'specialty': specialties.isNotEmpty ? specialties.first : specialty,
+    'specialties': specialties,
     'photoUrl': photoUrl,
     'isAvailable': isAvailable,
+    'bio': bio,
+    'title': title,
     // Firestore no soporta keys numéricas; persistimos como string
     'workingHours': workingHours.map(
       (int day, List<int>? range) =>
@@ -74,12 +104,25 @@ class Barber {
         hours[day] = value.whereType<num>().map((num n) => n.toInt()).toList();
       }
     });
+    final List<String> specialties =
+        (data['specialties'] as List<dynamic>?)
+            ?.map((dynamic e) => e.toString())
+            .toList() ??
+        (data['specialty'] != null
+            ? <String>[data['specialty'] as String]
+            : <String>[]);
+
     return Barber(
       id: doc.id,
       name: data['name'] as String? ?? '',
       specialty: data['specialty'] as String?,
+      specialties: specialties,
       photoUrl: data['photoUrl'] as String?,
       isAvailable: data['isAvailable'] as bool? ?? true,
+      bio: data['bio'] as String?,
+      title: data['title'] as String?,
+      inviteEmail: data['inviteEmail'] as String?,
+      inviteStatus: data['inviteStatus'] as String?,
       workingHours: hours,
     );
   }

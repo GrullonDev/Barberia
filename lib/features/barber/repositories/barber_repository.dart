@@ -37,6 +37,12 @@ class BarberRepository {
     return Barber.fromFirestore(doc);
   }
 
+  /// Stream reactivo de un barbero concreto (para la página de settings del propio barbero).
+  Stream<Barber?> watchById(String id) => _col.doc(id).snapshots().map(
+    (DocumentSnapshot<Map<String, dynamic>> doc) =>
+        doc.exists ? Barber.fromFirestore(doc) : null,
+  );
+
   /// Stream reactivo (para la agenda admin).
   Stream<List<Barber>> watchAll() => _col.snapshots().map(
     (QuerySnapshot<Map<String, dynamic>> snap) =>
