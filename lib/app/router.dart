@@ -23,6 +23,7 @@ import 'package:barberia/features/barber/pages/barber_schedule_page.dart';
 import 'package:barberia/features/barber/pages/barber_settings_page.dart';
 import 'package:barberia/features/barber/widgets/barber_scaffold.dart';
 import 'package:barberia/features/booking/models/service.dart';
+import 'package:barberia/features/booking/pages/booking_experience_page.dart';
 import 'package:barberia/features/booking/pages/calendar_page.dart';
 import 'package:barberia/features/booking/pages/confirmation_page.dart';
 import 'package:barberia/features/booking/pages/custom_cut_personalizer_page.dart';
@@ -39,6 +40,7 @@ abstract final class RouteNames {
   static const String services = 'services';
   static const String gallery = 'gallery';
   static const String personalizer = 'personalizer';
+  static const String bookingExperience = 'booking-experience';
   static const String calendar = 'calendar';
   static const String details = 'details';
   static const String confirmation = 'confirmation';
@@ -67,6 +69,7 @@ const Set<String> _publicWebPaths = <String>{
   '/services',
   '/gallery',
   '/personalizer',
+  '/booking-experience',
   '/services/calendar',
   '/details',
   '/confirmation',
@@ -199,6 +202,11 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
                     path: 'personalizer',
                     name: RouteNames.personalizer,
                     builder: (_, __) => const CustomCutPersonalizerPage(),
+                  ),
+                  GoRoute(
+                    path: 'booking-experience',
+                    name: RouteNames.bookingExperience,
+                    builder: (_, __) => const BookingExperiencePage(),
                   ),
                   GoRoute(
                     path: 'services',
