@@ -12,16 +12,18 @@ class BarberiaConfigRepository {
 
   Future<BarberiaConfig> get() async {
     final DocumentSnapshot<Map<String, dynamic>> snap = await _doc.get();
-    if (!snap.exists) return const BarberiaConfig();
+    if (!snap.exists) {
+      return const BarberiaConfig();
+    }
     return BarberiaConfig.fromFirestore(snap);
   }
 
   /// Stream reactivo: la UI puede reaccionar si admin edita el horario.
   Stream<BarberiaConfig> watch() => _doc.snapshots().map(
-        (DocumentSnapshot<Map<String, dynamic>> snap) => snap.exists
-            ? BarberiaConfig.fromFirestore(snap)
-            : const BarberiaConfig(),
-      );
+    (DocumentSnapshot<Map<String, dynamic>> snap) => snap.exists
+        ? BarberiaConfig.fromFirestore(snap)
+        : const BarberiaConfig(),
+  );
 
   Future<void> upsert(BarberiaConfig config) async {
     await _doc.set(config.toFirestore(), SetOptions(merge: true));

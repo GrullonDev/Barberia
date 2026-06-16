@@ -6,9 +6,10 @@ import 'package:barberia/common/widgets/scaffold_with_nav_bar.dart';
 import 'package:barberia/features/admin/pages/add_edit_service_page.dart';
 import 'package:barberia/features/admin/pages/admin_config_page.dart';
 import 'package:barberia/features/admin/pages/admin_dashboard_page.dart';
+import 'package:barberia/features/admin/pages/admin_settings_page.dart';
 import 'package:barberia/features/admin/pages/all_bookings_page.dart';
 import 'package:barberia/features/admin/pages/manage_barbers_page.dart';
-import 'package:barberia/features/admin/pages/manage_services_page.dart';
+import 'package:barberia/features/admin/widgets/admin_scaffold.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/features/auth/pages/login_page.dart';
 import 'package:barberia/features/auth/pages/password_reset_page.dart';
@@ -16,10 +17,18 @@ import 'package:barberia/features/auth/pages/phone_login_page.dart';
 import 'package:barberia/features/auth/pages/profile_page.dart';
 import 'package:barberia/features/auth/pages/register_page.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
+import 'package:barberia/features/barber/pages/barber_clients_page.dart';
+import 'package:barberia/features/barber/pages/barber_dashboard_page.dart';
+import 'package:barberia/features/barber/pages/barber_schedule_page.dart';
+import 'package:barberia/features/barber/pages/barber_settings_page.dart';
+import 'package:barberia/features/barber/widgets/barber_scaffold.dart';
 import 'package:barberia/features/booking/models/service.dart';
+import 'package:barberia/features/booking/pages/booking_experience_page.dart';
 import 'package:barberia/features/booking/pages/calendar_page.dart';
 import 'package:barberia/features/booking/pages/confirmation_page.dart';
+import 'package:barberia/features/booking/pages/custom_cut_personalizer_page.dart';
 import 'package:barberia/features/booking/pages/details_page.dart';
+import 'package:barberia/features/booking/pages/gallery_page.dart';
 import 'package:barberia/features/booking/pages/home_page.dart';
 import 'package:barberia/features/booking/pages/my_bookings_page.dart';
 import 'package:barberia/features/booking/pages/service_select_page.dart';
@@ -29,6 +38,9 @@ import 'package:barberia/features/static/privacy_page.dart';
 abstract final class RouteNames {
   static const String home = 'home';
   static const String services = 'services';
+  static const String gallery = 'gallery';
+  static const String personalizer = 'personalizer';
+  static const String bookingExperience = 'booking-experience';
   static const String calendar = 'calendar';
   static const String details = 'details';
   static const String confirmation = 'confirmation';
@@ -41,11 +53,12 @@ abstract final class RouteNames {
   static const String phoneLogin = 'phone-login';
   static const String splash = 'splash';
   static const String admin = 'admin';
-  static const String manageServices = 'manage-services';
-  static const String manageBarbers = 'manage-barbers';
+  static const String adminSettings = 'admin-settings';
   static const String allBookings = 'all-bookings';
+  static const String manageBarbers = 'manage-barbers';
   static const String addService = 'add-service';
   static const String adminConfig = 'admin-config';
+  static const String barber = 'barber';
 }
 
 /// Rutas públicas que un usuario anónimo o un cliente sin cuenta pueden
@@ -54,6 +67,9 @@ abstract final class RouteNames {
 const Set<String> _publicWebPaths = <String>{
   '/',
   '/services',
+  '/gallery',
+  '/personalizer',
+  '/booking-experience',
   '/services/calendar',
   '/details',
   '/confirmation',
@@ -70,11 +86,10 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
 
   return GoRouter(
     initialLocation: '/',
-    // Dispara un rebuild cuando cambia auth o bootstrap.
-    refreshListenable: ValueNotifier<Object?>(Object.hash(authState, bootstrap)),
+    refreshListenable: ValueNotifier<Object?>(
+      Object.hash(authState, bootstrap),
+    ),
     redirect: (BuildContext context, GoRouterState state) {
-      // Mientras Firebase rehidrata la sesión, no redirigimos — la UI
-      // debe mostrar splash. Evita el flash hacia /login en cold start.
       if (bootstrap == AuthBootstrap.loading) {
         return state.uri.path == '/splash' ? null : '/splash';
       }
@@ -82,42 +97,53 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
       final bool loggedIn = authState != null;
       final bool isAnon = authState?.isAnonymous ?? false;
       final String path = state.uri.path;
-      final bool isAuthRoute = path == '/login' ||
+      final bool isAuthRoute =
+          path == '/login' ||
           path == '/register' ||
           path == '/password-reset' ||
           path == '/phone-login';
       final bool isSplash = path == '/splash';
 
-      // Si ya salimos del bootstrap, nadie se queda en splash.
       if (isSplash) {
         return loggedIn ? '/' : '/login';
       }
 
-      // Sin sesión → solo páginas públicas (en mobile: solo auth routes).
       if (!loggedIn) {
         return isAuthRoute ? null : '/login';
       }
 
-      // Usuario anónimo (solo web): puede navegar flow de reserva público,
-      // pero no accede a /admin ni /my-bookings ni /profile (sin identidad).
       if (isAnon) {
         final bool isPublic = _publicWebPaths.contains(path);
-        if (!isPublic) return '/';
+        if (!isPublic) {
+          return '/';
+        }
         return null;
       }
 
-      // Usuario con cuenta → flujo normal.
-      final bool hasAdminAccess =
-          authState.role == UserRole.admin || authState.role == UserRole.barber;
+      final bool isAdmin = authState.role == UserRole.admin;
+      final bool isBarber = authState.role == UserRole.barber;
       final bool isAdminPath = path.startsWith('/admin');
+      final bool isBarberPath = path.startsWith('/barber');
 
       if (isAuthRoute) {
-        return hasAdminAccess ? '/admin' : '/';
+        if (isAdmin) {
+          return '/admin';
+        }
+        if (isBarber) {
+          return '/barber';
+        }
+        return '/';
       }
-      if (hasAdminAccess && !isAdminPath && path == '/') {
+      if (isAdmin && !isAdminPath && path == '/') {
         return '/admin';
       }
-      if (!hasAdminAccess && isAdminPath) {
+      if (isBarber && !isBarberPath && path == '/') {
+        return '/barber';
+      }
+      if (!isAdmin && isAdminPath) {
+        return '/';
+      }
+      if (!isBarber && isBarberPath) {
         return '/';
       }
       return null;
@@ -148,14 +174,17 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
         name: RouteNames.phoneLogin,
         builder: (_, __) => const PhoneLoginPage(),
       ),
+
+      // ── Customer shell (4 tabs) ─────────────────────────────────────────────
       StatefulShellRoute.indexedStack(
-        builder: (
-          BuildContext context,
-          GoRouterState state,
-          StatefulNavigationShell navigationShell,
-        ) {
-          return ScaffoldWithNavBar(navigationShell: navigationShell);
-        },
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) {
+              return ScaffoldWithNavBar(navigationShell: navigationShell);
+            },
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -164,6 +193,21 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
                 name: RouteNames.home,
                 builder: (_, __) => const HomePage(),
                 routes: <RouteBase>[
+                  GoRoute(
+                    path: 'gallery',
+                    name: RouteNames.gallery,
+                    builder: (_, __) => const GalleryPage(),
+                  ),
+                  GoRoute(
+                    path: 'personalizer',
+                    name: RouteNames.personalizer,
+                    builder: (_, __) => const CustomCutPersonalizerPage(),
+                  ),
+                  GoRoute(
+                    path: 'booking-experience',
+                    name: RouteNames.bookingExperience,
+                    builder: (_, __) => const BookingExperiencePage(),
+                  ),
                   GoRoute(
                     path: 'services',
                     name: RouteNames.services,
@@ -224,38 +268,117 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
           ),
         ],
       ),
-      GoRoute(
-        path: '/admin',
-        name: RouteNames.admin,
-        builder: (_, __) => const AdminDashboardPage(),
-        routes: <RouteBase>[
-          GoRoute(
-            path: 'services',
-            name: RouteNames.manageServices,
-            builder: (_, __) => const ManageServicesPage(),
+
+      // ── Admin shell (4 tabs) ────────────────────────────────────────────────
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) {
+              return AdminScaffold(navigationShell: navigationShell);
+            },
+        branches: <StatefulShellBranch>[
+          // Tab 0 – Dashboard
+          StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
-                path: 'new',
-                name: RouteNames.addService,
-                builder: (BuildContext context, GoRouterState state) =>
-                    AddEditServicePage(service: state.extra as Service?),
+                path: '/admin',
+                name: RouteNames.admin,
+                builder: (_, __) => const AdminDashboardPage(),
               ),
             ],
           ),
-          GoRoute(
-            path: 'barbers',
-            name: RouteNames.manageBarbers,
-            builder: (_, __) => const ManageBarbersPage(),
+          // Tab 1 – Bookings
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/admin/bookings',
+                name: RouteNames.allBookings,
+                builder: (_, __) => const AllBookingsPage(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: 'bookings',
-            name: RouteNames.allBookings,
-            builder: (_, __) => const AllBookingsPage(),
+          // Tab 2 – Barbers
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/admin/barbers',
+                name: RouteNames.manageBarbers,
+                builder: (_, __) => const ManageBarbersPage(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: 'config',
-            name: RouteNames.adminConfig,
-            builder: (_, __) => const AdminConfigPage(),
+          // Tab 3 – Settings (+ sub-routes for edit forms)
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/admin/settings',
+                name: RouteNames.adminSettings,
+                builder: (_, __) => const AdminSettingsPage(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'config',
+                    name: RouteNames.adminConfig,
+                    builder: (_, __) => const AdminConfigPage(),
+                  ),
+                  GoRoute(
+                    path: 'service',
+                    name: RouteNames.addService,
+                    builder: (BuildContext context, GoRouterState state) =>
+                        AddEditServicePage(service: state.extra as Service?),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // ── Barber (single page, no shell) ─────────────────────────────────────
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) {
+              return BarberScaffold(navigationShell: navigationShell);
+            },
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/barber',
+                name: RouteNames.barber,
+                builder: (_, __) => const BarberDashboardPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/barber/schedule',
+                builder: (_, __) => const BarberSchedulePage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/barber/clients',
+                builder: (_, __) => const BarberClientsPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/barber/settings',
+                builder: (_, __) => const BarberSettingsPage(),
+              ),
+            ],
           ),
         ],
       ),

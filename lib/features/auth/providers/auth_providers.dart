@@ -54,15 +54,19 @@ class AuthNotifier extends StateNotifier<User?> {
     String password, {
     String? phone,
   }) async {
-    final User user = await _repository.register(name, email, password, phone: phone);
+    final User user = await _repository.register(
+      name,
+      email,
+      password,
+      phone: phone,
+    );
     state = user;
   }
 
   Future<void> sendPasswordReset(String email) =>
       _repository.sendPasswordReset(email);
 
-  Future<String> sendPhoneCode(String e164) =>
-      _repository.sendPhoneCode(e164);
+  Future<String> sendPhoneCode(String e164) => _repository.sendPhoneCode(e164);
 
   Future<bool> verifyPhoneCode(String smsCode) async {
     try {
@@ -81,11 +85,17 @@ class AuthNotifier extends StateNotifier<User?> {
   /// Seguro llamar desde main.dart también en móvil (saldrá no-op si ya hay
   /// sesión), pero el contrato es que solo se invoca en web (ver main.dart).
   Future<void> signInAnonymouslyIfWeb() async {
-    if (!kIsWeb) return;
-    if (_repository.currentUser != null) return;
+    if (!kIsWeb) {
+      return;
+    }
+    if (_repository.currentUser != null) {
+      return;
+    }
     try {
       final User? user = await _repository.signInAnonymously();
-      if (user != null) state = user;
+      if (user != null) {
+        state = user;
+      }
     } catch (e) {
       // Si falla, el cliente puede seguir navegando pero no reservar.
       debugPrint('[Auth] signInAnonymously failed: $e');

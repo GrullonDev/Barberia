@@ -46,8 +46,20 @@ class AuthRepository {
         _currentUser = null;
         return null;
       }
-      _currentUser = await _ensureUserProfile(fbUser);
-      return _currentUser;
+      try {
+        _currentUser = await _ensureUserProfile(fbUser);
+        return _currentUser;
+      } on FirebaseException catch (e) {
+        // ProviderInstaller (Android) can briefly invalidate the auth token
+        // while refreshing the SSL stack, causing a mid-flight permission-denied.
+        // Return null so the router redirects to login; the auth stream will
+        // re-emit the signed-in event once the token is renewed.
+        if (e.code == 'permission-denied') {
+          _currentUser = null;
+          return null;
+        }
+        rethrow;
+      }
     });
   }
 
@@ -58,8 +70,11 @@ class AuthRepository {
   Future<User?> login(String email, String password) async {
     final fb_auth.UserCredential credential = await _auth
         .signInWithEmailAndPassword(email: email.trim(), password: password);
-    if (credential.user == null) return null;
+    if (credential.user == null) {
+      return null;
+    }
     _currentUser = await _ensureUserProfile(credential.user!);
+    await _notifyAdminsIfBarberActive(_currentUser);
     return _currentUser;
   }
 
@@ -137,11 +152,15 @@ class AuthRepository {
         // Android auto-retrieval: ignorado para forzar flujo manual simple.
       },
       verificationFailed: (fb_auth.FirebaseAuthException e) {
-        if (!completer.isCompleted) completer.completeError(e);
+        if (!completer.isCompleted) {
+          completer.completeError(e);
+        }
       },
       codeSent: (String verificationId, int? resendToken) {
         _pendingPhoneVerificationId = verificationId;
-        if (!completer.isCompleted) completer.complete(verificationId);
+        if (!completer.isCompleted) {
+          completer.complete(verificationId);
+        }
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _pendingPhoneVerificationId = verificationId;
@@ -161,8 +180,11 @@ class AuthRepository {
     final fb_auth.UserCredential userCred = await _auth.signInWithCredential(
       credential,
     );
-    if (userCred.user == null) return null;
+    if (userCred.user == null) {
+      return null;
+    }
     _currentUser = await _ensureUserProfile(userCred.user!);
+    await _notifyAdminsIfBarberActive(_currentUser);
     _pendingPhoneVerificationId = null;
     return _currentUser;
   }
@@ -183,7 +205,9 @@ class AuthRepository {
       return _currentUser;
     }
     final fb_auth.UserCredential cred = await _auth.signInAnonymously();
-    if (cred.user == null) return null;
+    if (cred.user == null) {
+      return null;
+    }
     _currentUser = await _ensureUserProfile(cred.user!);
     return _currentUser;
   }
@@ -212,6 +236,23 @@ class AuthRepository {
     final DocumentSnapshot<Map<String, dynamic>> snap = await ref.get();
 
     if (snap.exists) {
+      final Map<String, dynamic> data = snap.data()!;
+      if ((data['inviteStatus'] as String?) == 'pending') {
+        // Mark invite as accepted. Users can update their own doc (role unchanged).
+        // Execute sequentially to avoid race conditions in security rule validation.
+        () async {
+          try {
+            await ref.update(<String, dynamic>{'inviteStatus': 'active'});
+            if ((data['role'] as String?) == 'barber') {
+              await _db.collection('barbers').doc(fbUser.uid).update(<String, dynamic>{
+                'inviteStatus': 'active',
+              });
+            }
+          } catch (e) {
+            debugPrint('[AuthRepository] Failed to update invite status: $e');
+          }
+        }();
+      }
       return User.fromFirestore(snap);
     }
 
@@ -231,5 +272,24 @@ class AuthRepository {
     );
     await ref.set(fallback.toFirestore());
     return fallback;
+  }
+
+  Future<void> _notifyAdminsIfBarberActive(User? user) async {
+    if (user == null || user.role != UserRole.barber) {
+      return;
+    }
+    try {
+      await _db.collection('admin_notifications').add(<String, dynamic>{
+        'type': 'barber_active',
+        'barberId': user.id,
+        'barberName': user.name,
+        'title': 'Barber active',
+        'body': '${user.name.isEmpty ? 'A barber' : user.name} is active now.',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('[AuthRepository] Failed to notify admin: $e');
+    }
   }
 }

@@ -23,11 +23,15 @@ Convenciones:
 
 from __future__ import annotations
 
+import os
 import re
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import firebase_admin
+from firebase_admin import auth as fb_auth
 from firebase_admin import firestore
 from firebase_functions import https_fn, options
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -387,3 +391,333 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
         "slotMinutes": slot_minutes,
         "durationMinutes": duration,
     }
+
+
+# -----------------------------------------------------------------------------
+# Helpers de invitación
+# -----------------------------------------------------------------------------
+
+
+def _generate_temp_password(length: int = 12) -> str:
+    """Genera una contraseña temporal segura con al menos una mayúscula,
+    minúscula, dígito y símbolo."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    guaranteed = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%"),
+    ]
+    rest = [secrets.choice(alphabet) for _ in range(length - 4)]
+    chars = guaranteed + rest
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
+
+
+def _send_invitation_email(
+    to_email: str,
+    barber_name: str,
+    shop_name: str,
+    temp_password: str,
+) -> None:
+    """Envía correo de bienvenida con credenciales vía SendGrid.
+
+    Variables de entorno requeridas:
+        SENDGRID_API_KEY    — clave API de SendGrid
+        SENDGRID_FROM_EMAIL — dirección verificada del remitente
+    Opcional:
+        SENDGRID_FROM_NAME  (default: shop_name)
+    """
+    import sendgrid as sg_module
+    from sendgrid.helpers.mail import Mail
+
+    api_key = os.environ.get("SENDGRID_API_KEY", "")
+    from_email = os.environ.get("SENDGRID_FROM_EMAIL", "")
+    from_name = os.environ.get("SENDGRID_FROM_NAME", shop_name)
+
+    if not api_key or not from_email:
+        raise ValueError(
+            "SENDGRID_API_KEY y SENDGRID_FROM_EMAIL son requeridos en las "
+            "variables de entorno."
+        )
+
+    plain = (
+        f"Hola {barber_name},\n\n"
+        f"¡Felicidades! Has sido contratado como barbero en {shop_name}.\n\n"
+        f"Estas son tus credenciales de acceso:\n"
+        f"  Correo:      {to_email}\n"
+        f"  Contraseña:  {temp_password}\n\n"
+        f"Ingresa a la aplicación con estos datos y completa tu perfil.\n"
+        f"Te recomendamos cambiar tu contraseña después del primer inicio de sesión.\n\n"
+        f"Si no esperabas esta invitación, puedes ignorar este correo."
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px">
+    <table width="480" cellpadding="0" cellspacing="0"
+           style="background:#fff;border-radius:12px;overflow:hidden;
+                  box-shadow:0 2px 8px rgba(0,0,0,.08)">
+      <!-- header -->
+      <tr><td style="background:#22c55e;padding:28px 32px">
+        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700">
+          ¡Bienvenido a {shop_name}!
+        </h1>
+      </td></tr>
+      <!-- body -->
+      <tr><td style="padding:32px">
+        <p style="margin:0 0 16px;color:#111;font-size:15px">
+          Hola <strong>{barber_name}</strong>,
+        </p>
+        <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6">
+          ¡Felicidades! Has sido <strong>contratado como barbero</strong>
+          en <strong>{shop_name}</strong>. A continuación encontrarás tus
+          credenciales para acceder a la aplicación:
+        </p>
+        <!-- credentials box -->
+        <table width="100%" cellpadding="0" cellspacing="0"
+               style="background:#f0fdf4;border:1px solid #bbf7d0;
+                      border-radius:8px;margin-bottom:24px">
+          <tr><td style="padding:20px 24px">
+            <p style="margin:0 0 8px;color:#166534;font-size:13px;
+                      font-weight:600;text-transform:uppercase;
+                      letter-spacing:.05em">
+              Tus credenciales
+            </p>
+            <p style="margin:0 0 6px;color:#111;font-size:15px">
+              <span style="color:#6b7280">Correo:</span>&nbsp;
+              <strong>{to_email}</strong>
+            </p>
+            <p style="margin:0;color:#111;font-size:15px">
+              <span style="color:#6b7280">Contraseña:</span>&nbsp;
+              <strong style="font-family:monospace;font-size:16px;
+                             letter-spacing:.08em">{temp_password}</strong>
+            </p>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.6">
+          Ingresa a la app con estos datos y completa tu perfil.
+          <br>
+          <span style="color:#6b7280">
+            Por seguridad, cambia tu contraseña después del primer inicio de sesión.
+          </span>
+        </p>
+      </td></tr>
+      <!-- footer -->
+      <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">
+        <p style="margin:0;color:#9ca3af;font-size:12px">
+          Si no esperabas esta invitación, ignora este correo.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+    message = Mail(
+        from_email=(from_email, from_name),
+        to_emails=to_email,
+        subject=f"¡Bienvenido a {shop_name} — Tus credenciales de acceso!",
+        plain_text_content=plain,
+        html_content=html,
+    )
+
+    client = sg_module.SendGridAPIClient(api_key)
+    response = client.send(message)
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"SendGrid error {response.status_code}: {response.body}"
+        )
+
+
+# -----------------------------------------------------------------------------
+# inviteBarber
+# -----------------------------------------------------------------------------
+
+
+@https_fn.on_call()
+def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
+    """Invita a un barbero por correo electrónico.
+
+    Crea una cuenta de Firebase Auth para el barbero, genera un enlace para
+    que establezca su contraseña y envía un correo de invitación. También
+    crea los documentos `users/{uid}` y `barbers/{uid}` en Firestore.
+
+    Input:
+        name: str
+        email: str
+        specialty: str | None
+
+    Output:
+        { barberId: str }
+
+    Errores:
+        unauthenticated    → el llamador no tiene sesión
+        permission-denied  → el llamador no es admin
+        invalid-argument   → name o email vacíos
+        already-exists     → ya existe una cuenta con ese email
+    """
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="Se requiere autenticación.",
+        )
+
+    db = firestore.client()
+
+    caller = db.collection("users").document(req.auth.uid).get()
+    if not caller.exists or (caller.to_dict() or {}).get("role") != "admin":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Solo administradores pueden invitar barberos.",
+        )
+
+    data = req.data or {}
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    specialty = (data.get("specialty") or "").strip() or None
+
+    if not name or not email:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="Nombre y email son requeridos.",
+        )
+
+    # Generar contraseña temporal con la que el barbero hará su primer login.
+    temp_password = _generate_temp_password()
+
+    # Crear cuenta de Firebase Auth con la contraseña generada.
+    try:
+        user_record = fb_auth.create_user(
+            email=email,
+            password=temp_password,
+            display_name=name,
+            disabled=False,
+        )
+    except fb_auth.EmailAlreadyExistsError:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.ALREADY_EXISTS,
+            message="Ya existe una cuenta con ese correo electrónico.",
+        )
+    except Exception as e:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INTERNAL,
+            message=f"Error creando cuenta: {e}",
+        )
+
+    barber_id = user_record.uid
+
+    # Nombre del negocio para el cuerpo del correo.
+    config_snap = db.collection("config").document("barberia").get()
+    shop_name = (
+        (config_snap.to_dict() or {}).get("name", "La Barbería")
+        if config_snap.exists
+        else "La Barbería"
+    )
+
+    # Escritura atómica: users/{uid} + barbers/{uid}.
+    batch = db.batch()
+    batch.set(
+        db.collection("users").document(barber_id),
+        {
+            "id": barber_id,
+            "name": name,
+            "email": email,
+            "role": "barber",
+            "phone": None,
+            "phoneNormalized": None,
+            "photoUrl": None,
+            "isAnonymous": False,
+            "inviteStatus": "pending",
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    batch.set(
+        db.collection("barbers").document(barber_id),
+        {
+            "id": barber_id,
+            "name": name,
+            "specialty": specialty,
+            "photoUrl": None,
+            "isAvailable": True,
+            "inviteEmail": email,
+            "inviteStatus": "pending",
+            # Horario por defecto: lunes–sábado 9–19, domingo cerrado.
+            "workingHours": {str(d): [9, 19] for d in range(1, 7)},
+        },
+    )
+    batch.commit()
+
+    # Enviar correo con credenciales vía SendGrid.
+    # Si las variables de entorno no están configuradas se imprime la
+    # contraseña en los logs para que el admin la entregue manualmente.
+    try:
+        _send_invitation_email(email, name, shop_name, temp_password)
+    except Exception as e:
+        print(f"[inviteBarber] Advertencia: no se pudo enviar correo a {email}: {e}")
+        print(f"[inviteBarber] Contraseña temporal para {email}: {temp_password}")
+
+    return {"barberId": barber_id}
+
+
+# -----------------------------------------------------------------------------
+# removeBarber
+# -----------------------------------------------------------------------------
+
+
+@https_fn.on_call()
+def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
+    """Elimina un barbero: borra sus documentos Firestore y su cuenta Auth.
+
+    Input:
+        barberId: str
+
+    Output:
+        { success: bool }
+
+    Errores:
+        unauthenticated   → el llamador no tiene sesión
+        permission-denied → el llamador no es admin
+        invalid-argument  → barberId vacío
+    """
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="Se requiere autenticación.",
+        )
+
+    db = firestore.client()
+
+    caller = db.collection("users").document(req.auth.uid).get()
+    if not caller.exists or (caller.to_dict() or {}).get("role") != "admin":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Solo administradores pueden eliminar barberos.",
+        )
+
+    barber_id = (req.data or {}).get("barberId", "").strip()
+    if not barber_id:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="barberId es requerido.",
+        )
+
+    # Borrar documentos Firestore.
+    batch = db.batch()
+    batch.delete(db.collection("barbers").document(barber_id))
+    batch.delete(db.collection("users").document(barber_id))
+    batch.commit()
+
+    # Eliminar cuenta Firebase Auth (puede no existir para barberos creados
+    # manualmente antes de este flujo).
+    try:
+        fb_auth.delete_user(barber_id)
+    except fb_auth.UserNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[removeBarber] Advertencia al eliminar Auth user {barber_id}: {e}")
+
+    return {"success": True}

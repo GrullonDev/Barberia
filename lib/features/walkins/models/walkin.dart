@@ -51,32 +51,33 @@ class WalkIn {
     DateTime? completedAt,
     String? notes,
   }) => WalkIn(
-        id: id,
-        customerName: customerName ?? this.customerName,
-        customerPhone: customerPhone ?? this.customerPhone,
-        phoneNormalized: phoneNormalized ?? this.phoneNormalized,
-        assignedBarberId: assignedBarberId ?? this.assignedBarberId,
-        estimatedWaitMinutes: estimatedWaitMinutes ?? this.estimatedWaitMinutes,
-        status: status ?? this.status,
-        startedAt: startedAt ?? this.startedAt,
-        completedAt: completedAt ?? this.completedAt,
-        notes: notes ?? this.notes,
-        createdAt: createdAt,
-      );
+    id: id,
+    customerName: customerName ?? this.customerName,
+    customerPhone: customerPhone ?? this.customerPhone,
+    phoneNormalized: phoneNormalized ?? this.phoneNormalized,
+    assignedBarberId: assignedBarberId ?? this.assignedBarberId,
+    estimatedWaitMinutes: estimatedWaitMinutes ?? this.estimatedWaitMinutes,
+    status: status ?? this.status,
+    startedAt: startedAt ?? this.startedAt,
+    completedAt: completedAt ?? this.completedAt,
+    notes: notes ?? this.notes,
+    createdAt: createdAt,
+  );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
-        'customerName': customerName,
-        'customerPhone': customerPhone,
-        'phoneNormalized': phoneNormalized,
-        'assignedBarberId': assignedBarberId,
-        'estimatedWaitMinutes': estimatedWaitMinutes,
-        'status': status.name,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'startedAt': startedAt == null ? null : Timestamp.fromDate(startedAt!),
-        'completedAt':
-            completedAt == null ? null : Timestamp.fromDate(completedAt!),
-        'notes': notes,
-      };
+    'customerName': customerName,
+    'customerPhone': customerPhone,
+    'phoneNormalized': phoneNormalized,
+    'assignedBarberId': assignedBarberId,
+    'estimatedWaitMinutes': estimatedWaitMinutes,
+    'status': status.name,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'startedAt': startedAt == null ? null : Timestamp.fromDate(startedAt!),
+    'completedAt': completedAt == null
+        ? null
+        : Timestamp.fromDate(completedAt!),
+    'notes': notes,
+  };
 
   factory WalkIn.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
@@ -86,7 +87,8 @@ class WalkIn {
       customerPhone: data['customerPhone'] as String?,
       phoneNormalized: data['phoneNormalized'] as String?,
       assignedBarberId: data['assignedBarberId'] as String?,
-      estimatedWaitMinutes: (data['estimatedWaitMinutes'] as num?)?.toInt() ?? 0,
+      estimatedWaitMinutes:
+          (data['estimatedWaitMinutes'] as num?)?.toInt() ?? 0,
       status: WalkInStatus.values.firstWhere(
         (WalkInStatus s) => s.name == (data['status'] as String?),
         orElse: () => WalkInStatus.waiting,

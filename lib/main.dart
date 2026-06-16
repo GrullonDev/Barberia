@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:barberia/app.dart';
@@ -12,6 +13,7 @@ import 'firebase_options.dart';
 Future<void> main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
+    await dotenv.load(fileName: '.env');
     debugPrint('[Main] Initializing Firebase...');
 
     // Timeout razonable para el primer handshake.
@@ -60,9 +62,9 @@ class _BootstrapState extends ConsumerState<_Bootstrap> {
 
 Future<void> _runBackgroundInitializations() async {
   try {
-    await FirebaseSeedService()
-        .seedIfNeeded()
-        .timeout(const Duration(seconds: 10));
+    await FirebaseSeedService().seedIfNeeded().timeout(
+      const Duration(seconds: 10),
+    );
   } catch (e) {
     debugPrint('[Main] Seeding error: $e');
   }

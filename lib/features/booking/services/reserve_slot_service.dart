@@ -48,7 +48,7 @@ class ReserveSlotException implements Exception {
 ///     endAtIso       String (ISO 8601 UTC)
 class ReserveSlotService {
   ReserveSlotService({FirebaseFunctions? functions})
-      : _functions = functions ?? FirebaseFunctions.instance;
+    : _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFunctions _functions;
 
@@ -64,18 +64,17 @@ class ReserveSlotService {
   }) async {
     final HttpsCallable callable = _functions.httpsCallable('reserveSlot');
     try {
-      final HttpsCallableResult<dynamic> result = await callable.call<dynamic>(
-        <String, dynamic>{
-          'barberId': barberId,
-          'serviceId': serviceId,
-          'startAtIso': startAt.toUtc().toIso8601String(),
-          'customerName': customerName,
-          'customerPhone': customerPhone,
-          'customerEmail': customerEmail,
-          'notes': notes,
-          'userId': userId,
-        },
-      );
+      final HttpsCallableResult<dynamic> result = await callable
+          .call<dynamic>(<String, dynamic>{
+            'barberId': barberId,
+            'serviceId': serviceId,
+            'startAtIso': startAt.toUtc().toIso8601String(),
+            'customerName': customerName,
+            'customerPhone': customerPhone,
+            'customerEmail': customerEmail,
+            'notes': notes,
+            'userId': userId,
+          });
       final Map<Object?, Object?> data =
           (result.data as Map<Object?, Object?>? ?? <Object?, Object?>{});
       final String bookingId = data['bookingId'] as String? ?? '';
@@ -98,16 +97,16 @@ class ReserveSlotService {
   }) async {
     final HttpsCallable callable = _functions.httpsCallable('getAvailability');
     try {
-      final HttpsCallableResult<dynamic> result = await callable.call<dynamic>(
-        <String, dynamic>{
-          'barberId': barberId,
-          'serviceId': serviceId,
-          'dateIso': date.toUtc().toIso8601String(),
-        },
-      );
+      final HttpsCallableResult<dynamic> result = await callable
+          .call<dynamic>(<String, dynamic>{
+            'barberId': barberId,
+            'serviceId': serviceId,
+            'dateIso': date.toUtc().toIso8601String(),
+          });
       final Map<Object?, Object?> data =
           (result.data as Map<Object?, Object?>? ?? <Object?, Object?>{});
-      final List<dynamic> slots = (data['slots'] as List<dynamic>?) ?? <dynamic>[];
+      final List<dynamic> slots =
+          (data['slots'] as List<dynamic>?) ?? <dynamic>[];
       return slots
           .whereType<String>()
           .map(DateTime.parse)
@@ -127,19 +126,27 @@ class ReserveSlotService {
       case 'failed-precondition':
         if (msg.contains('Barbero')) {
           return ReserveSlotException(
-              ReserveSlotErrorKind.barberUnavailable, msg);
+            ReserveSlotErrorKind.barberUnavailable,
+            msg,
+          );
         }
         if (msg.contains('Servicio')) {
           return ReserveSlotException(
-              ReserveSlotErrorKind.serviceInactive, msg);
+            ReserveSlotErrorKind.serviceInactive,
+            msg,
+          );
         }
         if (msg.contains('Horario')) {
           return ReserveSlotException(
-              ReserveSlotErrorKind.outsideWorkingHours, msg);
+            ReserveSlotErrorKind.outsideWorkingHours,
+            msg,
+          );
         }
         if (msg.contains('Cliente bloqueado')) {
           return ReserveSlotException(
-              ReserveSlotErrorKind.reputationBlocked, msg);
+            ReserveSlotErrorKind.reputationBlocked,
+            msg,
+          );
         }
         return ReserveSlotException(ReserveSlotErrorKind.unknown, msg);
       case 'already-exists':

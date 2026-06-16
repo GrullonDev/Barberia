@@ -15,9 +15,15 @@ class ReputationRepository {
   /// Si no existe, devuelve [Reputation.neutral].
   Future<Reputation> getByPhone(String rawPhone) async {
     final String key = normalizePhone(rawPhone);
-    if (key.isEmpty) return Reputation.neutral('');
-    final DocumentSnapshot<Map<String, dynamic>> doc = await _col.doc(key).get();
-    if (!doc.exists) return Reputation.neutral(key);
+    if (key.isEmpty) {
+      return Reputation.neutral('');
+    }
+    final DocumentSnapshot<Map<String, dynamic>> doc = await _col
+        .doc(key)
+        .get();
+    if (!doc.exists) {
+      return Reputation.neutral(key);
+    }
     return Reputation.fromFirestore(doc);
   }
 
@@ -37,13 +43,10 @@ class ReputationRepository {
     required bool blocked,
     String? reason,
   }) async {
-    await _col.doc(phoneNormalized).set(
-      <String, dynamic>{
-        'blocked': blocked,
-        'blockReason': blocked ? reason : null,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await _col.doc(phoneNormalized).set(<String, dynamic>{
+      'blocked': blocked,
+      'blockReason': blocked ? reason : null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

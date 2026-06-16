@@ -26,13 +26,19 @@ const String _defaultCountryCode = '+502';
 const int _localDigitsGt = 8;
 
 String normalizePhone(String? raw) {
-  if (raw == null) return '';
+  if (raw == null) {
+    return '';
+  }
   final String trimmed = raw.trim();
-  if (trimmed.isEmpty) return '';
+  if (trimmed.isEmpty) {
+    return '';
+  }
 
   final bool startsWithPlus = trimmed.startsWith('+');
   final String digitsOnly = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
-  if (digitsOnly.isEmpty) return '';
+  if (digitsOnly.isEmpty) {
+    return '';
+  }
 
   if (startsWithPlus) {
     return '+$digitsOnly';
@@ -52,7 +58,9 @@ String normalizePhone(String? raw) {
 bool isValidNormalizedPhone(String? raw) {
   final String n = normalizePhone(raw);
   // Mínimo +X y 8 dígitos, máximo +X y 15 (E.164)
-  if (!n.startsWith('+')) return false;
+  if (!n.startsWith('+')) {
+    return false;
+  }
   final int digits = n.length - 1;
   return digits >= 8 && digits <= 15;
 }

@@ -4,19 +4,25 @@ import 'package:barberia/features/walkins/models/walkin.dart';
 class WalkInRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> get _col => _db.collection('walkins');
+  CollectionReference<Map<String, dynamic>> get _col =>
+      _db.collection('walkins');
 
   /// Cola activa (waiting + inService) ordenada por llegada.
   Stream<List<WalkIn>> watchActive() {
     return _col
-        .where('status', whereIn: <String>[
-          WalkInStatus.waiting.name,
-          WalkInStatus.inService.name,
-        ])
+        .where(
+          'status',
+          whereIn: <String>[
+            WalkInStatus.waiting.name,
+            WalkInStatus.inService.name,
+          ],
+        )
         .orderBy('createdAt')
         .snapshots()
-        .map((QuerySnapshot<Map<String, dynamic>> snap) =>
-            snap.docs.map(WalkIn.fromFirestore).toList());
+        .map(
+          (QuerySnapshot<Map<String, dynamic>> snap) =>
+              snap.docs.map(WalkIn.fromFirestore).toList(),
+        );
   }
 
   /// Solo los que están esperando, útil para estimación de espera.
@@ -29,15 +35,13 @@ class WalkInRepository {
   }
 
   Future<String> create(WalkIn walkin) async {
-    final DocumentReference<Map<String, dynamic>> ref =
-        await _col.add(walkin.toFirestore());
+    final DocumentReference<Map<String, dynamic>> ref = await _col.add(
+      walkin.toFirestore(),
+    );
     return ref.id;
   }
 
-  Future<void> assignTo({
-    required String id,
-    required String barberId,
-  }) async {
+  Future<void> assignTo({required String id, required String barberId}) async {
     await _col.doc(id).update(<String, dynamic>{
       'assignedBarberId': barberId,
       'status': WalkInStatus.inService.name,

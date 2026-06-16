@@ -21,7 +21,9 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
   bool _ok = false;
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     setState(() {
       _isSending = true;
       _feedback = null;
@@ -31,19 +33,25 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
       await ref
           .read(authStateProvider.notifier)
           .sendPasswordReset(_emailCtrl.text.trim());
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _ok = true;
         _feedback = 'Te enviamos un correo con instrucciones.';
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _ok = false;
         _feedback = 'No pudimos enviar el correo. Revisa el email.';
       });
     } finally {
-      if (mounted) setState(() => _isSending = false);
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
@@ -80,8 +88,9 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
                       labelText: 'Email',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (String? v) =>
-                        (v == null || !v.contains('@')) ? 'Email inválido' : null,
+                    validator: (String? v) => (v == null || !v.contains('@'))
+                        ? 'Email inválido'
+                        : null,
                   ),
                   const SizedBox(height: 20),
                   if (_feedback != null)
@@ -94,8 +103,9 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
                       child: Text(
                         _feedback!,
                         style: TextStyle(
-                          color:
-                              _ok ? cs.onPrimaryContainer : cs.onErrorContainer,
+                          color: _ok
+                              ? cs.onPrimaryContainer
+                              : cs.onErrorContainer,
                         ),
                       ),
                     ),

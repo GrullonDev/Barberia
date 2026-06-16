@@ -97,7 +97,8 @@ class User {
         orElse: () => UserRole.client,
       ),
       phone: data['phone'] as String?,
-      phoneNormalized: data['phoneNormalized'] as String? ??
+      phoneNormalized:
+          data['phoneNormalized'] as String? ??
           normalizePhone(data['phone'] as String?),
       photoUrl: data['photoUrl'] as String?,
       isAnonymous: data['isAnonymous'] as bool? ?? false,
@@ -115,15 +116,16 @@ class User {
         orElse: () => UserRole.client,
       ),
       phone: map['phone'] as String?,
-      phoneNormalized: map['phoneNormalized'] as String? ??
+      phoneNormalized:
+          map['phoneNormalized'] as String? ??
           normalizePhone(map['phone'] as String?),
       photoUrl: map['photoUrl'] as String?,
       isAnonymous: map['isAnonymous'] as bool? ?? false,
       createdAt: map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
           : map['createdAt'] is String
-              ? DateTime.tryParse(map['createdAt'] as String)
-              : null,
+          ? DateTime.tryParse(map['createdAt'] as String)
+          : null,
     );
   }
 }

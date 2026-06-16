@@ -18,8 +18,8 @@ class BookingRepository {
   BookingRepository({
     FirebaseFirestore? db,
     ReserveSlotService? reserveSlotService,
-  })  : _db = db ?? FirebaseFirestore.instance,
-        _reserveSlotService = reserveSlotService ?? ReserveSlotService();
+  }) : _db = db ?? FirebaseFirestore.instance,
+       _reserveSlotService = reserveSlotService ?? ReserveSlotService();
 
   final FirebaseFirestore _db;
   final ReserveSlotService _reserveSlotService;
@@ -64,13 +64,17 @@ class BookingRepository {
         .where('date', isLessThan: Timestamp.fromDate(to))
         .orderBy('date')
         .snapshots()
-        .map((QuerySnapshot<Map<String, dynamic>> snap) =>
-            snap.docs.map(Booking.fromFirestore).toList());
+        .map(
+          (QuerySnapshot<Map<String, dynamic>> snap) =>
+              snap.docs.map(Booking.fromFirestore).toList(),
+        );
   }
 
   Future<List<Booking>> getAllBookingsAdmin() async {
-    final QuerySnapshot<Map<String, dynamic>> snap =
-        await _col.orderBy('date', descending: true).limit(200).get();
+    final QuerySnapshot<Map<String, dynamic>> snap = await _col
+        .orderBy('date', descending: true)
+        .limit(200)
+        .get();
     return snap.docs.map(Booking.fromFirestore).toList();
   }
 
@@ -113,7 +117,8 @@ class BookingRepository {
   /// [createBookingDirect] (staff). Para cliente final, NO usar: las
   /// reglas bloquean la escritura y el call fallará.
   @Deprecated(
-      'Usar createBookingViaCloudFunction (cliente) o createBookingDirect (staff).')
+    'Usar createBookingViaCloudFunction (cliente) o createBookingDirect (staff).',
+  )
   Future<void> createBooking(Booking booking) => createBookingDirect(booking);
 
   // ---------------------------------------------------------------------------
@@ -138,6 +143,9 @@ class BookingRepository {
   Future<void> cancelBooking(
     String id, {
     CancelReason reason = CancelReason.byCustomer,
-  }) =>
-      updateStatus(id: id, status: BookingStatus.canceled, cancelReason: reason);
+  }) => updateStatus(
+    id: id,
+    status: BookingStatus.canceled,
+    cancelReason: reason,
+  );
 }

@@ -29,7 +29,9 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
-      return isSignedIn() && userDoc().role == role;
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == role;
     }
 
     function isAdmin()  { return hasRole('admin'); }
@@ -59,15 +61,37 @@ service cloud.firestore {
     // ---------- services (catálogo público) -----------------------------------
     match /services/{serviceId} {
       allow read: if true;
-      // Allow creation for seeding (can be restricted to isAdmin() after first run)
-      allow create: if isSignedIn() || true; 
-      allow update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     // ---------- barbers (catálogo público para que el cliente elija) ---------
     match /barbers/{barberId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+
+      // El barbero puede actualizar su propio perfil (nombre, especialidad, disponibilidad, etc.),
+      // pero no puede modificar su ID ni su correo de invitación, y solo puede cambiar
+      // inviteStatus para aceptarlo (de pending a active).
+      allow update: if isBarber()
+                    && request.auth.uid == barberId
+                    && request.resource.data.id == resource.data.id
+                    && request.resource.data.inviteEmail == resource.data.inviteEmail
+                    && (
+                      // Caso 1: Aceptar invitación (solo modifica inviteStatus a active)
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inviteStatus'])
+                       && request.resource.data.inviteStatus == 'active')
+                      ||
+                      // Caso 2: Editar perfil (no modifica inviteStatus, ni cambia de active a otra cosa)
+                      (resource.data.inviteStatus == 'active'
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                         'name',
+                         'specialty',
+                         'specialties',
+                         'photoUrl',
+                         'bio',
+                         'title'
+                       ]))
+                    );
     }
 
     // ---------- bookings ------------------------------------------------------
@@ -118,6 +142,15 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if true;           // público para mostrar horarios en la web
       allow write: if isAdmin();
+    }
+
+    // ---------- admin_notifications ------------------------------------------
+    match /admin_notifications/{notificationId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isBarber()
+                    && request.resource.data.type == 'barber_active'
+                    && request.resource.data.barberId == request.auth.uid
+                    && request.resource.data.read == false;
     }
 
     // ---------- default deny --------------------------------------------------

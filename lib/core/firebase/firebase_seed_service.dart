@@ -19,8 +19,10 @@ class FirebaseSeedService {
   }
 
   Future<void> _seedServices() async {
-    final QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _db.collection('services').limit(1).get();
+    final QuerySnapshot<Map<String, dynamic>> snapshot = await _db
+        .collection('services')
+        .limit(1)
+        .get();
     if (snapshot.docs.isNotEmpty) {
       if (kDebugMode) {
         debugPrint('[Seed] Services already exist, skipping.');
@@ -69,8 +71,9 @@ class FirebaseSeedService {
 
     final WriteBatch batch = _db.batch();
     for (final Map<String, dynamic> service in services) {
-      final DocumentReference<Map<String, dynamic>> ref =
-          _db.collection('services').doc();
+      final DocumentReference<Map<String, dynamic>> ref = _db
+          .collection('services')
+          .doc();
       batch.set(ref, service);
     }
     await batch.commit();
@@ -80,8 +83,9 @@ class FirebaseSeedService {
   }
 
   Future<void> _seedConfig() async {
-    final DocumentReference<Map<String, dynamic>> configRef =
-        _db.collection('config').doc('barberia');
+    final DocumentReference<Map<String, dynamic>> configRef = _db
+        .collection('config')
+        .doc('barberia');
     final DocumentSnapshot<Map<String, dynamic>> snap = await configRef.get();
     if (snap.exists) {
       if (kDebugMode) {

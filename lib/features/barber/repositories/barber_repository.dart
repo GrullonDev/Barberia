@@ -9,7 +9,11 @@ import 'package:barberia/features/barber/models/barber.dart';
 class BarberRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> get _col => _db.collection('barbers');
+  CollectionReference<Map<String, dynamic>> get _col =>
+      _db.collection('barbers');
+
+  /// Genera un id nuevo para un barbero (alta desde el panel admin).
+  String newId() => _col.doc().id;
 
   /// Lista de barberos disponibles, útil para que el cliente elija.
   Future<List<Barber>> getAvailable() async {
@@ -27,21 +31,49 @@ class BarberRepository {
 
   Future<Barber?> getById(String id) async {
     final DocumentSnapshot<Map<String, dynamic>> doc = await _col.doc(id).get();
-    if (!doc.exists) return null;
+    if (!doc.exists) {
+      return null;
+    }
     return Barber.fromFirestore(doc);
   }
 
-  /// Stream reactivo (para la agenda admin).
-  Stream<List<Barber>> watchAll() => _col.snapshots().map(
-        (QuerySnapshot<Map<String, dynamic>> snap) =>
-            snap.docs.map(Barber.fromFirestore).toList(),
+  /// Stream reactivo de un barbero concreto (para la página de settings del propio barbero).
+  Stream<Barber?> watchById(String id) => _col
+      .doc(id)
+      .snapshots()
+      .map(
+        (DocumentSnapshot<Map<String, dynamic>> doc) =>
+            doc.exists ? Barber.fromFirestore(doc) : null,
       );
 
+  /// Stream reactivo (para la agenda admin).
+  Stream<List<Barber>> watchAll() => _col.snapshots().map(
+    (QuerySnapshot<Map<String, dynamic>> snap) =>
+        snap.docs.map(Barber.fromFirestore).toList(),
+  );
+
   Future<void> upsert(Barber barber) async {
-    await _col.doc(barber.id).set(barber.toFirestore(), SetOptions(merge: true));
+    await _col
+        .doc(barber.id)
+        .set(barber.toFirestore(), SetOptions(merge: true));
   }
 
-  Future<void> setAvailability({required String id, required bool available}) async {
+  Future<void> updateOwnProfile(Barber barber) async {
+    await _col.doc(barber.id).update(<String, dynamic>{
+      'name': barber.name,
+      'specialty': barber.specialties.isNotEmpty
+          ? barber.specialties.first
+          : barber.specialty,
+      'specialties': barber.specialties,
+      'bio': barber.bio,
+      'title': barber.title,
+    });
+  }
+
+  Future<void> setAvailability({
+    required String id,
+    required bool available,
+  }) async {
     await _col.doc(id).update(<String, dynamic>{'isAvailable': available});
   }
 

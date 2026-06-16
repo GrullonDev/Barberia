@@ -11,19 +11,12 @@ import 'service.dart';
 /// Nota: el enum viejo solo tenía `active/canceled`. Para retro-compat, al leer
 /// Firestore mapeamos `active → pending`. La migración a valores nuevos se
 /// hace con `tool/migrate_bookings_v2.dart`.
-enum BookingStatus {
-  pending,
-  confirmed,
-  inProgress,
-  done,
-  noShow,
-  canceled,
-}
+enum BookingStatus { pending, confirmed, inProgress, done, noShow, canceled }
 
 /// Motivo por el que se cancela/libera una cita.
 enum CancelReason {
-  byCustomer,   // canceló el cliente
-  byStaff,      // canceló la barbería
+  byCustomer, // canceló el cliente
+  byStaff, // canceló la barbería
   notConfirmed, // auto-liberada por no confirmar a tiempo
   other,
 }
@@ -148,69 +141,72 @@ class Booking {
     DateTime? confirmedAt,
     CancelReason? cancelReason,
   }) => Booking(
-        id: id,
-        userId: userId,
-        barberId: barberId ?? this.barberId,
-        serviceId: serviceId,
-        serviceName: serviceName,
-        serviceDurationMinutes: serviceDurationMinutes,
-        servicePrice: servicePrice,
-        startAt: startAt ?? this.startAt,
-        endAt: endAt ?? this.endAt,
-        status: status ?? this.status,
-        customerName: customerName,
-        customerEmail: customerEmail,
-        customerPhone: customerPhone,
-        phoneNormalized: phoneNormalized,
-        notes: notes ?? this.notes,
-        confirmationSentAt: confirmationSentAt ?? this.confirmationSentAt,
-        confirmedAt: confirmedAt ?? this.confirmedAt,
-        cancelReason: cancelReason ?? this.cancelReason,
-        createdAt: createdAt,
-        updatedAt: DateTime.now(),
-        service: service,
-      );
+    id: id,
+    userId: userId,
+    barberId: barberId ?? this.barberId,
+    serviceId: serviceId,
+    serviceName: serviceName,
+    serviceDurationMinutes: serviceDurationMinutes,
+    servicePrice: servicePrice,
+    startAt: startAt ?? this.startAt,
+    endAt: endAt ?? this.endAt,
+    status: status ?? this.status,
+    customerName: customerName,
+    customerEmail: customerEmail,
+    customerPhone: customerPhone,
+    phoneNormalized: phoneNormalized,
+    notes: notes ?? this.notes,
+    confirmationSentAt: confirmationSentAt ?? this.confirmationSentAt,
+    confirmedAt: confirmedAt ?? this.confirmedAt,
+    cancelReason: cancelReason ?? this.cancelReason,
+    createdAt: createdAt,
+    updatedAt: DateTime.now(),
+    service: service,
+  );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
-        'userId': userId,
-        'barberId': barberId,
-        'serviceId': serviceId,
-        'serviceName': serviceName,
-        'serviceDurationMinutes': serviceDurationMinutes,
-        'servicePrice': servicePrice,
-        // `date` se mantiene por back-compat (viejas queries usan ese nombre).
-        // `startAt` es el nombre canónico nuevo.
-        'date': Timestamp.fromDate(startAt),
-        'startAt': Timestamp.fromDate(startAt),
-        'endAt': Timestamp.fromDate(endAt),
-        'status': status.name,
-        'customerName': customerName,
-        'customerEmail': customerEmail,
-        'customerPhone': customerPhone,
-        'phoneNormalized': phoneNormalized,
-        'notes': notes,
-        'confirmationSentAt': confirmationSentAt == null
-            ? null
-            : Timestamp.fromDate(confirmationSentAt!),
-        'confirmedAt':
-            confirmedAt == null ? null : Timestamp.fromDate(confirmedAt!),
-        'cancelReason': cancelReason?.name,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
-      };
+    'userId': userId,
+    'barberId': barberId,
+    'serviceId': serviceId,
+    'serviceName': serviceName,
+    'serviceDurationMinutes': serviceDurationMinutes,
+    'servicePrice': servicePrice,
+    // `date` se mantiene por back-compat (viejas queries usan ese nombre).
+    // `startAt` es el nombre canónico nuevo.
+    'date': Timestamp.fromDate(startAt),
+    'startAt': Timestamp.fromDate(startAt),
+    'endAt': Timestamp.fromDate(endAt),
+    'status': status.name,
+    'customerName': customerName,
+    'customerEmail': customerEmail,
+    'customerPhone': customerPhone,
+    'phoneNormalized': phoneNormalized,
+    'notes': notes,
+    'confirmationSentAt': confirmationSentAt == null
+        ? null
+        : Timestamp.fromDate(confirmationSentAt!),
+    'confirmedAt': confirmedAt == null
+        ? null
+        : Timestamp.fromDate(confirmedAt!),
+    'cancelReason': cancelReason?.name,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
 
   factory Booking.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
     // Retro-compat: viejo campo `date` si no existe `startAt`.
-    final DateTime startAt = (data['startAt'] as Timestamp?)?.toDate() ??
+    final DateTime startAt =
+        (data['startAt'] as Timestamp?)?.toDate() ??
         (data['date'] as Timestamp?)?.toDate() ??
         DateTime.now();
 
     // Retro-compat: calcula endAt desde duración si no viene en el doc.
     final int duration =
         (data['serviceDurationMinutes'] as num?)?.toInt() ?? 30;
-    final DateTime endAt = (data['endAt'] as Timestamp?)?.toDate() ??
+    final DateTime endAt =
+        (data['endAt'] as Timestamp?)?.toDate() ??
         startAt.add(Duration(minutes: duration));
 
     // Retro-compat: status viejo `active` → `pending`.
@@ -239,8 +235,7 @@ class Booking {
       customerPhone: data['customerPhone'] as String?,
       phoneNormalized: data['phoneNormalized'] as String?,
       notes: data['notes'] as String?,
-      confirmationSentAt:
-          (data['confirmationSentAt'] as Timestamp?)?.toDate(),
+      confirmationSentAt: (data['confirmationSentAt'] as Timestamp?)?.toDate(),
       confirmedAt: (data['confirmedAt'] as Timestamp?)?.toDate(),
       cancelReason: CancelReason.values.firstWhere(
         (CancelReason r) => r.name == (data['cancelReason'] as String?),
@@ -252,39 +247,38 @@ class Booking {
   }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'id': id,
-        'userId': userId,
-        'barberId': barberId,
-        'serviceId': serviceId,
-        'serviceName': serviceName,
-        'serviceDurationMinutes': serviceDurationMinutes,
-        'servicePrice': servicePrice,
-        'startAt': startAt.toIso8601String(),
-        'endAt': endAt.toIso8601String(),
-        'status': status.name,
-        'customerName': customerName,
-        'customerEmail': customerEmail,
-        'customerPhone': customerPhone,
-        'phoneNormalized': phoneNormalized,
-        'notes': notes,
-        'confirmationSentAt': confirmationSentAt?.toIso8601String(),
-        'confirmedAt': confirmedAt?.toIso8601String(),
-        'cancelReason': cancelReason?.name,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'userId': userId,
+    'barberId': barberId,
+    'serviceId': serviceId,
+    'serviceName': serviceName,
+    'serviceDurationMinutes': serviceDurationMinutes,
+    'servicePrice': servicePrice,
+    'startAt': startAt.toIso8601String(),
+    'endAt': endAt.toIso8601String(),
+    'status': status.name,
+    'customerName': customerName,
+    'customerEmail': customerEmail,
+    'customerPhone': customerPhone,
+    'phoneNormalized': phoneNormalized,
+    'notes': notes,
+    'confirmationSentAt': confirmationSentAt?.toIso8601String(),
+    'confirmedAt': confirmedAt?.toIso8601String(),
+    'cancelReason': cancelReason?.name,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   factory Booking.fromMap(Map<String, dynamic> map, {Service? linkedService}) {
     final DateTime startAt = map['startAt'] != null
         ? DateTime.tryParse(map['startAt'] as String) ?? DateTime.now()
         : map['date'] != null
-            ? DateTime.tryParse(map['date'] as String) ?? DateTime.now()
-            : DateTime.now();
-    final int duration =
-        (map['serviceDurationMinutes'] as num?)?.toInt() ?? 30;
+        ? DateTime.tryParse(map['date'] as String) ?? DateTime.now()
+        : DateTime.now();
+    final int duration = (map['serviceDurationMinutes'] as num?)?.toInt() ?? 30;
     final DateTime endAt = map['endAt'] != null
         ? DateTime.tryParse(map['endAt'] as String) ??
-            startAt.add(Duration(minutes: duration))
+              startAt.add(Duration(minutes: duration))
         : startAt.add(Duration(minutes: duration));
 
     final String rawStatus = (map['status'] as String?) ?? 'pending';

@@ -25,24 +25,26 @@ class _PhoneLoginPageState extends ConsumerState<PhoneLoginPage> {
   String? _error;
 
   Future<void> _sendCode() async {
-    final String? e164 = normalizePhone(_phoneCtrl.text);
-    if (e164 == null) {
-      setState(() => _error = 'Número inválido, usa 8 dígitos o +502.');
-      return;
-    }
+    final String e164 = normalizePhone(_phoneCtrl.text);
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
       await ref.read(authStateProvider.notifier).sendPhoneCode(e164);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => _codeSent = true);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => _error = 'No pudimos enviar el SMS: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -59,14 +61,22 @@ class _PhoneLoginPageState extends ConsumerState<PhoneLoginPage> {
       final bool ok = await ref
           .read(authStateProvider.notifier)
           .verifyPhoneCode(_codeCtrl.text.trim());
-      if (!mounted) return;
-      if (!ok) setState(() => _error = 'Código incorrecto.');
+      if (!mounted) {
+        return;
+      }
+      if (!ok) {
+        setState(() => _error = 'Código incorrecto.');
+      }
       // Si OK, el router redirige automáticamente al home.
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => _error = 'Fallo verificando el código.');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -140,10 +150,10 @@ class _PhoneLoginPageState extends ConsumerState<PhoneLoginPage> {
                     onPressed: _isLoading
                         ? null
                         : () => setState(() {
-                              _codeSent = false;
-                              _codeCtrl.clear();
-                              _error = null;
-                            }),
+                            _codeSent = false;
+                            _codeCtrl.clear();
+                            _error = null;
+                          }),
                     child: const Text('Cambiar número'),
                   ),
                 ],

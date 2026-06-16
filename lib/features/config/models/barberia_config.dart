@@ -12,9 +12,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// muestre horarios, dirección, etc. sin login.
 class BarberiaConfig {
   final String businessName;
-  final int openHour;         // 0–23
-  final int closeHour;        // 0–23
-  final int slotMinutes;      // granularidad de slots (15/20/30)
+  final int openHour; // 0–23
+  final int closeHour; // 0–23
+  final int slotMinutes; // granularidad de slots (15/20/30)
   final String address;
   final double? lat;
   final double? lng;
@@ -23,9 +23,13 @@ class BarberiaConfig {
   final String? logoUrl;
   final String? landingBaseUrl; // Custom web domain URL
 
+  /// Días de apertura (índice 0 = lunes … 6 = domingo). `true` = abierto.
+  /// Longitud siempre 7; se rellena con el default si llega incompleto de Firestore.
+  final List<bool> openDays;
+
   // Política anti no-show
-  final int autoReleaseHours;  // horas antes sin confirmar para liberar
-  final int maxNoShows;        // nº de no-shows antes de bloquear
+  final int autoReleaseHours; // horas antes sin confirmar para liberar
+  final int maxNoShows; // nº de no-shows antes de bloquear
   final bool requireConfirmation;
 
   const BarberiaConfig({
@@ -40,6 +44,7 @@ class BarberiaConfig {
     this.whatsappPhone,
     this.logoUrl,
     this.landingBaseUrl,
+    this.openDays = const <bool>[true, true, true, true, true, true, false],
     this.autoReleaseHours = 4,
     this.maxNoShows = 3,
     this.requireConfirmation = true,
@@ -57,42 +62,45 @@ class BarberiaConfig {
     String? whatsappPhone,
     String? logoUrl,
     String? landingBaseUrl,
+    List<bool>? openDays,
     int? autoReleaseHours,
     int? maxNoShows,
     bool? requireConfirmation,
   }) => BarberiaConfig(
-        businessName: businessName ?? this.businessName,
-        openHour: openHour ?? this.openHour,
-        closeHour: closeHour ?? this.closeHour,
-        slotMinutes: slotMinutes ?? this.slotMinutes,
-        address: address ?? this.address,
-        lat: lat ?? this.lat,
-        lng: lng ?? this.lng,
-        phone: phone ?? this.phone,
-        whatsappPhone: whatsappPhone ?? this.whatsappPhone,
-        logoUrl: logoUrl ?? this.logoUrl,
-        landingBaseUrl: landingBaseUrl ?? this.landingBaseUrl,
-        autoReleaseHours: autoReleaseHours ?? this.autoReleaseHours,
-        maxNoShows: maxNoShows ?? this.maxNoShows,
-        requireConfirmation: requireConfirmation ?? this.requireConfirmation,
-      );
+    businessName: businessName ?? this.businessName,
+    openHour: openHour ?? this.openHour,
+    closeHour: closeHour ?? this.closeHour,
+    slotMinutes: slotMinutes ?? this.slotMinutes,
+    address: address ?? this.address,
+    lat: lat ?? this.lat,
+    lng: lng ?? this.lng,
+    phone: phone ?? this.phone,
+    whatsappPhone: whatsappPhone ?? this.whatsappPhone,
+    logoUrl: logoUrl ?? this.logoUrl,
+    landingBaseUrl: landingBaseUrl ?? this.landingBaseUrl,
+    openDays: openDays ?? this.openDays,
+    autoReleaseHours: autoReleaseHours ?? this.autoReleaseHours,
+    maxNoShows: maxNoShows ?? this.maxNoShows,
+    requireConfirmation: requireConfirmation ?? this.requireConfirmation,
+  );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
-        'businessName': businessName,
-        'openHour': openHour,
-        'closeHour': closeHour,
-        'slotMinutes': slotMinutes,
-        'address': address,
-        'lat': lat,
-        'lng': lng,
-        'phone': phone,
-        'whatsappPhone': whatsappPhone,
-        'logoUrl': logoUrl,
-        'landingBaseUrl': landingBaseUrl,
-        'autoReleaseHours': autoReleaseHours,
-        'maxNoShows': maxNoShows,
-        'requireConfirmation': requireConfirmation,
-      };
+    'businessName': businessName,
+    'openHour': openHour,
+    'closeHour': closeHour,
+    'slotMinutes': slotMinutes,
+    'address': address,
+    'lat': lat,
+    'lng': lng,
+    'phone': phone,
+    'whatsappPhone': whatsappPhone,
+    'logoUrl': logoUrl,
+    'landingBaseUrl': landingBaseUrl,
+    'openDays': openDays,
+    'autoReleaseHours': autoReleaseHours,
+    'maxNoShows': maxNoShows,
+    'requireConfirmation': requireConfirmation,
+  };
 
   factory BarberiaConfig.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data =
@@ -109,9 +117,22 @@ class BarberiaConfig {
       whatsappPhone: data['whatsappPhone'] as String?,
       logoUrl: data['logoUrl'] as String?,
       landingBaseUrl: data['landingBaseUrl'] as String?,
+      openDays: _parseOpenDays(data['openDays']),
       autoReleaseHours: (data['autoReleaseHours'] as num?)?.toInt() ?? 4,
       maxNoShows: (data['maxNoShows'] as num?)?.toInt() ?? 3,
       requireConfirmation: data['requireConfirmation'] as bool? ?? true,
     );
+  }
+
+  static List<bool> _parseOpenDays(dynamic raw) {
+    const List<bool> defaults = <bool>[true, true, true, true, true, true, false];
+    if (raw is! List) {
+      return defaults;
+    }
+    final List<bool> result = raw.map((dynamic e) => e as bool? ?? true).toList();
+    if (result.length != 7) {
+      return defaults;
+    }
+    return result;
   }
 }

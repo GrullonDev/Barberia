@@ -33,7 +33,9 @@ class Reputation {
   /// Score simple para UI: 100 = perfecto, baja con no-shows y cancelaciones tardías.
   /// Usado en el panel admin para ordenar la lista.
   int get score {
-    if (totalBookings == 0) return 100;
+    if (totalBookings == 0) {
+      return 100;
+    }
     final double penalty =
         (noShowCount * 25 + canceledLateCount * 10) / totalBookings;
     final int raw = (100 - penalty * 10).round();
@@ -41,16 +43,16 @@ class Reputation {
   }
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
-        'noShowCount': noShowCount,
-        'canceledLateCount': canceledLateCount,
-        'totalBookings': totalBookings,
-        'lastNoShowAt':
-            lastNoShowAt == null ? null : Timestamp.fromDate(lastNoShowAt!),
-        'blocked': blocked,
-        'blockReason': blockReason,
-        'updatedAt':
-            updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
-      };
+    'noShowCount': noShowCount,
+    'canceledLateCount': canceledLateCount,
+    'totalBookings': totalBookings,
+    'lastNoShowAt': lastNoShowAt == null
+        ? null
+        : Timestamp.fromDate(lastNoShowAt!),
+    'blocked': blocked,
+    'blockReason': blockReason,
+    'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
+  };
 
   factory Reputation.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
