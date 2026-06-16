@@ -9,7 +9,6 @@ const Color _inkDeep = Color(0xFF0B0F0E);
 const Color _panel = Color(0xFF202221);
 const Color _line = Color(0xFF3A3D39);
 const Color _gold = Color(0xFFE8C84E);
-const Color _muted = Color(0xFFC7C7C2);
 
 class BookingExperiencePage extends StatefulWidget {
   const BookingExperiencePage({super.key});
