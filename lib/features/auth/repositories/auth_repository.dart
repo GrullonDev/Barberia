@@ -46,8 +46,20 @@ class AuthRepository {
         _currentUser = null;
         return null;
       }
-      _currentUser = await _ensureUserProfile(fbUser);
-      return _currentUser;
+      try {
+        _currentUser = await _ensureUserProfile(fbUser);
+        return _currentUser;
+      } on FirebaseException catch (e) {
+        // ProviderInstaller (Android) can briefly invalidate the auth token
+        // while refreshing the SSL stack, causing a mid-flight permission-denied.
+        // Return null so the router redirects to login; the auth stream will
+        // re-emit the signed-in event once the token is renewed.
+        if (e.code == 'permission-denied') {
+          _currentUser = null;
+          return null;
+        }
+        rethrow;
+      }
     });
   }
 
@@ -222,6 +234,19 @@ class AuthRepository {
     final DocumentSnapshot<Map<String, dynamic>> snap = await ref.get();
 
     if (snap.exists) {
+      final Map<String, dynamic> data = snap.data()!;
+      if ((data['inviteStatus'] as String?) == 'pending') {
+        // Mark invite as accepted. Users can update their own doc (role unchanged).
+        ref.update(<String, dynamic>{'inviteStatus': 'active'}).ignore();
+        // Also update the barbers/{uid} doc (allowed by Firestore rule for barbers).
+        if ((data['role'] as String?) == 'barber') {
+          _db
+              .collection('barbers')
+              .doc(fbUser.uid)
+              .update(<String, dynamic>{'inviteStatus': 'active'})
+              .ignore();
+        }
+      }
       return User.fromFirestore(snap);
     }
 
