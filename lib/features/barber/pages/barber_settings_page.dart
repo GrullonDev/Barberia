@@ -6,8 +6,20 @@ import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/barber/models/barber.dart';
 import 'package:barberia/features/barber/providers/barber_providers.dart';
 import 'package:barberia/features/barber/widgets/barber_chrome.dart';
+import 'package:barberia/features/config/models/barberia_config.dart';
+import 'package:barberia/features/config/providers/barberia_config_providers.dart';
 
 const Color _kBg = Color(0xFF0B0B0B);
+
+const Map<int, String> _kDayLabels = <int, String>{
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+  7: 'Sunday',
+};
 const Color _kSurface = Color(0xFF181A1A);
 const Color _kField = Color(0xFF202222);
 const Color _kGold = Color(0xFFD4AF37);
@@ -32,6 +44,7 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
     'Hot Towel Shave',
     'Beard Sculpting',
   ];
+  Map<int, List<int>?> _workingHours = Barber.defaultWorkingHours();
   bool _pushNotifications = true;
   bool _emailUpdates = false;
   bool _seeded = false;
@@ -48,6 +61,8 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
   Widget build(BuildContext context) {
     final User? user = ref.watch(authStateProvider);
     final AsyncValue<Barber?> profile = ref.watch(currentBarberProfileProvider);
+    final BarberiaConfig config =
+        ref.watch(barberiaConfigProvider).valueOrNull ?? const BarberiaConfig();
 
     if (user == null) {
       return const Scaffold(
@@ -260,6 +275,60 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 22),
+                  _Panel(
+                    title: 'My Available Days',
+                    icon: Icons.calendar_today_outlined,
+                    child: Column(
+                      children: <Widget>[
+                        ...List<Widget>.generate(7, (int index) {
+                          final int day = index + 1;
+                          final bool shopOpen = config.openDays[index];
+                          final bool selected = _workingHours[day] != null;
+                          return CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: _kGold,
+                            checkColor: Colors.black,
+                            value: selected,
+                            title: Text(
+                              _kDayLabels[day]!,
+                              style: TextStyle(
+                                color: shopOpen
+                                    ? (selected ? _kText : _kDim)
+                                    : _kBorder,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: shopOpen
+                                ? null
+                                : const Text(
+                                    'Closed by barbershop',
+                                    style: TextStyle(
+                                      color: _kDim,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                            onChanged: shopOpen
+                                ? (bool? value) {
+                                    setState(() {
+                                      _workingHours = <int, List<int>?>{
+                                        ..._workingHours,
+                                        day: value == true
+                                            ? <int>[
+                                                config.openHour,
+                                                config.closeHour,
+                                              ]
+                                            : null,
+                                      };
+                                    });
+                                  }
+                                : null,
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
                   const _Panel(
                     title: 'Languages',
                     icon: Icons.translate,
@@ -307,7 +376,7 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
-                      onPressed: () => _save(barber),
+                      onPressed: () => _save(barber, config),
                       child: const Text(
                         'SAVE CHANGES',
                         style: TextStyle(letterSpacing: 2),
@@ -357,15 +426,43 @@ class _BarberSettingsPageState extends ConsumerState<BarberSettingsPage> {
         ..clear()
         ..addAll(barber.specialties);
     }
+    _workingHours = _normalizedHours(barber.workingHours);
     _seeded = true;
   }
 
-  Future<void> _save(Barber current) async {
+  Map<int, List<int>?> _hoursWithinConfig(
+    Map<int, List<int>?> hours,
+    BarberiaConfig config,
+  ) {
+    return hours.map((int day, List<int>? range) {
+      if (range == null) {
+        return MapEntry<int, List<int>?>(day, null);
+      }
+      return MapEntry<int, List<int>?>(
+        day,
+        <int>[config.openHour, config.closeHour],
+      );
+    });
+  }
+
+  Map<int, List<int>?> _normalizedHours(Map<int, List<int>?> src) {
+    final Map<int, List<int>?> result = Barber.defaultWorkingHours();
+    for (int day = 1; day <= 7; day++) {
+      final List<int>? range = src[day];
+      result[day] = (range != null && range.length >= 2)
+          ? <int>[range[0], range[1]]
+          : null;
+    }
+    return result;
+  }
+
+  Future<void> _save(Barber current, BarberiaConfig config) async {
     final Barber updated = current.copyWith(
       name: _nameController.text.trim(),
       title: _titleController.text.trim(),
       bio: _bioController.text.trim(),
       specialties: List<String>.from(_specialties),
+      workingHours: _hoursWithinConfig(_workingHours, config),
     );
     try {
       await ref.read(barberRepositoryProvider).updateOwnProfile(updated);
