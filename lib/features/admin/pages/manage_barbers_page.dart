@@ -5,6 +5,8 @@ import 'package:barberia/features/barber/models/barber.dart';
 import 'package:barberia/features/barber/providers/barber_providers.dart';
 import 'package:barberia/features/booking/models/booking.dart';
 import 'package:barberia/features/booking/providers/booking_providers.dart';
+import 'package:barberia/features/config/models/barberia_config.dart';
+import 'package:barberia/features/config/providers/barberia_config_providers.dart';
 
 // ─── Admin dark palette ───────────────────────────────────────────────────────
 const Color _kBg = Color(0xFF0B0B0B);
@@ -719,73 +721,171 @@ void _showInviteDialog(BuildContext context, WidgetRef ref) {
 void _showEditDialog(BuildContext context, WidgetRef ref, Barber barber) {
   final nameCtrl = TextEditingController(text: barber.name);
   final specialtyCtrl = TextEditingController(text: barber.specialty ?? '');
+  final BarberiaConfig config =
+      ref.read(barberiaConfigProvider).valueOrNull ?? const BarberiaConfig();
+  Map<int, List<int>?> workingHours = _normalizedWorkingHours(
+    barber.workingHours,
+  );
 
   showDialog<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1A1A1A),
-      title: const Text('Edit Profile', style: TextStyle(color: _kWhite)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _DarkField(
-            controller: nameCtrl,
-            label: 'Name',
-            icon: Icons.person_outline,
-          ),
-          const SizedBox(height: 12),
-          _DarkField(
-            controller: specialtyCtrl,
-            label: 'Specialty',
-            icon: Icons.content_cut_outlined,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel', style: TextStyle(color: _kGray)),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            final name = nameCtrl.text.trim();
-            if (name.isEmpty) {
-              return;
-            }
-            try {
-              await ref
-                  .read(barberRepositoryProvider)
-                  .upsert(
-                    barber.copyWith(
-                      name: name,
-                      specialty: specialtyCtrl.text.trim().isEmpty
-                          ? null
-                          : specialtyCtrl.text.trim(),
+    builder: (ctx) => StatefulBuilder(
+      builder: (BuildContext ctx, StateSetter setDialogState) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Edit Profile', style: TextStyle(color: _kWhite)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DarkField(
+                  controller: nameCtrl,
+                  label: 'Name',
+                  icon: Icons.person_outline,
+                ),
+                const SizedBox(height: 12),
+                _DarkField(
+                  controller: specialtyCtrl,
+                  label: 'Specialty',
+                  icon: Icons.content_cut_outlined,
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Available days',
+                  style: TextStyle(
+                    color: _kWhite,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...List<Widget>.generate(7, (int index) {
+                  final int day = index + 1;
+                  final bool available = workingHours[day] != null;
+                  return CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: _kGold,
+                    checkColor: const Color(0xFF0B0B0B),
+                    value: available,
+                    title: Text(
+                      _dayLabel(day),
+                      style: TextStyle(
+                        color: available ? _kWhite : _kGray,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                    onChanged: (bool? value) {
+                      setDialogState(() {
+                        workingHours = <int, List<int>?>{
+                          ...workingHours,
+                          day: value == true
+                              ? _globalWorkingRange(config)
+                              : null,
+                        };
+                      });
+                    },
                   );
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-              }
-            } catch (e) {
-              if (ctx.mounted) {
-                ScaffoldMessenger.of(
-                  ctx,
-                ).showSnackBar(SnackBar(content: Text('Error: $e')));
-              }
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _kGold,
-            foregroundColor: const Color(0xFF0B0B0B),
+                }),
+              ],
+            ),
           ),
-          child: const Text(
-            'Save',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: _kGray)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) {
+                  return;
+                }
+                try {
+                  await ref
+                      .read(barberRepositoryProvider)
+                      .upsert(
+                        barber.copyWith(
+                          name: name,
+                          specialty: specialtyCtrl.text.trim().isEmpty
+                              ? null
+                              : specialtyCtrl.text.trim(),
+                          workingHours: _workingHoursWithinConfig(
+                            workingHours,
+                            config,
+                          ),
+                        ),
+                      );
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx);
+                  }
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(
+                      ctx,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kGold,
+                foregroundColor: const Color(0xFF0B0B0B),
+              ),
+              child: const Text(
+                'Save',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
     ),
   );
+}
+
+Map<int, List<int>?> _normalizedWorkingHours(Map<int, List<int>?> hours) {
+  final Map<int, List<int>?> normalized = Barber.defaultWorkingHours();
+  for (int day = 1; day <= 7; day++) {
+    final List<int>? range = hours[day];
+    normalized[day] = range == null || range.length < 2
+        ? null
+        : <int>[range[0], range[1]];
+  }
+  return normalized;
+}
+
+Map<int, List<int>?> _workingHoursWithinConfig(
+  Map<int, List<int>?> hours,
+  BarberiaConfig config,
+) {
+  final List<int> range = _globalWorkingRange(config);
+  return hours.map((int day, List<int>? dayRange) {
+    if (dayRange == null || dayRange.length < 2) {
+      return MapEntry<int, List<int>?>(day, null);
+    }
+    return MapEntry<int, List<int>?>(day, List<int>.from(range));
+  });
+}
+
+List<int> _globalWorkingRange(BarberiaConfig config) {
+  final int open = config.openHour.clamp(0, 22).toInt();
+  final int close = config.closeHour <= open
+      ? open + 1
+      : config.closeHour.clamp(open + 1, 23).toInt();
+  return <int>[open, close];
+}
+
+String _dayLabel(int day) {
+  const Map<int, String> labels = <int, String>{
+    1: 'Monday',
+    2: 'Tuesday',
+    3: 'Wednesday',
+    4: 'Thursday',
+    5: 'Friday',
+    6: 'Saturday',
+    7: 'Sunday',
+  };
+  return labels[day] ?? '';
 }
 
 void _confirmDelete(BuildContext context, WidgetRef ref, Barber barber) {
