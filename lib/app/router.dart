@@ -25,7 +25,9 @@ import 'package:barberia/features/barber/widgets/barber_scaffold.dart';
 import 'package:barberia/features/booking/models/service.dart';
 import 'package:barberia/features/booking/pages/calendar_page.dart';
 import 'package:barberia/features/booking/pages/confirmation_page.dart';
+import 'package:barberia/features/booking/pages/custom_cut_personalizer_page.dart';
 import 'package:barberia/features/booking/pages/details_page.dart';
+import 'package:barberia/features/booking/pages/gallery_page.dart';
 import 'package:barberia/features/booking/pages/home_page.dart';
 import 'package:barberia/features/booking/pages/my_bookings_page.dart';
 import 'package:barberia/features/booking/pages/service_select_page.dart';
@@ -35,6 +37,8 @@ import 'package:barberia/features/static/privacy_page.dart';
 abstract final class RouteNames {
   static const String home = 'home';
   static const String services = 'services';
+  static const String gallery = 'gallery';
+  static const String personalizer = 'personalizer';
   static const String calendar = 'calendar';
   static const String details = 'details';
   static const String confirmation = 'confirmation';
@@ -61,6 +65,8 @@ abstract final class RouteNames {
 const Set<String> _publicWebPaths = <String>{
   '/',
   '/services',
+  '/gallery',
+  '/personalizer',
   '/services/calendar',
   '/details',
   '/confirmation',
@@ -184,6 +190,16 @@ final Provider<GoRouter> goRouterProvider = Provider<GoRouter>((Ref ref) {
                 name: RouteNames.home,
                 builder: (_, __) => const HomePage(),
                 routes: <RouteBase>[
+                  GoRoute(
+                    path: 'gallery',
+                    name: RouteNames.gallery,
+                    builder: (_, __) => const GalleryPage(),
+                  ),
+                  GoRoute(
+                    path: 'personalizer',
+                    name: RouteNames.personalizer,
+                    builder: (_, __) => const CustomCutPersonalizerPage(),
+                  ),
                   GoRoute(
                     path: 'services',
                     name: RouteNames.services,

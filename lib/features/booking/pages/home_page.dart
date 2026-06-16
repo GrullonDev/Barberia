@@ -237,7 +237,10 @@ class _TopNav extends StatelessWidget {
                 ),
                 const Spacer(),
                 _NavLink(label: 'Servicios', onTap: onBook),
-                _NavLink(label: 'Galeria', onTap: onBook),
+                _NavLink(
+                  label: 'Galeria',
+                  onTap: () => context.goNamed(RouteNames.gallery),
+                ),
                 _NavLink(label: 'Barberos', onTap: onBook),
                 _NavLink(label: 'Membership', onTap: onBook),
                 const SizedBox(width: 42),
