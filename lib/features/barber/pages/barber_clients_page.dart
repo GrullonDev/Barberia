@@ -256,7 +256,7 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 138,
-      padding: const EdgeInsets.all(26),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
       decoration: BoxDecoration(
         color: _kSurface,
         borderRadius: BorderRadius.circular(10),
