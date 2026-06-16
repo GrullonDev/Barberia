@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:barberia/app/router.dart';
+import 'package:barberia/features/admin/models/admin_notification.dart';
+import 'package:barberia/features/admin/providers/admin_notification_providers.dart';
 import 'package:barberia/features/auth/models/user.dart';
 import 'package:barberia/features/auth/providers/auth_providers.dart';
 import 'package:barberia/features/barber/models/barber.dart';
@@ -35,6 +37,11 @@ class AdminDashboardPage extends ConsumerWidget {
     final AsyncValue<BarberiaConfig> configAsync = ref.watch(
       barberiaConfigProvider,
     );
+    final List<AdminNotification> notifications =
+        ref.watch(adminNotificationsProvider).valueOrNull ??
+        const <AdminNotification>[];
+    final int unreadNotifications =
+        notifications.where((AdminNotification item) => !item.read).length;
 
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
@@ -122,6 +129,8 @@ class AdminDashboardPage extends ConsumerWidget {
             avatar: user?.name.isNotEmpty == true
                 ? user!.name[0].toUpperCase()
                 : 'A',
+            notifications: notifications,
+            unreadNotifications: unreadNotifications,
             onAvatarTap: () => ref.read(authStateProvider.notifier).logout(),
           ),
 
@@ -301,11 +310,15 @@ class _AdminAppBar extends StatelessWidget {
   const _AdminAppBar({
     required this.title,
     required this.avatar,
+    required this.notifications,
+    required this.unreadNotifications,
     required this.onAvatarTap,
   });
 
   final String title;
   final String avatar;
+  final List<AdminNotification> notifications;
+  final int unreadNotifications;
   final VoidCallback onAvatarTap;
 
   @override
@@ -331,6 +344,58 @@ class _AdminAppBar extends StatelessWidget {
       ),
       centerTitle: true,
       actions: [
+        PopupMenuButton<String>(
+          tooltip: 'Notifications',
+          color: _kCard,
+          icon: Badge.count(
+            count: unreadNotifications,
+            isLabelVisible: unreadNotifications > 0,
+            child: const Icon(Icons.notifications_none, color: _kWhite),
+          ),
+          itemBuilder: (BuildContext context) {
+            if (notifications.isEmpty) {
+              return const <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
+                  enabled: false,
+                  child: Text(
+                    'No notifications',
+                    style: TextStyle(color: _kGray),
+                  ),
+                ),
+              ];
+            }
+            return notifications.take(5).map((AdminNotification item) {
+              return PopupMenuItem<String>(
+                enabled: false,
+                child: SizedBox(
+                  width: 260,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: _kWhite,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.body,
+                        style: const TextStyle(color: _kGray, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        DateFormat('MMM d, h:mm a').format(item.createdAt),
+                        style: const TextStyle(color: _kGold, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList();
+          },
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 14),
           child: GestureDetector(
@@ -532,7 +597,9 @@ class _SalesTrendCard extends StatelessWidget {
 
 String _formatBarberName(String name) {
   final parts = name.trim().split(' ');
-  if (parts.length < 2 || parts.last.isEmpty) return name;
+  if (parts.length < 2 || parts.last.isEmpty) {
+    return name;
+  }
   return '${parts.first} ${parts.last[0]}.';
 }
 
