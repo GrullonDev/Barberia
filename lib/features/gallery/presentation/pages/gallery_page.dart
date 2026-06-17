@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../home/presentation/widgets/home_footer.dart';
-import '../../../home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -128,39 +128,43 @@ class _GalleryHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? 64 : 96,
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: Column(
-              children: [
-                Text(
-                  'Nuestros Estilos de Firma',
-                  style: AppTextStyles.headlineLg(mobile: isMobile),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Una selección curada de cortes clásicos y modernos, '
-                  'diseñados para el hombre que valora la precisión y el carácter.',
-                  style: AppTextStyles.bodyMd
-                      .copyWith(color: AppColors.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            vertical: isMobile ? 64 : 96,
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                children: [
+                  Text(
+                    'Nuestros Estilos de Firma',
+                    style: AppTextStyles.headlineLg(mobile: isMobile),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Una selección curada de cortes clásicos y modernos, '
+                    'diseñados para el hombre que valora la precisión y el carácter.',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -179,37 +183,44 @@ class _FilterSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      final hPad = isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 80),
-        child: Center(
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: LayoutBuilder(builder: (context, inner) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _FilterTabs(
-                    activeFilter: activeFilter,
-                    onFilterChanged: onFilterChanged,
-                  ),
-                  const SizedBox(height: AppSpacing.xxl + AppSpacing.md),
-                  _StyleCardsGrid(
-                    styles: filteredStyles,
-                    availableWidth: inner.maxWidth,
-                    isMobile: isMobile,
-                  ),
-                ],
-              );
-            }),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        final hPad = isMobile
+            ? AppSpacing.marginMobile
+            : AppSpacing.marginDesktop;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 80),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: LayoutBuilder(
+                builder: (context, inner) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _FilterTabs(
+                        activeFilter: activeFilter,
+                        onFilterChanged: onFilterChanged,
+                      ),
+                      const SizedBox(height: AppSpacing.xxl + AppSpacing.md),
+                      _StyleCardsGrid(
+                        styles: filteredStyles,
+                        availableWidth: inner.maxWidth,
+                        isMobile: isMobile,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -272,7 +283,9 @@ class _FilterButton extends StatelessWidget {
         child: Text(
           label,
           style: AppTextStyles.labelMd.copyWith(
-            color: isActive ? AppColors.onSecondary : AppColors.onSurfaceVariant,
+            color: isActive
+                ? AppColors.onSecondary
+                : AppColors.onSurfaceVariant,
           ),
         ),
       ),
@@ -301,8 +314,9 @@ class _StyleCardsGrid extends StatelessWidget {
         child: Center(
           child: Text(
             'No hay estilos en esta categoría.',
-            style: AppTextStyles.bodyMd
-                .copyWith(color: AppColors.onSurfaceVariant),
+            style: AppTextStyles.bodyMd.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -327,7 +341,12 @@ class _StyleCardsGrid extends StatelessWidget {
       spacing: gap,
       runSpacing: gap,
       children: styles
-          .map((s) => SizedBox(width: cardWidth, child: _StyleCard(style: s)))
+          .map(
+            (s) => SizedBox(
+              width: cardWidth,
+              child: _StyleCard(style: s),
+            ),
+          )
           .toList(),
     );
   }
@@ -385,8 +404,9 @@ class _StyleCard extends StatelessWidget {
                   ),
                   child: Text(
                     style.badge,
-                    style: AppTextStyles.labelSm
-                        .copyWith(color: AppColors.onSurfaceVariant),
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -404,8 +424,9 @@ class _StyleCard extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   style.description,
-                  style: AppTextStyles.bodyMd
-                      .copyWith(color: AppColors.onSurfaceVariant),
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 SizedBox(
@@ -434,82 +455,86 @@ class _ExclusiveCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.surfaceContainerLowest,
-        padding: EdgeInsets.symmetric(
-          vertical: 96,
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: Column(
-              children: [
-                Text(
-                  '¿BUSCAS ALGO EXCLUSIVO?',
-                  style: AppTextStyles.headlineMd.copyWith(letterSpacing: 2),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Nuestros maestros barberos pueden crear una versión '
-                  'personalizada que se adapte perfectamente a tu tipo de '
-                  'cabello y estructura facial.',
-                  style: AppTextStyles.bodyMd
-                      .copyWith(color: AppColors.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () {},
-                            child: Text(
-                              'RESERVA UNA CONSULTA',
-                              style: AppTextStyles.labelMd,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(
+            vertical: 96,
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                children: [
+                  Text(
+                    '¿BUSCAS ALGO EXCLUSIVO?',
+                    style: AppTextStyles.headlineMd.copyWith(letterSpacing: 2),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Nuestros maestros barberos pueden crear una versión '
+                    'personalizada que se adapte perfectamente a tu tipo de '
+                    'cabello y estructura facial.',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () {},
+                              child: Text(
+                                'RESERVA UNA CONSULTA',
+                                style: AppTextStyles.labelMd,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          OutlinedButton(
-                            onPressed: () {},
-                            child: Text(
-                              'VER PORTAFOLIO COMPLETO',
-                              style: AppTextStyles.labelMd,
+                            const SizedBox(height: AppSpacing.md),
+                            OutlinedButton(
+                              onPressed: () {},
+                              child: Text(
+                                'VER PORTAFOLIO COMPLETO',
+                                style: AppTextStyles.labelMd,
+                              ),
                             ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () {},
-                            child: Text(
-                              'RESERVA UNA CONSULTA',
-                              style: AppTextStyles.labelMd,
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () {},
+                              child: Text(
+                                'RESERVA UNA CONSULTA',
+                                style: AppTextStyles.labelMd,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          OutlinedButton(
-                            onPressed: () {},
-                            child: Text(
-                              'VER PORTAFOLIO COMPLETO',
-                              style: AppTextStyles.labelMd,
+                            const SizedBox(width: AppSpacing.md),
+                            OutlinedButton(
+                              onPressed: () {},
+                              child: Text(
+                                'VER PORTAFOLIO COMPLETO',
+                                style: AppTextStyles.labelMd,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-              ],
+                          ],
+                        ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 

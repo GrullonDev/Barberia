@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/theme/app_theme.dart';
-import 'router.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/app/router.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});

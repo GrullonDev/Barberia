@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../home/presentation/widgets/home_footer.dart';
-import '../../../home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -17,12 +17,7 @@ const _baseOptions = <_BaseOption>[
 
 const _fadeOptions = ['Low Fade', 'Mid Fade', 'High Fade'];
 
-const _beardOptions = [
-  'Clean Shaven',
-  'Light Stubble',
-  'Full Beard',
-  'Goatee',
-];
+const _beardOptions = ['Clean Shaven', 'Light Stubble', 'Full Beard', 'Goatee'];
 
 const _baseImages = <String, String>{
   'CLASSIC': 'assets/images/style_executive.png',
@@ -40,8 +35,7 @@ class CustomCutPersonalizerPage extends StatefulWidget {
       _CustomCutPersonalizerPageState();
 }
 
-class _CustomCutPersonalizerPageState
-    extends State<CustomCutPersonalizerPage> {
+class _CustomCutPersonalizerPageState extends State<CustomCutPersonalizerPage> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   String _selectedBase = 'MODERN';
@@ -57,9 +51,7 @@ class _CustomCutPersonalizerPageState
       drawer: _PersonalizerDrawer(),
       body: Column(
         children: [
-          HomeNavBar(
-            onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
+          HomeNavBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -80,43 +72,47 @@ class _CustomCutPersonalizerPageState
   // ─── Main two-column section ────────────────────────────────────────────────
 
   Widget _buildMainSection() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: isMobile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLeftPanel(isMobile: true),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _buildRightPanel(isMobile: true),
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 420,
-                        child: _buildLeftPanel(isMobile: false),
-                      ),
-                      const SizedBox(width: AppSpacing.xxl),
-                      Expanded(child: _buildRightPanel(isMobile: false)),
-                    ],
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
           ),
-        ),
-      );
-    });
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLeftPanel(isMobile: true),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _buildRightPanel(isMobile: true),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 420,
+                          child: _buildLeftPanel(isMobile: false),
+                        ),
+                        const SizedBox(width: AppSpacing.xxl),
+                        Expanded(child: _buildRightPanel(isMobile: false)),
+                      ],
+                    ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ─── Left panel ─────────────────────────────────────────────────────────────
@@ -128,17 +124,17 @@ class _CustomCutPersonalizerPageState
       children: [
         Text(
           'Custom Cut\nPersonalizer',
-          style: AppTextStyles.headlineLg(mobile: isMobile).copyWith(
-            color: AppColors.secondary,
-            height: 1.1,
-          ),
+          style: AppTextStyles.headlineLg(
+            mobile: isMobile,
+          ).copyWith(color: AppColors.secondary, height: 1.1),
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
           'Define your legacy with a precision-tailored grooming experience. '
           'Select your signature elements below.',
-          style:
-              AppTextStyles.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+          style: AppTextStyles.bodyMd.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: AppSpacing.xxl),
         const _SectionLabel(text: 'CHOOSE YOUR BASE'),
@@ -166,7 +162,8 @@ class _CustomCutPersonalizerPageState
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(
-                right: i < _baseOptions.length - 1 ? AppSpacing.sm : 0),
+              right: i < _baseOptions.length - 1 ? AppSpacing.sm : 0,
+            ),
             child: GestureDetector(
               onTap: () => setState(() => _selectedBase = opt.label),
               child: AnimatedContainer(
@@ -217,7 +214,11 @@ class _CustomCutPersonalizerPageState
   Widget _buildTopLengthSlider() {
     return Container(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: AppRadius.borderRadiusMd,
@@ -265,12 +266,18 @@ class _CustomCutPersonalizerPageState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Corto',
-                    style: AppTextStyles.labelSm
-                        .copyWith(color: AppColors.onSurfaceVariant)),
-                Text('Largo',
-                    style: AppTextStyles.labelSm
-                        .copyWith(color: AppColors.onSurfaceVariant)),
+                Text(
+                  'Corto',
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  'Largo',
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -322,14 +329,18 @@ class _CustomCutPersonalizerPageState
           value: _selectedBeard,
           dropdownColor: AppColors.surfaceContainerHigh,
           style: AppTextStyles.bodyMd,
-          icon: const Icon(Icons.keyboard_arrow_down,
-              color: AppColors.onSurfaceVariant),
+          icon: const Icon(
+            Icons.keyboard_arrow_down,
+            color: AppColors.onSurfaceVariant,
+          ),
           isExpanded: true,
           items: _beardOptions
-              .map((opt) => DropdownMenuItem(
-                    value: opt,
-                    child: Text(opt, style: AppTextStyles.bodyMd),
-                  ))
+              .map(
+                (opt) => DropdownMenuItem(
+                  value: opt,
+                  child: Text(opt, style: AppTextStyles.bodyMd),
+                ),
+              )
               .toList(),
           onChanged: (v) =>
               setState(() => _selectedBeard = v ?? _selectedBeard),
@@ -341,7 +352,8 @@ class _CustomCutPersonalizerPageState
   // ─── Right panel ─────────────────────────────────────────────────────────────
 
   Widget _buildRightPanel({required bool isMobile}) {
-    final image = _baseImages[_selectedBase] ?? 'assets/images/style_modern_fade.png';
+    final image =
+        _baseImages[_selectedBase] ?? 'assets/images/style_modern_fade.png';
     final fadeBadge = _selectedFade.replaceAll(' ', '-');
 
     return ClipRRect(
@@ -415,8 +427,9 @@ class _CustomCutPersonalizerPageState
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           'Signature Precision Cut & Grooming',
-                          style: AppTextStyles.labelSm
-                              .copyWith(color: AppColors.onSurfaceVariant),
+                          style: AppTextStyles.labelSm.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -459,85 +472,89 @@ class _CustomCutPersonalizerPageState
   // ─── Features section ────────────────────────────────────────────────────────
 
   Widget _buildFeaturesSection() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.surfaceContainerLowest,
-        padding: EdgeInsets.symmetric(
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: isMobile
-                ? const Column(
-                    children: [
-                      _FeatureCard(
-                        icon: Icons.verified_outlined,
-                        title: 'Prestigio & Precisión',
-                        subtitle:
-                            'Nuestros barberos maestros aseguran que cada '
-                            'milímetro de tu elección se ejecute con excelencia técnica.',
-                        serifTitle: true,
-                      ),
-                      SizedBox(height: AppSpacing.md),
-                      _FeatureCard(
-                        icon: Icons.schedule,
-                        title: '45 MINUTOS',
-                        subtitle: 'Dedicación completa',
-                        centered: true,
-                      ),
-                      SizedBox(height: AppSpacing.md),
-                      _FeatureCard(
-                        icon: Icons.local_cafe_outlined,
-                        title: 'COMPLIMENTARY',
-                        subtitle: 'Single malt o café artesanal',
-                        centered: true,
-                      ),
-                    ],
-                  )
-                : const IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: isMobile
+                  ? const Column(
                       children: [
-                        Expanded(
-                          child: _FeatureCard(
-                            icon: Icons.verified_outlined,
-                            title: 'Prestigio & Precisión',
-                            subtitle:
-                                'Nuestros barberos maestros aseguran que cada '
-                                'milímetro de tu elección se ejecute con excelencia técnica.',
-                            serifTitle: true,
-                          ),
+                        _FeatureCard(
+                          icon: Icons.verified_outlined,
+                          title: 'Prestigio & Precisión',
+                          subtitle:
+                              'Nuestros barberos maestros aseguran que cada '
+                              'milímetro de tu elección se ejecute con excelencia técnica.',
+                          serifTitle: true,
                         ),
-                        SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: _FeatureCard(
-                            icon: Icons.schedule,
-                            title: '45 MINUTOS',
-                            subtitle: 'Dedicación completa',
-                            centered: true,
-                          ),
+                        SizedBox(height: AppSpacing.md),
+                        _FeatureCard(
+                          icon: Icons.schedule,
+                          title: '45 MINUTOS',
+                          subtitle: 'Dedicación completa',
+                          centered: true,
                         ),
-                        SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: _FeatureCard(
-                            icon: Icons.local_cafe_outlined,
-                            title: 'COMPLIMENTARY',
-                            subtitle: 'Single malt o café artesanal',
-                            centered: true,
-                          ),
+                        SizedBox(height: AppSpacing.md),
+                        _FeatureCard(
+                          icon: Icons.local_cafe_outlined,
+                          title: 'COMPLIMENTARY',
+                          subtitle: 'Single malt o café artesanal',
+                          centered: true,
                         ),
                       ],
+                    )
+                  : const IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _FeatureCard(
+                              icon: Icons.verified_outlined,
+                              title: 'Prestigio & Precisión',
+                              subtitle:
+                                  'Nuestros barberos maestros aseguran que cada '
+                                  'milímetro de tu elección se ejecute con excelencia técnica.',
+                              serifTitle: true,
+                            ),
+                          ),
+                          SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _FeatureCard(
+                              icon: Icons.schedule,
+                              title: '45 MINUTOS',
+                              subtitle: 'Dedicación completa',
+                              centered: true,
+                            ),
+                          ),
+                          SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _FeatureCard(
+                              icon: Icons.local_cafe_outlined,
+                              title: 'COMPLIMENTARY',
+                              subtitle: 'Single malt o café artesanal',
+                              centered: true,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -570,10 +587,7 @@ class _RadioDot extends StatelessWidget {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.secondary,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.secondary, width: 1.5),
       ),
       child: selected
           ? Center(
@@ -622,11 +636,7 @@ class _StyleBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            height: 12,
-            width: 1.5,
-            color: AppColors.secondary,
-          ),
+          Container(height: 12, width: 1.5, color: AppColors.secondary),
           const SizedBox(width: 8),
           Text(
             value,
@@ -670,16 +680,13 @@ class _FeatureCard extends StatelessWidget {
         borderRadius: BorderRadius.zero,
       ),
       child: Column(
-        crossAxisAlignment:
-            centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        crossAxisAlignment: centered
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (centered) ...[
-            Icon(
-              icon,
-              color: AppColors.secondary,
-              size: 32,
-            ),
+            Icon(icon, color: AppColors.secondary, size: 32),
             const SizedBox(height: AppSpacing.xl),
           ] else ...[
             Align(

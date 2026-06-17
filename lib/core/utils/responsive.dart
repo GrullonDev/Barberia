@@ -23,7 +23,9 @@ class Responsive extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (ctx, constraints) {
-        if (constraints.maxWidth < Breakpoints.tablet) return mobile(ctx);
+        if (constraints.maxWidth < Breakpoints.tablet) {
+          return mobile(ctx);
+        }
         if (constraints.maxWidth < Breakpoints.desktop) {
           final builder = tablet ?? desktop;
           return builder(ctx);

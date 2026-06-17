@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import 'home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 class HeroSection extends StatelessWidget {
   const HeroSection({super.key});
@@ -91,8 +91,9 @@ class _HeroContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal:
-            isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
+        horizontal: isMobile
+            ? AppSpacing.marginMobile
+            : AppSpacing.marginDesktop,
       ),
       child: Align(
         alignment: isMobile ? Alignment.bottomCenter : Alignment.centerLeft,
@@ -177,12 +178,20 @@ class _HeroButtons extends StatelessWidget {
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [primary, const SizedBox(height: AppSpacing.md), secondary],
+        children: [
+          primary,
+          const SizedBox(height: AppSpacing.md),
+          secondary,
+        ],
       );
     }
 
     return Row(
-      children: [primary, const SizedBox(width: AppSpacing.md), secondary],
+      children: [
+        primary,
+        const SizedBox(width: AppSpacing.md),
+        secondary,
+      ],
     );
   }
 }

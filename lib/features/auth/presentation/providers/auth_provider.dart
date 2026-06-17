@@ -29,7 +29,8 @@ class AuthState {
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage, // We set directly so we can pass null to clear error
+      errorMessage:
+          errorMessage, // We set directly so we can pass null to clear error
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       role: role ?? this.role,
       email: email ?? this.email,

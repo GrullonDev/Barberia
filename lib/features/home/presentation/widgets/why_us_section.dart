@@ -1,57 +1,61 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
 
 class WhyUsSection extends StatelessWidget {
   const WhyUsSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          vertical: 96,
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('¿Por qué elegirnos?', style: AppTextStyles.headlineMd),
-                const SizedBox(height: AppSpacing.md),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Text(
-                    'Nos diferenciamos por la obsesión en los detalles y la '
-                    'creación de un espacio donde el tiempo se detiene.',
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.onSurfaceVariant,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            vertical: 96,
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('¿Por qué elegirnos?', style: AppTextStyles.headlineMd),
+                  const SizedBox(height: AppSpacing.md),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Text(
+                      'Nos diferenciamos por la obsesión en los detalles y la '
+                      'creación de un espacio donde el tiempo se detiene.',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 56),
-                isMobile ? _buildMobile() : _buildDesktop(),
-              ],
+                  const SizedBox(height: 56),
+                  isMobile ? _buildMobile() : _buildDesktop(),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildDesktop() {
-    return SizedBox(
+    return const SizedBox(
       height: 440,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Expanded(
+          Expanded(
             flex: 5,
             child: _LargeFeatureCard(
               icon: Icons.emoji_events_outlined,
@@ -61,8 +65,8 @@ class WhyUsSection extends StatelessWidget {
                   'formación internacional en técnicas clásicas y vanguardistas.',
             ),
           ),
-          const SizedBox(width: AppSpacing.lg),
-          const Expanded(
+          SizedBox(width: AppSpacing.lg),
+          Expanded(
             flex: 5,
             child: Column(
               children: [
@@ -139,54 +143,56 @@ class _LargeFeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final imageSlot = ClipRRect(
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppRadius.lg),
-        ),
-        child: Image.asset(
-          'assets/images/why_us_bg.jpg',
-          fit: BoxFit.cover,
-          width: double.infinity,
-          errorBuilder: (_, __, ___) =>
-              const ColoredBox(color: AppColors.surfaceContainerHigh),
-        ),
-      );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageSlot = ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.lg),
+          ),
+          child: Image.asset(
+            'assets/images/why_us_bg.jpg',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            errorBuilder: (_, __, ___) =>
+                const ColoredBox(color: AppColors.surfaceContainerHigh),
+          ),
+        );
 
-      return Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Expand to fill bounded height (desktop); fixed height on mobile
-            constraints.hasBoundedHeight
-                ? Expanded(child: imageSlot)
-                : SizedBox(height: 200, child: imageSlot),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icon, color: AppColors.secondary, size: 28),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(title, style: AppTextStyles.headlineSm),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    description,
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.onSurfaceVariant,
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: AppRadius.borderRadiusLg,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Expand to fill bounded height (desktop); fixed height on mobile
+              constraints.hasBoundedHeight
+                  ? Expanded(child: imageSlot)
+                  : SizedBox(height: 200, child: imageSlot),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(icon, color: AppColors.secondary, size: 28),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(title, style: AppTextStyles.headlineSm),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      description,
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

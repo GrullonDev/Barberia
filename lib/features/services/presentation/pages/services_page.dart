@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../home/presentation/widgets/home_footer.dart';
-import '../../../home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 class ServicesPage extends StatelessWidget {
   const ServicesPage({super.key});
@@ -46,7 +46,10 @@ class ServicesPage extends StatelessWidget {
 
   Widget _buildHeroSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl + 32, horizontal: AppSpacing.gutter),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xxl + 32,
+        horizontal: AppSpacing.gutter,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF0C0F0F),
         image: DecorationImage(
@@ -82,11 +85,7 @@ class ServicesPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              Container(
-                width: 60,
-                height: 2,
-                color: AppColors.secondary,
-              ),
+              Container(width: 60, height: 2, color: AppColors.secondary),
               const SizedBox(height: AppSpacing.xl),
               Text(
                 'Elevating the barbershop experience through precision, tradition, and an unwavering commitment to the modern man\'s distinction.',
@@ -113,11 +112,7 @@ class ServicesPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 3,
-          height: 28,
-          color: AppColors.secondary,
-        ),
+        Container(width: 3, height: 28, color: AppColors.secondary),
         const SizedBox(width: AppSpacing.md),
         Text(
           title,
@@ -144,78 +139,87 @@ class ServicesPage extends StatelessWidget {
   // ─── Haircuts & Styling Section ─────────────────────────────────────────────
 
   Widget _buildHaircutsSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              children: [
-                _buildSectionHeader(
-                  title: 'Haircuts & Styling',
-                  subtitle: 'Masterfully sculpted silhouettes tailored to your identity.',
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile
-                    ? Column(
-                        children: [
-                          _buildCutCard(
-                            title: 'The Signature Cut',
-                            price: '\$65',
-                            duration: '45 MIN',
-                            desc: 'A bespoke consultation, precision haircut, hot towel finish, and signature style using premium pomades.',
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          _buildCutCard(
-                            title: 'Master Stylist Session',
-                            price: '\$85',
-                            duration: '60 MIN',
-                            desc: 'Extended consultation with our Lead Barber, including scalp analysis and specialized texture work.',
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          _buildQuoteCard(),
-                        ],
-                      )
-                    : IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                children: [
+                  _buildSectionHeader(
+                    title: 'Haircuts & Styling',
+                    subtitle:
+                        'Masterfully sculpted silhouettes tailored to your identity.',
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? Column(
                           children: [
-                            Expanded(
-                              child: _buildCutCard(
-                                title: 'The Signature Cut',
-                                price: '\$65',
-                                duration: '45 MIN',
-                                desc: 'A bespoke consultation, precision haircut, hot towel finish, and signature style using premium pomades.',
-                              ),
+                            _buildCutCard(
+                              title: 'The Signature Cut',
+                              price: '\$65',
+                              duration: '45 MIN',
+                              desc:
+                                  'A bespoke consultation, precision haircut, hot towel finish, and signature style using premium pomades.',
                             ),
-                            const SizedBox(width: AppSpacing.xl),
-                            Expanded(
-                              child: _buildCutCard(
-                                title: 'Master Stylist Session',
-                                price: '\$85',
-                                duration: '60 MIN',
-                                desc: 'Extended consultation with our Lead Barber, including scalp analysis and specialized texture work.',
-                              ),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildCutCard(
+                              title: 'Master Stylist Session',
+                              price: '\$85',
+                              duration: '60 MIN',
+                              desc:
+                                  'Extended consultation with our Lead Barber, including scalp analysis and specialized texture work.',
                             ),
-                            const SizedBox(width: AppSpacing.xl),
-                            Expanded(
-                              child: _buildQuoteCard(),
-                            ),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildQuoteCard(),
                           ],
+                        )
+                      : IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: _buildCutCard(
+                                  title: 'The Signature Cut',
+                                  price: '\$65',
+                                  duration: '45 MIN',
+                                  desc:
+                                      'A bespoke consultation, precision haircut, hot towel finish, and signature style using premium pomades.',
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.xl),
+                              Expanded(
+                                child: _buildCutCard(
+                                  title: 'Master Stylist Session',
+                                  price: '\$85',
+                                  duration: '60 MIN',
+                                  desc:
+                                      'Extended consultation with our Lead Barber, including scalp analysis and specialized texture work.',
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.xl),
+                              Expanded(child: _buildQuoteCard()),
+                            ],
+                          ),
                         ),
-                      ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildCutCard({
@@ -230,7 +234,10 @@ class ServicesPage extends StatelessWidget {
         border: Border.all(color: AppColors.outlineVariant, width: 1),
         borderRadius: BorderRadius.zero,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl + 4, vertical: AppSpacing.xxl),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl + 4,
+        vertical: AppSpacing.xxl,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -345,57 +352,70 @@ class ServicesPage extends StatelessWidget {
   // ─── Shaves & Beard Care Section ───────────────────────────────────────────
 
   Widget _buildShavesSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.surfaceContainerLowest,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              children: [
-                _buildSectionHeader(
-                  title: 'Shaves & Beard Care',
-                  subtitle: 'The ultimate ritual of heat, steel, and soothing botanicals.',
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile
-                    ? Column(
-                        children: [
-                          _buildPopularShaveCard(context, isMobile: true),
-                          const SizedBox(height: AppSpacing.xl),
-                          _buildBeardSculptureCard(),
-                        ],
-                      )
-                    : IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                children: [
+                  _buildSectionHeader(
+                    title: 'Shaves & Beard Care',
+                    subtitle:
+                        'The ultimate ritual of heat, steel, and soothing botanicals.',
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? Column(
                           children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildPopularShaveCard(context, isMobile: false),
-                            ),
-                            const SizedBox(width: AppSpacing.xl),
-                            Expanded(
-                              flex: 1,
-                              child: _buildBeardSculptureCard(),
-                            ),
+                            _buildPopularShaveCard(context, isMobile: true),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildBeardSculptureCard(),
                           ],
+                        )
+                      : IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _buildPopularShaveCard(
+                                  context,
+                                  isMobile: false,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.xl),
+                              Expanded(
+                                flex: 1,
+                                child: _buildBeardSculptureCard(),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
-  Widget _buildPopularShaveCard(BuildContext context, {required bool isMobile}) {
+  Widget _buildPopularShaveCard(
+    BuildContext context, {
+    required bool isMobile,
+  }) {
     final detailsWidget = Padding(
       padding: const EdgeInsets.all(AppSpacing.xl + 4),
       child: Column(
@@ -518,10 +538,7 @@ class ServicesPage extends StatelessWidget {
                     fit: BoxFit.cover,
                   ),
                 ),
-                Expanded(
-                  flex: 1,
-                  child: detailsWidget,
-                ),
+                Expanded(flex: 1, child: detailsWidget),
               ],
             ),
     );
@@ -534,7 +551,10 @@ class ServicesPage extends StatelessWidget {
         border: Border.all(color: AppColors.outlineVariant, width: 1),
         borderRadius: BorderRadius.zero,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl + 4, vertical: AppSpacing.xxl),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl + 4,
+        vertical: AppSpacing.xxl,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -649,52 +669,63 @@ class ServicesPage extends StatelessWidget {
       },
     ];
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              children: [
-                _buildSectionHeader(
-                  title: 'Spa & Extras',
-                  subtitle: 'Refined treatments for the discerning gentleman.',
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile
-                    ? Column(
-                        children: spaServices.map((service) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                            child: _buildSpaCard(service),
-                          );
-                        }).toList(),
-                      )
-                    : IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                children: [
+                  _buildSectionHeader(
+                    title: 'Spa & Extras',
+                    subtitle:
+                        'Refined treatments for the discerning gentleman.',
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? Column(
                           children: spaServices.map((service) {
-                            return Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                                child: _buildSpaCard(service),
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.xl,
                               ),
+                              child: _buildSpaCard(service),
                             );
                           }).toList(),
+                        )
+                      : IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: spaServices.map((service) {
+                              return Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.xs,
+                                  ),
+                                  child: _buildSpaCard(service),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         ),
-                      ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildSpaCard(Map<String, dynamic> service) {
@@ -772,75 +803,107 @@ class ServicesPage extends StatelessWidget {
   // ─── Executive Lounge Membership Section ───────────────────────────────────
 
   Widget _buildMembershipCtaSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.surfaceContainerLowest,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl + 24,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              children: [
-                Text(
-                  'The Executive Lounge Membership',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.headlineSm.copyWith(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFFE2E2E2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl + 24,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                children: [
+                  Text(
+                    'The Executive Lounge Membership',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.headlineSm.copyWith(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFE2E2E2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Join our exclusive circle for priority bookings, complimentary beverages, and a standing appointment that ensures you never have a hair out of place.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    height: 1.6,
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Join our exclusive circle for priority bookings, complimentary beverages, and a standing appointment that ensures you never have a hair out of place.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      height: 1.6,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildCtaButton(context, 'DISCOVER BENEFITS', true, '/membership'),
-                          const SizedBox(height: AppSpacing.md),
-                          _buildCtaButton(context, 'BOOK APPOINTMENT', false, '/booking'),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildCtaButton(context, 'DISCOVER BENEFITS', true, '/membership'),
-                          const SizedBox(width: AppSpacing.md),
-                          _buildCtaButton(context, 'BOOK APPOINTMENT', false, '/booking'),
-                        ],
-                      ),
-              ],
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildCtaButton(
+                              context,
+                              'DISCOVER BENEFITS',
+                              true,
+                              '/membership',
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _buildCtaButton(
+                              context,
+                              'BOOK APPOINTMENT',
+                              false,
+                              '/booking',
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildCtaButton(
+                              context,
+                              'DISCOVER BENEFITS',
+                              true,
+                              '/membership',
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            _buildCtaButton(
+                              context,
+                              'BOOK APPOINTMENT',
+                              false,
+                              '/booking',
+                            ),
+                          ],
+                        ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
-  Widget _buildCtaButton(BuildContext context, String text, bool isSolid, String route) {
+  Widget _buildCtaButton(
+    BuildContext context,
+    String text,
+    bool isSolid,
+    String route,
+  ) {
     return ElevatedButton(
       onPressed: () => context.go(route),
       style: ElevatedButton.styleFrom(
         backgroundColor: isSolid ? AppColors.secondary : Colors.transparent,
         foregroundColor: isSolid ? AppColors.onSecondary : AppColors.secondary,
         elevation: 0,
-        side: isSolid ? null : const BorderSide(color: AppColors.secondary, width: 1.5),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl, vertical: AppSpacing.md + 4),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
+        side: isSolid
+            ? null
+            : const BorderSide(color: AppColors.secondary, width: 1.5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxl,
+          vertical: AppSpacing.md + 4,
         ),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: Text(
         text,

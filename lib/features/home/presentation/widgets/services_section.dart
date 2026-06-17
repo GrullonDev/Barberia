@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
 
 class ServicesSection extends StatelessWidget {
   const ServicesSection({super.key});
@@ -31,51 +31,56 @@ class ServicesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          vertical: 96,
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              children: [
-                const _SectionTitle(title: 'Nuestros Servicios'),
-                const SizedBox(height: 56),
-                isMobile
-                    ? Column(
-                        children: _services
-                            .map(
-                              (s) => Padding(
-                                padding: const EdgeInsets.only(
-                                    bottom: AppSpacing.lg),
-                                child: _ServiceCard(data: s),
-                              ),
-                            )
-                            .toList(),
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (int i = 0; i < _services.length; i++) ...[
-                            Expanded(child: _ServiceCard(data: _services[i])),
-                            if (i < _services.length - 1)
-                              const SizedBox(width: AppSpacing.lg),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            vertical: 96,
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                children: [
+                  const _SectionTitle(title: 'Nuestros Servicios'),
+                  const SizedBox(height: 56),
+                  isMobile
+                      ? Column(
+                          children: _services
+                              .map(
+                                (s) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.lg,
+                                  ),
+                                  child: _ServiceCard(data: s),
+                                ),
+                              )
+                              .toList(),
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (int i = 0; i < _services.length; i++) ...[
+                              Expanded(child: _ServiceCard(data: _services[i])),
+                              if (i < _services.length - 1)
+                                const SizedBox(width: AppSpacing.lg),
+                            ],
                           ],
-                        ],
-                      ),
-              ],
+                        ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -158,8 +163,9 @@ class _ServiceCard extends StatelessWidget {
                 ),
                 child: Text(
                   'DETALLES',
-                  style: AppTextStyles.labelMd
-                      .copyWith(color: AppColors.secondary),
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.secondary,
+                  ),
                 ),
               ),
             ],

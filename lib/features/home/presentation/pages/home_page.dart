@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../widgets/cta_banner_section.dart';
-import '../widgets/gallery_section.dart';
-import '../widgets/hero_section.dart';
-import '../widgets/home_footer.dart';
-import '../widgets/home_nav_bar.dart';
-import '../widgets/services_section.dart';
-import '../widgets/why_us_section.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/features/home/presentation/widgets/cta_banner_section.dart';
+import 'package:barberia/features/home/presentation/widgets/gallery_section.dart';
+import 'package:barberia/features/home/presentation/widgets/hero_section.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/features/home/presentation/widgets/services_section.dart';
+import 'package:barberia/features/home/presentation/widgets/why_us_section.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,14 +27,12 @@ class _HomePageState extends State<HomePage> {
       drawer: const _MobileDrawer(),
       body: Column(
         children: [
-          HomeNavBar(
-            onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
-          Expanded(
+          HomeNavBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
+          const Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: const [
+                children: [
                   HeroSection(),
                   ServicesSection(),
                   GallerySection(),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../home/presentation/widgets/home_footer.dart';
-import '../../../home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 class BarbersPage extends StatelessWidget {
   const BarbersPage({super.key});
@@ -16,7 +16,8 @@ class BarbersPage extends StatelessWidget {
       'tag': 'MASTER BARBER',
       'image': 'assets/images/barber_julian_vance.png',
       'subtags': ['Scissor Cuts', 'Beard Sculpting'],
-      'description': 'With over 15 years of international experience, Julian blends classic London techniques with modern aesthetic precision. His signature \'Sculpted Scissor Cut\' has become a lounge legend.',
+      'description':
+          'With over 15 years of international experience, Julian blends classic London techniques with modern aesthetic precision. His signature \'Sculpted Scissor Cut\' has become a lounge legend.',
       'buttonText': 'BOOK WITH JULIAN',
     },
     {
@@ -24,7 +25,8 @@ class BarbersPage extends StatelessWidget {
       'tag': 'DIRECTOR BARBER',
       'image': 'assets/images/barber_marcus_reed.png',
       'subtags': ['Classic Shaves', 'Texture Specialists'],
-      'description': 'Elias specializes in the ritual of the traditional straight-razor shave. For him, grooming is an art of patience and detail, ensuring every guest leaves feeling completely restored.',
+      'description':
+          'Elias specializes in the ritual of the traditional straight-razor shave. For him, grooming is an art of patience and detail, ensuring every guest leaves feeling completely restored.',
       'buttonText': 'BOOK WITH ELIAS',
     },
     {
@@ -32,7 +34,8 @@ class BarbersPage extends StatelessWidget {
       'tag': 'SENIOR ARTISAN',
       'image': 'assets/images/barber_dorian_grey.png',
       'subtags': ['Modern Fades', 'Hair Coloring'],
-      'description': 'Bringing a contemporary edge to the Lounge, Sebastian is a master of the precise skin fade and avant-garde texturing. He is the go-to for those seeking a sharp, modern evolution.',
+      'description':
+          'Bringing a contemporary edge to the Lounge, Sebastian is a master of the precise skin fade and avant-garde texturing. He is the go-to for those seeking a sharp, modern evolution.',
       'buttonText': 'BOOK WITH SEBASTIAN',
     },
   ];
@@ -71,7 +74,10 @@ class BarbersPage extends StatelessWidget {
 
   Widget _buildHeaderSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(top: AppSpacing.xxl + 16, bottom: AppSpacing.xl),
+      padding: const EdgeInsets.only(
+        top: AppSpacing.xxl + 16,
+        bottom: AppSpacing.xl,
+      ),
       color: AppColors.background,
       child: Center(
         child: Column(
@@ -94,11 +100,7 @@ class BarbersPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Container(
-              width: 50,
-              height: 2,
-              color: AppColors.secondary,
-            ),
+            Container(width: 50, height: 2, color: AppColors.secondary),
           ],
         ),
       ),
@@ -108,41 +110,49 @@ class BarbersPage extends StatelessWidget {
   // ─── Artisans Section ───────────────────────────────────────────────────────
 
   Widget _buildArtisansSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: isMobile
-                ? Column(
-                    children: _artisans.map((artisan) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                        child: _buildArtisanCard(context, artisan),
-                      );
-                    }).toList(),
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _artisans.map((artisan) {
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                          child: _buildArtisanCard(context, artisan),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xl,
           ),
-        ),
-      );
-    });
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: isMobile
+                  ? Column(
+                      children: _artisans.map((artisan) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                          child: _buildArtisanCard(context, artisan),
+                        );
+                      }).toList(),
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _artisans.map((artisan) {
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                            ),
+                            child: _buildArtisanCard(context, artisan),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildArtisanCard(BuildContext context, Map<String, dynamic> artisan) {
@@ -177,7 +187,10 @@ class BarbersPage extends StatelessWidget {
                 left: 12,
                 bottom: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   color: AppColors.secondary,
                   child: Text(
                     artisan['tag'],
@@ -213,10 +226,16 @@ class BarbersPage extends StatelessWidget {
                   runSpacing: AppSpacing.xs,
                   children: (artisan['subtags'] as List<String>).map((tag) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.transparent,
-                        border: Border.all(color: AppColors.outlineVariant, width: 1),
+                        border: Border.all(
+                          color: AppColors.outlineVariant,
+                          width: 1,
+                        ),
                         borderRadius: BorderRadius.zero,
                       ),
                       child: Text(
@@ -245,7 +264,10 @@ class BarbersPage extends StatelessWidget {
                   onPressed: () => context.go('/booking'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.secondary,
-                    side: const BorderSide(color: AppColors.secondary, width: 1.5),
+                    side: const BorderSide(
+                      color: AppColors.secondary,
+                      width: 1.5,
+                    ),
                     minimumSize: const Size(double.infinity, 48),
                     shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.zero,
@@ -271,75 +293,87 @@ class BarbersPage extends StatelessWidget {
   // ─── Join Exclusive Circle Section ─────────────────────────────────────────
 
   Widget _buildJoinCircleSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl, vertical: AppSpacing.xxl + 8),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                border: Border.all(color: AppColors.outlineVariant, width: 1),
-                borderRadius: BorderRadius.zero,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
               ),
-              child: Column(
-                children: [
-                  Text(
-                    'Join The Exclusive Circle',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.headlineSm.copyWith(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFFE2E2E2),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: Text(
-                      'Our Membership offers more than just a cut; it\'s a commitment to excellence. Secure priority bookings with your preferred artisan and enjoy the Lounge\'s private amenities.',
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xxl,
+                  vertical: AppSpacing.xxl + 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  border: Border.all(color: AppColors.outlineVariant, width: 1),
+                  borderRadius: BorderRadius.zero,
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Join The Exclusive Circle',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyMd.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                        height: 1.6,
+                      style: AppTextStyles.headlineSm.copyWith(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFE2E2E2),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  ElevatedButton(
-                    onPressed: () => context.go('/membership'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      foregroundColor: AppColors.onSecondary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl, vertical: AppSpacing.md + 4),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.zero,
+                    const SizedBox(height: AppSpacing.md),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: Text(
+                        'Our Membership offers more than just a cut; it\'s a commitment to excellence. Secure priority bookings with your preferred artisan and enjoy the Lounge\'s private amenities.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodyMd.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          height: 1.6,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      'EXPLORE MEMBERSHIP',
-                      style: AppTextStyles.labelMd.copyWith(
-                        color: AppColors.onSecondary,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.08 * 14,
+                    const SizedBox(height: AppSpacing.xl),
+                    ElevatedButton(
+                      onPressed: () => context.go('/membership'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.secondary,
+                        foregroundColor: AppColors.onSecondary,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xxl,
+                          vertical: AppSpacing.md + 4,
+                        ),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero,
+                        ),
+                      ),
+                      child: Text(
+                        'EXPLORE MEMBERSHIP',
+                        style: AppTextStyles.labelMd.copyWith(
+                          color: AppColors.onSecondary,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.08 * 14,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 

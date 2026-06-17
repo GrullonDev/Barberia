@@ -630,7 +630,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   void _finishActiveSession() {
-    if (_activeSession == null) return;
+    if (_activeSession == null) {
+      return;
+    }
     final name = _activeSession!['clientName'];
     final service = _activeSession!['service'];
 

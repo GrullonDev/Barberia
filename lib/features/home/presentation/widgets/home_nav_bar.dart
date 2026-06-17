@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
 
 class HomeNavBar extends StatelessWidget {
-  const HomeNavBar({
-    required this.onMenuTap,
-    this.activePage,
-    super.key,
-  });
+  const HomeNavBar({required this.onMenuTap, this.activePage, super.key});
 
   final VoidCallback onMenuTap;
   final String? activePage;
@@ -24,18 +20,21 @@ class HomeNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        height: height,
-        color: AppColors.surfaceContainerLowest,
-        padding: EdgeInsets.symmetric(
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-        ),
-        child: isMobile ? _buildMobile() : _buildDesktop(),
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          height: height,
+          color: AppColors.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+          ),
+          child: isMobile ? _buildMobile() : _buildDesktop(),
+        );
+      },
+    );
   }
 
   Widget _buildDesktop() {
@@ -90,11 +89,7 @@ class _Logo extends StatelessWidget {
 }
 
 class _NavLink extends StatelessWidget {
-  const _NavLink({
-    required this.label,
-    this.route,
-    this.isActive = false,
-  });
+  const _NavLink({required this.label, this.route, this.isActive = false});
 
   final String label;
   final String? route;
@@ -107,8 +102,9 @@ class _NavLink extends StatelessWidget {
       child: TextButton(
         onPressed: route != null ? () => context.go(route!) : () {},
         style: TextButton.styleFrom(
-          foregroundColor:
-              isActive ? AppColors.secondary : AppColors.onSurfaceVariant,
+          foregroundColor: isActive
+              ? AppColors.secondary
+              : AppColors.onSurfaceVariant,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -151,9 +147,7 @@ class _CtaButton extends StatelessWidget {
           vertical: AppSpacing.sm + 4,
         ),
         elevation: 0,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: Text(
         'BOOK APPOINTMENT',

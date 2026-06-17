@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
 
 class HomeFooter extends StatelessWidget {
   const HomeFooter({super.key});
@@ -16,29 +16,33 @@ class HomeFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
-          border: Border(
-            top: BorderSide(color: AppColors.outlineVariant, width: 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            border: Border(
+              top: BorderSide(color: AppColors.outlineVariant, width: 1),
+            ),
           ),
-        ),
-        padding: EdgeInsets.symmetric(
-          vertical: AppSpacing.xl,
-          horizontal:
-              isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: isMobile ? _buildMobile(context) : _buildDesktop(context),
+          padding: EdgeInsets.symmetric(
+            vertical: AppSpacing.xl,
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
           ),
-        ),
-      );
-    });
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: isMobile ? _buildMobile(context) : _buildDesktop(context),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildDesktop(BuildContext context) {
@@ -105,9 +109,7 @@ class HomeFooter extends StatelessWidget {
           children: _links.map((link) {
             return _FooterLink(
               label: link,
-              onTap: link == 'Staff Access'
-                  ? () => context.go('/login')
-                  : null,
+              onTap: link == 'Staff Access' ? () => context.go('/login') : null,
             );
           }).toList(),
         ),

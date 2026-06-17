@@ -78,21 +78,21 @@ abstract final class AppSpacing {
   static const double marginDesktop = 48;
 
   // Derived multiples of base
-  static const double xs = base / 2;  // 4
-  static const double sm = base;       // 8
-  static const double md = base * 2;   // 16
-  static const double lg = base * 3;   // 24
-  static const double xl = base * 4;   // 32
-  static const double xxl = base * 6;  // 48
+  static const double xs = base / 2; // 4
+  static const double sm = base; // 8
+  static const double md = base * 2; // 16
+  static const double lg = base * 3; // 24
+  static const double xl = base * 4; // 32
+  static const double xxl = base * 6; // 48
 }
 
 // ─── Border-radius tokens ─────────────────────────────────────────────────────
 
 abstract final class AppRadius {
-  static const double sm = 2;   // 0.125rem
-  static const double md = 6;   // 0.375rem
-  static const double lg = 8;   // 0.5rem
-  static const double xl = 12;  // 0.75rem
+  static const double sm = 2; // 0.125rem
+  static const double md = 6; // 0.375rem
+  static const double lg = 8; // 0.5rem
+  static const double xl = 12; // 0.75rem
   static const double full = 9999;
 
   static const borderRadiusSm = BorderRadius.all(Radius.circular(sm));
@@ -116,49 +116,49 @@ abstract final class AppTextStyles {
       );
 
   static TextStyle get headlineMd => GoogleFonts.playfairDisplay(
-        fontSize: 32,
-        fontWeight: FontWeight.w600,
-        height: 1.3,
-        color: AppColors.onSurface,
-      );
+    fontSize: 32,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
+    color: AppColors.onSurface,
+  );
 
   static TextStyle get headlineSm => GoogleFonts.playfairDisplay(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        height: 1.4,
-        color: AppColors.onSurface,
-      );
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+    color: AppColors.onSurface,
+  );
 
   // Hanken Grotesk — body / label roles
   static TextStyle get bodyLg => GoogleFonts.hankenGrotesk(
-        fontSize: 18,
-        fontWeight: FontWeight.w400,
-        height: 1.6,
-        color: AppColors.onSurface,
-      );
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
+    height: 1.6,
+    color: AppColors.onSurface,
+  );
 
   static TextStyle get bodyMd => GoogleFonts.hankenGrotesk(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        height: 1.6,
-        color: AppColors.onSurface,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 1.6,
+    color: AppColors.onSurface,
+  );
 
   static TextStyle get labelMd => GoogleFonts.hankenGrotesk(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        height: 1.2,
-        letterSpacing: 0.05 * 14,
-        color: AppColors.onSurface,
-      );
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    letterSpacing: 0.05 * 14,
+    color: AppColors.onSurface,
+  );
 
   static TextStyle get labelSm => GoogleFonts.hankenGrotesk(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        height: 1.2,
-        letterSpacing: 0.03 * 12,
-        color: AppColors.onSurface,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    height: 1.2,
+    letterSpacing: 0.03 * 12,
+    color: AppColors.onSurface,
+  );
 }
 
 // ─── ColorScheme ──────────────────────────────────────────────────────────────
@@ -236,9 +236,7 @@ ThemeData buildAppTheme() {
     cardTheme: const CardThemeData(
       color: AppColors.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusLg,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -325,8 +323,9 @@ ThemeData buildAppTheme() {
         if (states.contains(WidgetState.selected)) {
           return AppTextStyles.labelSm.copyWith(color: AppColors.secondary);
         }
-        return AppTextStyles.labelSm
-            .copyWith(color: AppColors.onSurfaceVariant);
+        return AppTextStyles.labelSm.copyWith(
+          color: AppColors.onSurfaceVariant,
+        );
       }),
     ),
     chipTheme: ChipThemeData(
@@ -340,8 +339,9 @@ ThemeData buildAppTheme() {
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.surfaceContainerHighest,
-      contentTextStyle:
-          AppTextStyles.bodyMd.copyWith(color: AppColors.onSurface),
+      contentTextStyle: AppTextStyles.bodyMd.copyWith(
+        color: AppColors.onSurface,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: AppRadius.borderRadiusMd,
       ),
@@ -350,9 +350,7 @@ ThemeData buildAppTheme() {
     dialogTheme: const DialogThemeData(
       backgroundColor: AppColors.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusLg,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
     ),
   );
 }

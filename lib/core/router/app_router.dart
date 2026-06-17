@@ -13,7 +13,8 @@ import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>(
   (ref) => GoRouter(
-    initialLocation: (!kIsWeb &&
+    initialLocation:
+        (!kIsWeb &&
             (defaultTargetPlatform == TargetPlatform.iOS ||
                 defaultTargetPlatform == TargetPlatform.android))
         ? '/login'
@@ -30,8 +31,10 @@ final appRouterProvider = Provider<GoRouter>(
       GoRoute(path: '/membership', builder: (_, __) => const MembershipPage()),
       GoRoute(path: '/services', builder: (_, __) => const ServicesPage()),
       GoRoute(path: '/login', builder: (_, __) => const StaffLoginPage()),
-      GoRoute(path: '/barber/portal', builder: (_, __) => const BarberPortalPage()),
+      GoRoute(
+        path: '/barber/portal',
+        builder: (_, __) => const BarberPortalPage(),
+      ),
     ],
   ),
 );
-

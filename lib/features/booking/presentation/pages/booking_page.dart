@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../home/presentation/widgets/home_footer.dart';
-import '../../../home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 class BookingPage extends StatefulWidget {
   const BookingPage({super.key});
@@ -80,7 +80,10 @@ class _BookingPageState extends State<BookingPage> {
 
   Widget _buildHeaderSection() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.gutter),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xxl,
+        horizontal: AppSpacing.gutter,
+      ),
       color: AppColors.background,
       child: Center(
         child: ConstrainedBox(
@@ -124,23 +127,11 @@ class _BookingPageState extends State<BookingPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildStep(
-                number: '1',
-                label: 'BARBERO',
-                isActive: true,
-              ),
+              _buildStep(number: '1', label: 'BARBERO', isActive: true),
               _buildStepDivider(),
-              _buildStep(
-                number: '2',
-                label: 'AGENDA',
-                isActive: false,
-              ),
+              _buildStep(number: '2', label: 'AGENDA', isActive: false),
               _buildStepDivider(),
-              _buildStep(
-                number: '3',
-                label: 'RESUMEN',
-                isActive: false,
-              ),
+              _buildStep(number: '3', label: 'RESUMEN', isActive: false),
             ],
           ),
         ),
@@ -170,7 +161,9 @@ class _BookingPageState extends State<BookingPage> {
             child: Text(
               number,
               style: AppTextStyles.labelMd.copyWith(
-                color: isActive ? AppColors.secondary : AppColors.onSurfaceVariant,
+                color: isActive
+                    ? AppColors.secondary
+                    : AppColors.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -193,7 +186,9 @@ class _BookingPageState extends State<BookingPage> {
     return Container(
       width: 64,
       height: 1,
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md).copyWith(bottom: 20),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+      ).copyWith(bottom: 20),
       color: AppColors.outlineVariant,
     );
   }
@@ -201,43 +196,51 @@ class _BookingPageState extends State<BookingPage> {
   // ─── Barber Selection Grid ──────────────────────────────────────────────────
 
   Widget _buildBarberSelectionSection() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Selecciona tu Barbero',
-                  style: AppTextStyles.headlineMd.copyWith(
-                    color: const Color(0xFFE2E2E2),
-                    fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selecciona tu Barbero',
+                    style: AppTextStyles.headlineMd.copyWith(
+                      color: const Color(0xFFE2E2E2),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Cada uno de nuestros expertos tiene un estilo único de maestría.',
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.onSurfaceVariant,
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Cada uno de nuestros expertos tiene un estilo único de maestría.',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile ? _buildBarberListMobile() : _buildBarberGridDesktop(),
-                const SizedBox(height: AppSpacing.xxl + 16),
-              ],
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? _buildBarberListMobile()
+                      : _buildBarberGridDesktop(),
+                  const SizedBox(height: AppSpacing.xxl + 16),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildBarberGridDesktop() {
@@ -277,7 +280,9 @@ class _BookingPageState extends State<BookingPage> {
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerLow,
             border: Border.all(
-              color: isSelected ? AppColors.secondary : AppColors.outlineVariant,
+              color: isSelected
+                  ? AppColors.secondary
+                  : AppColors.outlineVariant,
               width: isSelected ? 1.5 : 1,
             ),
             borderRadius: BorderRadius.zero,
@@ -289,7 +294,8 @@ class _BookingPageState extends State<BookingPage> {
               Stack(
                 children: [
                   AspectRatio(
-                    aspectRatio: 1.0, // Square image aspect ratio matching mockup
+                    aspectRatio:
+                        1.0, // Square image aspect ratio matching mockup
                     child: Image.asset(
                       barber['image'],
                       fit: BoxFit.cover,
@@ -307,7 +313,10 @@ class _BookingPageState extends State<BookingPage> {
                     left: 12,
                     bottom: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       color: AppColors.secondary,
                       child: Text(
                         barber['tag'],

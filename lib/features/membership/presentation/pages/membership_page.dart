@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../home/presentation/widgets/home_footer.dart';
-import '../../../home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
+import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 
 class MembershipPage extends StatelessWidget {
   const MembershipPage({super.key});
@@ -45,7 +45,10 @@ class MembershipPage extends StatelessWidget {
 
   Widget _buildHeroSection(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl + 24, horizontal: AppSpacing.gutter),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xxl + 24,
+        horizontal: AppSpacing.gutter,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF0C0F0F),
         image: DecorationImage(
@@ -81,11 +84,7 @@ class MembershipPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              Container(
-                width: 60,
-                height: 2,
-                color: AppColors.secondary,
-              ),
+              Container(width: 60, height: 2, color: AppColors.secondary),
               const SizedBox(height: AppSpacing.xl),
               Text(
                 'Experience the pinnacle of grooming. Our exclusive memberships offer more than just a cut—they provide a sanctuary of style, priority access, and the ultimate luxury of time.',
@@ -106,119 +105,125 @@ class MembershipPage extends StatelessWidget {
   // ─── Pricing Section ────────────────────────────────────────────────────────
 
   Widget _buildPricingSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: isMobile
-                ? Column(
-                    children: [
-                      _buildPricingCard(
-                        context: context,
-                        title: 'Essential',
-                        price: '\$85',
-                        bullets: [
-                          '1 Signature Monthly Cut',
-                          '10% Off All Retail Products',
-                          'Complimentary Coffee or Water',
-                          'Access to Select Events',
-                        ],
-                        isHighlighted: false,
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildPricingCard(
-                        context: context,
-                        title: 'Prestige',
-                        price: '\$150',
-                        bullets: [
-                          '2 Signature Monthly Cuts',
-                          'Priority Booking Status',
-                          '1 Hot Towel Shave per Quarter',
-                          'Premium Drink Service',
-                          '15% Off All Retail Products',
-                        ],
-                        isHighlighted: true,
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildPricingCard(
-                        context: context,
-                        title: 'Legendary',
-                        price: '\$225',
-                        bullets: [
-                          'Unlimited Cuts & Styling',
-                          'VIP Private Suite Access',
-                          'Monthly Signature Product Kit',
-                          'Valet Parking Service',
-                          'Concierge Guest Passes',
-                        ],
-                        isHighlighted: false,
-                      ),
-                    ],
-                  )
-                : IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: isMobile
+                  ? Column(
                       children: [
-                        Expanded(
-                          child: _buildPricingCard(
-                            context: context,
-                            title: 'Essential',
-                            price: '\$85',
-                            bullets: [
-                              '1 Signature Monthly Cut',
-                              '10% Off All Retail Products',
-                              'Complimentary Coffee or Water',
-                              'Access to Select Events',
-                            ],
-                            isHighlighted: false,
-                          ),
+                        _buildPricingCard(
+                          context: context,
+                          title: 'Essential',
+                          price: '\$85',
+                          bullets: [
+                            '1 Signature Monthly Cut',
+                            '10% Off All Retail Products',
+                            'Complimentary Coffee or Water',
+                            'Access to Select Events',
+                          ],
+                          isHighlighted: false,
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: _buildPricingCard(
-                            context: context,
-                            title: 'Prestige',
-                            price: '\$150',
-                            bullets: [
-                              '2 Signature Monthly Cuts',
-                              'Priority Booking Status',
-                              '1 Hot Towel Shave per Quarter',
-                              'Premium Drink Service',
-                              '15% Off All Retail Products',
-                            ],
-                            isHighlighted: true,
-                          ),
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildPricingCard(
+                          context: context,
+                          title: 'Prestige',
+                          price: '\$150',
+                          bullets: [
+                            '2 Signature Monthly Cuts',
+                            'Priority Booking Status',
+                            '1 Hot Towel Shave per Quarter',
+                            'Premium Drink Service',
+                            '15% Off All Retail Products',
+                          ],
+                          isHighlighted: true,
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: _buildPricingCard(
-                            context: context,
-                            title: 'Legendary',
-                            price: '\$225',
-                            bullets: [
-                              'Unlimited Cuts & Styling',
-                              'VIP Private Suite Access',
-                              'Monthly Signature Product Kit',
-                              'Valet Parking Service',
-                              'Concierge Guest Passes',
-                            ],
-                            isHighlighted: false,
-                          ),
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildPricingCard(
+                          context: context,
+                          title: 'Legendary',
+                          price: '\$225',
+                          bullets: [
+                            'Unlimited Cuts & Styling',
+                            'VIP Private Suite Access',
+                            'Monthly Signature Product Kit',
+                            'Valet Parking Service',
+                            'Concierge Guest Passes',
+                          ],
+                          isHighlighted: false,
                         ),
                       ],
+                    )
+                  : IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildPricingCard(
+                              context: context,
+                              title: 'Essential',
+                              price: '\$85',
+                              bullets: [
+                                '1 Signature Monthly Cut',
+                                '10% Off All Retail Products',
+                                'Complimentary Coffee or Water',
+                                'Access to Select Events',
+                              ],
+                              isHighlighted: false,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _buildPricingCard(
+                              context: context,
+                              title: 'Prestige',
+                              price: '\$150',
+                              bullets: [
+                                '2 Signature Monthly Cuts',
+                                'Priority Booking Status',
+                                '1 Hot Towel Shave per Quarter',
+                                'Premium Drink Service',
+                                '15% Off All Retail Products',
+                              ],
+                              isHighlighted: true,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: _buildPricingCard(
+                              context: context,
+                              title: 'Legendary',
+                              price: '\$225',
+                              bullets: [
+                                'Unlimited Cuts & Styling',
+                                'VIP Private Suite Access',
+                                'Monthly Signature Product Kit',
+                                'Valet Parking Service',
+                                'Concierge Guest Passes',
+                              ],
+                              isHighlighted: false,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildPricingCard({
@@ -241,7 +246,10 @@ class MembershipPage extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.xxl),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.xxl,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -249,7 +257,9 @@ class MembershipPage extends StatelessWidget {
                 Text(
                   title,
                   style: AppTextStyles.headlineSm.copyWith(
-                    color: isHighlighted ? AppColors.secondary : const Color(0xFFE2E2E2),
+                    color: isHighlighted
+                        ? AppColors.secondary
+                        : const Color(0xFFE2E2E2),
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -312,10 +322,19 @@ class MembershipPage extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () => context.go('/booking'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isHighlighted ? AppColors.secondary : Colors.transparent,
-                    foregroundColor: isHighlighted ? AppColors.onSecondary : AppColors.secondary,
+                    backgroundColor: isHighlighted
+                        ? AppColors.secondary
+                        : Colors.transparent,
+                    foregroundColor: isHighlighted
+                        ? AppColors.onSecondary
+                        : AppColors.secondary,
                     elevation: 0,
-                    side: isHighlighted ? null : const BorderSide(color: AppColors.secondary, width: 1.5),
+                    side: isHighlighted
+                        ? null
+                        : const BorderSide(
+                            color: AppColors.secondary,
+                            width: 1.5,
+                          ),
                     minimumSize: const Size(double.infinity, 48),
                     shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.zero,
@@ -324,7 +343,9 @@ class MembershipPage extends StatelessWidget {
                   child: Text(
                     'JOIN THE CLUB',
                     style: AppTextStyles.labelMd.copyWith(
-                      color: isHighlighted ? AppColors.onSecondary : AppColors.secondary,
+                      color: isHighlighted
+                          ? AppColors.onSecondary
+                          : AppColors.secondary,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.08 * 14,
                     ),
@@ -340,7 +361,10 @@ class MembershipPage extends StatelessWidget {
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
                   color: AppColors.secondary,
                   child: Text(
                     'MOST POPULAR',
@@ -371,12 +395,14 @@ class MembershipPage extends StatelessWidget {
       {
         'icon': Icons.local_bar_outlined,
         'title': 'Complimentary Bar',
-        'desc': 'Enjoy a curated selection of premium whiskeys and artisan coffee.',
+        'desc':
+            'Enjoy a curated selection of premium whiskeys and artisan coffee.',
       },
       {
         'icon': Icons.shopping_bag_outlined,
         'title': 'Signature Products',
-        'desc': 'Exclusive discounts and early access to our private label scents.',
+        'desc':
+            'Exclusive discounts and early access to our private label scents.',
       },
       {
         'icon': Icons.calendar_today_outlined,
@@ -385,61 +411,71 @@ class MembershipPage extends StatelessWidget {
       },
     ];
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.surfaceContainerLowest,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl + 16,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: Column(
-              children: [
-                Text(
-                  'Unrivaled Benefits',
-                  style: AppTextStyles.headlineSm.copyWith(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFFE2E2E2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl + 16,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSpacing.containerMax,
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Unrivaled Benefits',
+                    style: AppTextStyles.headlineSm.copyWith(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFE2E2E2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'More than a haircut. A commitment to excellence.',
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.onSurfaceVariant,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'More than a haircut. A commitment to excellence.',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xxl + 16),
-                isMobile
-                    ? Column(
-                        children: benefits.map((b) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                            child: _buildBenefitCard(b),
-                          );
-                        }).toList(),
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: benefits.map((b) {
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.xxl + 16),
+                  isMobile
+                      ? Column(
+                          children: benefits.map((b) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.xl,
+                              ),
                               child: _buildBenefitCard(b),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-              ],
+                            );
+                          }).toList(),
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: benefits.map((b) {
+                            return Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.sm,
+                                ),
+                                child: _buildBenefitCard(b),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildBenefitCard(Map<String, dynamic> b) {
@@ -454,11 +490,7 @@ class MembershipPage extends StatelessWidget {
             borderRadius: BorderRadius.zero,
           ),
           child: Center(
-            child: Icon(
-              b['icon'],
-              color: AppColors.secondary,
-              size: 20,
-            ),
+            child: Icon(b['icon'], color: AppColors.secondary, size: 20),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -489,61 +521,73 @@ class MembershipPage extends StatelessWidget {
   // ─── Elevate Presence Section ──────────────────────────────────────────────
 
   Widget _buildElevateSection(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < Breakpoints.tablet;
-      return Container(
-        color: AppColors.background,
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? AppSpacing.marginMobile : AppSpacing.marginDesktop,
-          vertical: AppSpacing.xxl + 24,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              children: [
-                Text(
-                  'Ready to elevate your presence?',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.headlineSm.copyWith(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFFE2E2E2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        return Container(
+          color: AppColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile
+                ? AppSpacing.marginMobile
+                : AppSpacing.marginDesktop,
+            vertical: AppSpacing.xxl + 24,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                children: [
+                  Text(
+                    'Ready to elevate your presence?',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.headlineSm.copyWith(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFE2E2E2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Membership slots are limited to ensure the highest quality of service for our Inner Circle. Apply today to secure your place.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyMd.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    height: 1.6,
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Membership slots are limited to ensure the highest quality of service for our Inner Circle. Apply today to secure your place.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      height: 1.6,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                isMobile
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildElevateButton(context, 'JOIN PRESTIGE', true),
-                          const SizedBox(height: AppSpacing.md),
-                          _buildElevateButton(context, 'CONTACT CONCIERGE', false),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildElevateButton(context, 'JOIN PRESTIGE', true),
-                          const SizedBox(width: AppSpacing.md),
-                          _buildElevateButton(context, 'CONTACT CONCIERGE', false),
-                        ],
-                      ),
-              ],
+                  const SizedBox(height: AppSpacing.xxl),
+                  isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildElevateButton(context, 'JOIN PRESTIGE', true),
+                            const SizedBox(height: AppSpacing.md),
+                            _buildElevateButton(
+                              context,
+                              'CONTACT CONCIERGE',
+                              false,
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildElevateButton(context, 'JOIN PRESTIGE', true),
+                            const SizedBox(width: AppSpacing.md),
+                            _buildElevateButton(
+                              context,
+                              'CONTACT CONCIERGE',
+                              false,
+                            ),
+                          ],
+                        ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildElevateButton(BuildContext context, String text, bool isSolid) {
@@ -553,11 +597,14 @@ class MembershipPage extends StatelessWidget {
         backgroundColor: isSolid ? AppColors.secondary : Colors.transparent,
         foregroundColor: isSolid ? AppColors.onSecondary : AppColors.secondary,
         elevation: 0,
-        side: isSolid ? null : const BorderSide(color: AppColors.secondary, width: 1.5),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl, vertical: AppSpacing.md + 4),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
+        side: isSolid
+            ? null
+            : const BorderSide(color: AppColors.secondary, width: 1.5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxl,
+          vertical: AppSpacing.md + 4,
         ),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: Text(
         text,
