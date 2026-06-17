@@ -1,24 +1,42 @@
+import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
+import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
+import 'package:barberia/features/barbers/presentation/pages/barber_portal_page.dart';
+import 'package:barberia/features/barbers/presentation/pages/barbers_page.dart';
 import 'package:barberia/features/booking/presentation/pages/booking_page.dart';
 import 'package:barberia/features/gallery/presentation/pages/gallery_page.dart';
 import 'package:barberia/features/home/presentation/pages/home_page.dart';
-import 'package:barberia/features/personalizer/presentation/pages/custom_cut_personalizer_page.dart';
-import 'package:barberia/features/barbers/presentation/pages/barbers_page.dart';
 import 'package:barberia/features/membership/presentation/pages/membership_page.dart';
+import 'package:barberia/features/personalizer/presentation/pages/custom_cut_personalizer_page.dart';
 import 'package:barberia/features/services/presentation/pages/services_page.dart';
-import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
-import 'package:barberia/features/barbers/presentation/pages/barber_portal_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-final appRouterProvider = Provider<GoRouter>(
-  (ref) => GoRouter(
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final auth = ref.watch(authProvider);
+
+  return GoRouter(
     initialLocation:
         (!kIsWeb &&
             (defaultTargetPlatform == TargetPlatform.iOS ||
                 defaultTargetPlatform == TargetPlatform.android))
         ? '/login'
         : '/',
+    redirect: (context, state) {
+      final isAuthenticated = auth.isAuthenticated;
+      final isLoginRoute = state.matchedLocation == '/login';
+      final isPortalRoute = state.matchedLocation.startsWith('/barber');
+
+      // Unauthenticated user trying to reach a protected route
+      if (!isAuthenticated && isPortalRoute) return '/login';
+
+      // Authenticated staff landing on /login → send to their portal
+      if (isAuthenticated && isLoginRoute) {
+        return auth.role == UserRole.admin ? '/barber/portal' : '/barber/portal';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const HomePage()),
       GoRoute(path: '/gallery', builder: (_, __) => const GalleryPage()),
@@ -36,5 +54,5 @@ final appRouterProvider = Provider<GoRouter>(
         builder: (_, __) => const BarberPortalPage(),
       ),
     ],
-  ),
-);
+  );
+});
