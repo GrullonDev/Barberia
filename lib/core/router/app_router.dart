@@ -6,12 +6,17 @@ import 'package:barberia/features/barbers/presentation/pages/barbers_page.dart';
 import 'package:barberia/features/membership/presentation/pages/membership_page.dart';
 import 'package:barberia/features/services/presentation/pages/services_page.dart';
 import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>(
   (ref) => GoRouter(
-    initialLocation: '/',
+    initialLocation: (!kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.android))
+        ? '/login'
+        : '/',
     routes: [
       GoRoute(path: '/', builder: (_, __) => const HomePage()),
       GoRoute(path: '/gallery', builder: (_, __) => const GalleryPage()),
