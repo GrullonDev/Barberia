@@ -1,10 +1,10 @@
+import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../providers/auth_provider.dart';
 
 class StaffLoginPage extends ConsumerStatefulWidget {
   const StaffLoginPage({super.key});
@@ -17,7 +17,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   UserRole _selectedRole = UserRole.barber;
   bool _obscurePassword = true;
 
@@ -29,13 +29,17 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-    final success = await ref.read(authProvider.notifier).login(
-      email: _emailController.text,
-      password: _passwordController.text,
-      selectedRole: _selectedRole,
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .login(
+          email: _emailController.text,
+          password: _passwordController.text,
+          selectedRole: _selectedRole,
+        );
 
     if (mounted) {
       if (success) {
@@ -62,10 +66,10 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
             border: Border.all(color: AppColors.secondary, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: AppColors.secondary.withOpacity(0.15),
+                color: AppColors.secondary.withValues(alpha: 0.15),
                 blurRadius: 20,
                 spreadRadius: 2,
-              )
+              ),
             ],
           ),
           child: Column(
@@ -83,7 +87,11 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                   color: AppColors.secondary,
                   size: 32,
                 ),
-              ).animate().scale(delay: 100.ms, duration: 400.ms, curve: Curves.backOut),
+              ).animate().scale(
+                delay: 100.ms,
+                duration: 400.ms,
+                curve: Curves.backOut,
+              ),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 'ACCESS GRANTED',
@@ -100,7 +108,9 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                     ? 'Welcome back, Administrator'
                     : 'Welcome back, Master Barber',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: AppSpacing.xl),
               ElevatedButton(
@@ -134,12 +144,17 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
             backgroundColor: AppColors.errorContainer,
             content: Row(
               children: [
-                const Icon(Icons.error_outline, color: AppColors.onErrorContainer),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.onErrorContainer,
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     next.errorMessage!,
-                    style: AppTextStyles.bodyMd.copyWith(color: AppColors.onErrorContainer),
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: AppColors.onErrorContainer,
+                    ),
                   ),
                 ),
               ],
@@ -168,7 +183,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.secondary.withOpacity(0.03),
+                color: AppColors.secondary.withValues(alpha: 0.03),
               ),
             ),
           ),
@@ -180,7 +195,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.secondary.withOpacity(0.02),
+                color: AppColors.secondary.withValues(alpha: 0.02),
               ),
             ),
           ),
@@ -189,7 +204,9 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.gutter,
+                ),
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 450),
                   child: Column(
@@ -197,192 +214,239 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: AppSpacing.xl),
-                      
+
                       // Brand Header
                       Column(
-                        children: [
-                          Text(
-                            "The Gentleman's Lounge",
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.playfairDisplay(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.secondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "ESTABLISHED 1924",
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 4,
-                              color: AppColors.onSurface.withOpacity(0.5),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xl * 1.5),
-                          Text(
-                            "STAFF PORTAL ACCESS",
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0, duration: 600.ms),
+                            children: [
+                              Text(
+                                "The Gentleman's Lounge",
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'ESTABLISHED 1924',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 4,
+                                  color: AppColors.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xl * 1.5),
+                              Text(
+                                'STAFF PORTAL ACCESS',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          )
+                          .animate()
+                          .fadeIn(duration: 600.ms)
+                          .slideY(begin: 0.1, end: 0, duration: 600.ms),
 
                       const SizedBox(height: AppSpacing.xl),
 
                       // Form Container Card
                       Container(
-                        padding: const EdgeInsets.all(AppSpacing.xl),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLow.withOpacity(0.7),
-                          borderRadius: AppRadius.borderRadiusLg,
-                          border: Border.all(
-                            color: AppColors.outlineVariant.withOpacity(0.4),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
-                            )
-                          ],
-                        ),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Role Selection Sliding Toggle
-                              _buildRoleToggle(),
-                              const SizedBox(height: AppSpacing.xl),
-
-                              // Email Input
-                              _buildLabel("EMAIL ADDRESS"),
-                              const SizedBox(height: AppSpacing.sm),
-                              TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: const InputDecoration(
-                                  hintText: "staff@thegentlemanslounge.com",
-                                  prefixIcon: Icon(Icons.mail_outline_rounded, size: 20),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return "Please enter your email";
-                                  }
-                                  final emailRegex = RegExp(
-                                      r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
-                                  if (!emailRegex.hasMatch(value)) {
-                                    return "Please enter a valid email address";
-                                  }
-                                  return null;
-                                },
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLow.withValues(
+                                alpha: 0.7,
                               ),
-                              const SizedBox(height: AppSpacing.lg),
-
-                              // Password Input
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              borderRadius: AppRadius.borderRadiusLg,
+                              border: Border.all(
+                                color: AppColors.outlineVariant.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  _buildLabel("PASSWORD"),
-                                  GestureDetector(
-                                    onTap: () {
-                                      // Simulated Reset
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Please contact the Lounge System Administrator to reset your password."),
-                                        ),
-                                      );
-                                    },
-                                    child: Text(
-                                      "Forgot?",
-                                      style: AppTextStyles.labelSm.copyWith(
-                                        color: AppColors.onSurface.withOpacity(0.5),
-                                        decoration: TextDecoration.underline,
+                                  // Role Selection Sliding Toggle
+                                  _buildRoleToggle(),
+                                  const SizedBox(height: AppSpacing.xl),
+
+                                  // Email Input
+                                  _buildLabel('EMAIL ADDRESS'),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  TextFormField(
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: const InputDecoration(
+                                      hintText: 'staff@thegentlemanslounge.com',
+                                      prefixIcon: Icon(
+                                        Icons.mail_outline_rounded,
+                                        size: 20,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscurePassword,
-                                decoration: InputDecoration(
-                                  hintText: "••••••••",
-                                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      size: 20,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter your email';
+                                      }
+                                      final emailRegex = RegExp(
+                                        r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
+                                      );
+                                      if (!emailRegex.hasMatch(value)) {
+                                        return 'Please enter a valid email address';
+                                      }
+                                      return null;
                                     },
                                   ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return "Please enter your password";
-                                  }
-                                  if (value.length < 6) {
-                                    return "Password must be at least 6 characters";
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: AppSpacing.xl),
+                                  const SizedBox(height: AppSpacing.lg),
 
-                              // Secure Entrance Button
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.secondary,
-                                  foregroundColor: AppColors.onSecondary,
-                                  minimumSize: const Size(double.infinity, 54),
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: AppRadius.borderRadiusMd,
-                                  ),
-                                  elevation: 4,
-                                ),
-                                onPressed: authState.isLoading ? null : _handleLogin,
-                                child: authState.isLoading
-                                    ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                            AppColors.onSecondary,
+                                  // Password Input
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      _buildLabel('PASSWORD'),
+                                      GestureDetector(
+                                        onTap: () {
+                                          // Simulated Reset
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Please contact the Lounge System Administrator to reset your password.',
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          'Forgot?',
+                                          style: AppTextStyles.labelSm.copyWith(
+                                            color: AppColors.onSurface
+                                                .withValues(alpha: 0.5),
+                                            decoration:
+                                                TextDecoration.underline,
                                           ),
                                         ),
-                                      )
-                                    : Text(
-                                        "SECURE ENTRANCE",
-                                        style: GoogleFonts.hankenGrotesk(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 2,
-                                        ),
                                       ),
-                              ).animate(target: authState.isLoading ? 0 : 1)
-                               .shimmer(
-                                  duration: 1800.ms,
-                                  color: Colors.white.withOpacity(0.25),
-                                  delay: 3.seconds,
-                               ),
-                            ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: _obscurePassword,
+                                    decoration: InputDecoration(
+                                      hintText: '••••••••',
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline_rounded,
+                                        size: 20,
+                                      ),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscurePassword
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscurePassword =
+                                                !_obscurePassword;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter your password';
+                                      }
+                                      if (value.length < 6) {
+                                        return 'Password must be at least 6 characters';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: AppSpacing.xl),
+
+                                  // Secure Entrance Button
+                                  ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.secondary,
+                                          foregroundColor:
+                                              AppColors.onSecondary,
+                                          minimumSize: const Size(
+                                            double.infinity,
+                                            54,
+                                          ),
+                                          shape: const RoundedRectangleBorder(
+                                            borderRadius:
+                                                AppRadius.borderRadiusMd,
+                                          ),
+                                          elevation: 4,
+                                        ),
+                                        onPressed: authState.isLoading
+                                            ? null
+                                            : _handleLogin,
+                                        child: authState.isLoading
+                                            ? const SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.5,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(AppColors.onSecondary),
+                                                ),
+                                              )
+                                            : Text(
+                                                'SECURE ENTRANCE',
+                                                style:
+                                                    GoogleFonts.hankenGrotesk(
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      letterSpacing: 2,
+                                                    ),
+                                              ),
+                                      )
+                                      .animate(
+                                        target: authState.isLoading ? 0 : 1,
+                                      )
+                                      .shimmer(
+                                        duration: 1800.ms,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.25,
+                                        ),
+                                        delay: 3.seconds,
+                                      ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .animate()
+                          .fadeIn(delay: 200.ms, duration: 600.ms)
+                          .slideY(
+                            begin: 0.05,
+                            end: 0,
+                            delay: 200.ms,
+                            duration: 600.ms,
                           ),
-                        ),
-                      ).animate().fadeIn(delay: 200.ms, duration: 600.ms).slideY(begin: 0.05, end: 0, delay: 200.ms, duration: 600.ms),
 
                       const SizedBox(height: AppSpacing.xl),
 
@@ -392,7 +456,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                           onPressed: () => context.go('/'),
                           icon: const Icon(Icons.arrow_back_rounded, size: 16),
                           label: Text(
-                            "CLIENT PORTAL",
+                            'CLIENT PORTAL',
                             style: GoogleFonts.hankenGrotesk(
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.5,
@@ -400,7 +464,9 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            foregroundColor: AppColors.onSurface.withOpacity(0.5),
+                            foregroundColor: AppColors.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                       ).animate().fadeIn(delay: 400.ms),
@@ -434,7 +500,9 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: AppRadius.borderRadiusMd,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       padding: const EdgeInsets.all(4),
       child: LayoutBuilder(
@@ -480,7 +548,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                                 ? AppColors.onSecondary
                                 : AppColors.onSurfaceVariant,
                           ),
-                          child: const Text("BARBER"),
+                          child: const Text('BARBER'),
                         ),
                       ),
                     ),
@@ -504,7 +572,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                                 ? AppColors.onSecondary
                                 : AppColors.onSurfaceVariant,
                           ),
-                          child: const Text("ADMIN"),
+                          child: const Text('ADMIN'),
                         ),
                       ),
                     ),
