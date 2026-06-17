@@ -90,7 +90,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
               ).animate().scale(
                 delay: 100.ms,
                 duration: 400.ms,
-                curve: Curves.backOut,
+                curve: Curves.easeOutBack,
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
