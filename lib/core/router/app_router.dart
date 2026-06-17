@@ -6,6 +6,7 @@ import 'package:barberia/features/barbers/presentation/pages/barbers_page.dart';
 import 'package:barberia/features/membership/presentation/pages/membership_page.dart';
 import 'package:barberia/features/services/presentation/pages/services_page.dart';
 import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
+import 'package:barberia/features/barbers/presentation/pages/barber_portal_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +30,8 @@ final appRouterProvider = Provider<GoRouter>(
       GoRoute(path: '/membership', builder: (_, __) => const MembershipPage()),
       GoRoute(path: '/services', builder: (_, __) => const ServicesPage()),
       GoRoute(path: '/login', builder: (_, __) => const StaffLoginPage()),
+      GoRoute(path: '/barber/portal', builder: (_, __) => const BarberPortalPage()),
     ],
   ),
 );
+

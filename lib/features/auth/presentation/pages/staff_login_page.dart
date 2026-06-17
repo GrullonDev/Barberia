@@ -121,7 +121,11 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                 ),
                 onPressed: () {
                   Navigator.of(context).pop(); // Dismiss Dialog
-                  context.go('/'); // Redirect to Home
+                  if (_selectedRole == UserRole.barber) {
+                    context.go('/barber/portal');
+                  } else {
+                    context.go('/'); // Redirect to Home for admin/others
+                  }
                 },
                 child: const Text('ENTER PORTAL'),
               ),
