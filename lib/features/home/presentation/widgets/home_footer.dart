@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/responsive.dart';
 
@@ -10,6 +11,7 @@ class HomeFooter extends StatelessWidget {
     'Terms of Service',
     'Careers',
     'Contact',
+    'Staff Access',
   ];
 
   @override
@@ -32,14 +34,14 @@ class HomeFooter extends StatelessWidget {
           child: ConstrainedBox(
             constraints:
                 const BoxConstraints(maxWidth: AppSpacing.containerMax),
-            child: isMobile ? _buildMobile() : _buildDesktop(),
+            child: isMobile ? _buildMobile(context) : _buildDesktop(context),
           ),
         ),
       );
     });
   }
 
-  Widget _buildDesktop() {
+  Widget _buildDesktop(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -72,7 +74,12 @@ class HomeFooter extends StatelessWidget {
           children: _links.map((link) {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              child: _FooterLink(label: link),
+              child: _FooterLink(
+                label: link,
+                onTap: link == 'Staff Access'
+                    ? () => context.go('/login')
+                    : null,
+              ),
             );
           }).toList(),
         ),
@@ -80,7 +87,7 @@ class HomeFooter extends StatelessWidget {
     );
   }
 
-  Widget _buildMobile() {
+  Widget _buildMobile(BuildContext context) {
     return Column(
       children: [
         Text(
@@ -95,7 +102,14 @@ class HomeFooter extends StatelessWidget {
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.xs,
           alignment: WrapAlignment.center,
-          children: _links.map((link) => _FooterLink(label: link)).toList(),
+          children: _links.map((link) {
+            return _FooterLink(
+              label: link,
+              onTap: link == 'Staff Access'
+                  ? () => context.go('/login')
+                  : null,
+            );
+          }).toList(),
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(
@@ -112,13 +126,14 @@ class HomeFooter extends StatelessWidget {
 }
 
 class _FooterLink extends StatelessWidget {
-  const _FooterLink({required this.label});
+  const _FooterLink({required this.label, this.onTap});
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return TextButton(
-      onPressed: () {},
+      onPressed: onTap ?? () {},
       style: TextButton.styleFrom(
         foregroundColor: AppColors.onSurfaceVariant,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
