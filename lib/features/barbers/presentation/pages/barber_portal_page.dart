@@ -19,11 +19,18 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   // ─── Shared Interactive State ──────────────────────────────────────────────
   double _dailyEarnings = 482.50;
-  int _completedServices = 12;
-  final int _totalServices = 16;
+  double _servicesEarnings = 395.00;
+  double _tipsEarnings = 87.50;
+  int _completedServices = 8;
+  final int _totalServices = 10;
   String _selectedDay = 'FRI 27';
+  String _earningsFilter = 'Today'; // 'Today' or 'Weekly'
+  String _clientSearchQuery = '';
 
-  // Active Session State
+  // Active Session / Selected Active Appointment Details State
+  Map<String, dynamic>? _selectedActiveAppointment;
+  bool _isServiceStarted = false;
+
   Map<String, dynamic>? _activeSession = {
     'clientName': 'Julian Sterling',
     'service': 'Modern Fade & Beard Trim',
@@ -58,7 +65,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       'time': '11:15',
       'status': 'CONFIRMED',
       'checkedIn': false,
-      'icon': Icons.keyboard_rounded, // comb looking comb
+      'icon': Icons.keyboard_rounded,
     },
   ];
 
@@ -73,6 +80,85 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       'clientName': 'Arthur Vance',
       'service': 'Hot Towel Shave',
       'time': '15:15',
+    },
+  ];
+
+  // Past Visit Notes for client details
+  final List<Map<String, String>> _pastVisitNotes = [
+    {
+      'note':
+          'Prefers a low taper fade with 1.5 on sides. Uses light pomade for a matte finish. Avoid thinning shears on top.',
+      'date': 'Oct 14, 2023',
+    },
+    {
+      'note':
+          'Discussed switching to a classic side part next time. Trialed the sandalwood beard oil.',
+      'date': 'Sept 10, 2023',
+    },
+  ];
+
+  // Recent Activity Transactions
+  final List<Map<String, dynamic>> _recentActivity = [
+    {
+      'service': 'Executive Fade + Beard',
+      'client': 'James Wilson',
+      'time': '2:30 PM',
+      'price': 65.00,
+      'tip': 15.00,
+      'icon': Icons.content_cut_rounded,
+    },
+    {
+      'service': 'Straight Razor Shave',
+      'client': 'Marcus Reed',
+      'time': '1:15 PM',
+      'price': 45.00,
+      'tip': 10.00,
+      'icon': Icons.face_rounded,
+    },
+    {
+      'service': 'Signature Grooming',
+      'client': 'Ethan Hunt',
+      'time': '11:45 AM',
+      'price': 85.00,
+      'tip': 20.00,
+      'icon': Icons.dry_cleaning_rounded,
+    },
+  ];
+
+  // Client Registry List
+  final List<Map<String, dynamic>> _clients = [
+    {
+      'name': 'Julian Sterling',
+      'status': 'Loyalty Member',
+      'visits': '12 Visits',
+      'phone': '+1 (555) 234-5678',
+      'email': 'julian.s@lounge.com',
+      'avatar':
+          'assets/images/barber_julian_vance.png', // Fallback or working image
+    },
+    {
+      'name': 'James Wilson',
+      'status': 'Regular Client',
+      'visits': '8 Visits',
+      'phone': '+1 (555) 987-6543',
+      'email': 'james.w@lounge.com',
+      'avatar': 'assets/images/barber_marcus_reed.png',
+    },
+    {
+      'name': 'Marcus Reed',
+      'status': 'VIP Client',
+      'visits': '24 Visits',
+      'phone': '+1 (555) 456-7890',
+      'email': 'marcus.r@lounge.com',
+      'avatar': 'assets/images/barber_dorian_grey.png',
+    },
+    {
+      'name': 'Ethan Hunt',
+      'status': 'Loyalty Member',
+      'visits': '15 Visits',
+      'phone': '+1 (555) 111-2222',
+      'email': 'ethan.h@lounge.com',
+      'avatar': 'assets/images/barber_julian_vance.png',
     },
   ];
 
@@ -126,14 +212,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  // Helper to trigger save feedback
   void _saveProfileChanges() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         Future.delayed(const Duration(milliseconds: 1500), () {
-          Navigator.of(context).pop(); // pop loader
+          Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AppColors.secondary,
@@ -183,12 +268,15 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context),
       body: _buildBody(),
-      floatingActionButton: _currentTabIndex == 1 ? _buildFAB() : null,
+      floatingActionButton:
+          (_currentTabIndex == 1 && _selectedActiveAppointment == null)
+          ? _buildFAB()
+          : null,
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  // ─── Custom Premium AppBar ──────────────────────────────────────────────────
+  // ─── AppBar: "PRO CUTS" styling with avatar ───────────────────────────────
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: AppColors.background,
@@ -206,46 +294,61 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       ),
       title: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'THE',
-                style: GoogleFonts.playfairDisplay(
-                  color: AppColors.secondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 2.5,
-                  height: 1,
-                ),
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.secondary, width: 1),
+            ),
+            child: const CircleAvatar(
+              backgroundImage: AssetImage(
+                'assets/images/barber_julian_vance.png',
               ),
-              Text(
-                'GENTLEMAN',
-                style: GoogleFonts.playfairDisplay(
-                  color: AppColors.secondary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 3.5,
-                  height: 1.1,
-                ),
-              ),
-            ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            'PRO CUTS',
+            style: GoogleFonts.playfairDisplay(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2.0,
+            ),
           ),
         ],
       ),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.secondary, width: 1.5),
-            ),
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundImage: AssetImage(
-                'assets/images/barber_julian_vance.png',
+        IconButton(
+          icon: const Icon(
+            Icons.notifications_none_rounded,
+            color: Colors.white,
+          ),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No new notifications.')),
+            );
+          },
+        ),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _currentTabIndex = 4; // Special Index for Profile settings
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(right: 16, left: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.secondary, width: 1.5),
+              ),
+              child: const CircleAvatar(
+                radius: 16,
+                backgroundImage: AssetImage(
+                  'assets/images/barber_julian_vance.png',
+                ),
               ),
             ),
           ),
@@ -254,85 +357,57 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  // ─── Bottom Navigation Handler ──────────────────────────────────────────────
+  // ─── Unifed Bottom Navigation: Dashboard, Schedule, Clients, Earnings ──────
   Widget _buildBottomNavBar() {
-    // Dynamic Bottom Tabs names & icons to perfectly replicate each mockup!
-    if (_currentTabIndex == 0) {
-      // Dashboard state items (Image 3)
-      return BottomNavigationBar(
-        currentIndex: 0,
-        onTap: (index) {
-          setState(() {
-            _currentTabIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view_rounded),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_rounded),
-            label: 'Schedule',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_rounded),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card_rounded),
-            label: 'Earnings',
-          ),
-        ],
-      );
-    } else {
-      // Bookings, Barbers, and Settings tabs (Images 0, 1, 2)
-      return BottomNavigationBar(
-        currentIndex: _currentTabIndex,
-        onTap: (index) {
-          setState(() {
-            _currentTabIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view_rounded),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_rounded),
-            label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.content_cut_rounded),
-            label: 'Barbers',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_rounded),
-            label: 'Settings',
-          ),
-        ],
-      );
-    }
+    return BottomNavigationBar(
+      currentIndex: _currentTabIndex == 4
+          ? 1
+          : _currentTabIndex, // keep schedule/profile tabs mapped properly
+      onTap: (index) {
+        setState(() {
+          _selectedActiveAppointment = null; // Reset sub-screens
+          _currentTabIndex = index;
+        });
+      },
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.grid_view_rounded),
+          label: 'Dashboard',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.calendar_today_rounded),
+          label: 'Schedule',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.people_alt_rounded),
+          label: 'Clients',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.credit_card_rounded),
+          label: 'Earnings',
+        ),
+      ],
+    );
   }
 
-  // ─── Body Routing ───────────────────────────────────────────────────────────
+  // ─── Navigation routing switch ──────────────────────────────────────────────
   Widget _buildBody() {
     switch (_currentTabIndex) {
       case 0:
         return _buildDashboardTab();
       case 1:
-        return _buildBookingsTab();
+        return _buildScheduleRouterTab();
       case 2:
-        return _buildBarbersTab();
+        return _buildClientsTab();
       case 3:
-        return _buildSettingsTab();
+        return _buildEarningsPerformanceTab();
+      case 4:
+        return _buildSettingsTab(); // settings tab via avatar click
       default:
         return _buildDashboardTab();
     }
   }
 
-  // ─── Floating Action Button (Only on bookings tab) ──────────────────────────
   Widget _buildFAB() {
     return FloatingActionButton(
       onPressed: () => _showAddBookingDialog(),
@@ -346,14 +421,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack);
   }
 
-  // ─── TAB 1: Dashboard / Active Session (Image 3) ────────────────────────────
+  // ─── Tab 0: Dashboard (Julian's Active Session + Queue) ─────────────────────
   Widget _buildDashboardTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Active Session Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -398,7 +472,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Next in Queue Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -413,7 +486,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               TextButton(
                 onPressed: () {
                   setState(() {
-                    _currentTabIndex = 1; // Go to Bookings
+                    _currentTabIndex = 1;
                   });
                 },
                 child: Text(
@@ -432,7 +505,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Daily Performance Section
           Text(
             'Daily Performance',
             style: GoogleFonts.playfairDisplay(
@@ -464,7 +536,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Full Timeline Section
           Text(
             'Full Timeline',
             style: GoogleFonts.playfairDisplay(
@@ -596,7 +667,19 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               Expanded(
                 flex: 2,
                 child: ElevatedButton.icon(
-                  onPressed: () => _finishActiveSession(),
+                  onPressed: () {
+                    // Open the client details active view in Schedule tab
+                    setState(() {
+                      _selectedActiveAppointment = {
+                        'clientName': _activeSession!['clientName'],
+                        'service': _activeSession!['service'],
+                        'time': 'Active Now',
+                        'status': 'LIVE',
+                        'id': 'APPT-8821',
+                      };
+                      _currentTabIndex = 1;
+                    });
+                  },
                   icon: const Icon(
                     Icons.check_circle_outline_rounded,
                     size: 18,
@@ -627,99 +710,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         ],
       ),
     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
-  }
-
-  void _finishActiveSession() {
-    if (_activeSession == null) {
-      return;
-    }
-    final name = _activeSession!['clientName'];
-    final service = _activeSession!['service'];
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerLow,
-        title: Text(
-          'SESSION COMPLETE',
-          style: GoogleFonts.playfairDisplay(
-            color: AppColors.secondary,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Grooming session for $name is finished.',
-              style: AppTextStyles.bodyMd,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              color: AppColors.background,
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(service, style: AppTextStyles.bodyMd),
-                      Text(
-                        '\$45.00',
-                        style: AppTextStyles.bodyMd.copyWith(
-                          color: AppColors.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Total Charged', style: AppTextStyles.labelMd),
-                      Text(
-                        '\$45.00',
-                        style: AppTextStyles.labelMd.copyWith(
-                          color: AppColors.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('CANCEL'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              setState(() {
-                _dailyEarnings += 45.00;
-                _completedServices += 1;
-                _activeSession = null;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Payment processed successfully.'),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.secondary,
-              foregroundColor: AppColors.onSecondary,
-            ),
-            child: const Text('CONFIRM CHARGE'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _cancelActiveSession() {
@@ -1009,7 +999,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 child: OutlinedButton(
                   onPressed: () {
                     setState(() {
-                      _currentTabIndex = 1; // Open Master Schedule
+                      _currentTabIndex = 1;
                     });
                   },
                   style: OutlinedButton.styleFrom(
@@ -1032,14 +1022,22 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  // ─── TAB 2: Master Schedule / Bookings (Images 0 & 1) ──────────────────────
-  Widget _buildBookingsTab() {
+  // ─── Tab 1 Router: Switches between Master Schedule & Active Appt Detail ────
+  Widget _buildScheduleRouterTab() {
+    if (_selectedActiveAppointment != null) {
+      return _buildActiveAppointmentDetailScreen(_selectedActiveAppointment!);
+    } else {
+      return _buildMasterScheduleScreen();
+    }
+  }
+
+  // Master Schedule Screen (Tab 1 base list)
+  Widget _buildMasterScheduleScreen() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Subheader row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1087,7 +1085,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.lg),
 
-          // Horizontal day selector
+          // Horizontal day list
           SizedBox(
             height: 80,
             child: ListView.builder(
@@ -1153,7 +1151,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Appointments Title & Divider
           Row(
             children: [
               Text(
@@ -1183,9 +1180,29 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // Interactive Appointments List
-          _buildAppointmentsList(),
-          const SizedBox(height: 80), // spacer for FAB
+          // Appointments list
+          Column(
+            children: [
+              ..._appointments.map(
+                (apt) => GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedActiveAppointment = {
+                        'clientName': apt['clientName'],
+                        'service': apt['service'],
+                        'time': apt['time'],
+                        'status': apt['status'],
+                        'id': 'APPT-8821',
+                      };
+                    });
+                  },
+                  child: _buildAppointmentCard(apt),
+                ),
+              ),
+              _buildAvailableSlotCard('12:30'),
+            ],
+          ),
+          const SizedBox(height: 80),
         ],
       ),
     );
@@ -1222,16 +1239,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     }
   }
 
-  Widget _buildAppointmentsList() {
-    return Column(
-      children: [
-        ..._appointments.map((apt) => _buildAppointmentCard(apt)),
-        // Available Slot Card at 12:30
-        _buildAvailableSlotCard('12:30'),
-      ],
-    );
-  }
-
   Widget _buildAppointmentCard(Map<String, dynamic> apt) {
     final isConfirmed = apt['status'] == 'CONFIRMED';
     final isCheckedIn = apt['checkedIn'] as bool;
@@ -1252,7 +1259,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left Icon Container
               Container(
                 width: 44,
                 height: 44,
@@ -1271,7 +1277,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               const SizedBox(width: AppSpacing.md),
 
-              // Title and Details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1294,7 +1299,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
               ),
 
-              // Time & Status
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1345,7 +1349,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const Divider(),
           const SizedBox(height: AppSpacing.sm),
 
-          // Bottom Action Row
           Row(
             children: [
               Expanded(
@@ -1657,57 +1660,128 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  // ─── TAB 3: Barbers (Team List) ─────────────────────────────────────────────
-  Widget _buildBarbersTab() {
-    final List<Map<String, dynamic>> artisans = [
-      {
-        'name': 'Julian Vane',
-        'role': 'Master Barber & Manager',
-        'rating': '4.9 (128 reviews)',
-        'image': 'assets/images/barber_julian_vance.png',
-        'status': 'Active',
-      },
-      {
-        'name': 'Elias Thorne',
-        'role': 'Director Barber',
-        'rating': '4.8 (94 reviews)',
-        'image': 'assets/images/barber_marcus_reed.png',
-        'status': 'Active',
-      },
-      {
-        'name': 'Sebastian Vane',
-        'role': 'Senior Artisan',
-        'rating': '4.7 (104 reviews)',
-        'image': 'assets/images/barber_dorian_grey.png',
-        'status': 'Active',
-      },
-    ];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.gutter),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Luxe & Blade Team',
-            style: GoogleFonts.playfairDisplay(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+  // ─── TAB 1 SUB-PAGE: Active Appointment Detail Screen (Image 1) ─────────────
+  Widget _buildActiveAppointmentDetailScreen(Map<String, dynamic> appt) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Coordinate and review statuses with the lounge artisans.',
-            style: AppTextStyles.bodyMd.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
+          onPressed: () {
+            setState(() {
+              _selectedActiveAppointment = null;
+            });
+          },
+        ),
+        title: Text(
+          'Appointment Details',
+          style: GoogleFonts.playfairDisplay(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: AppSpacing.lg),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.gutter,
+          vertical: AppSpacing.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Gold Chip Row
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  color: AppColors.secondary,
+                  child: Text(
+                    'ACTIVE APPOINTMENT',
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppColors.onSecondary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  appt['id'] ?? '#APPT-8821',
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
 
-          ...artisans.map(
-            (art) => Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            // Service Title
+            Text(
+              'The Signature Cut',
+              style: GoogleFonts.playfairDisplay(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // Service details tags (duration, price)
+            Row(
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.access_time_rounded,
+                      color: AppColors.onSurfaceVariant,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '45 Minutes',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: AppSpacing.lg),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.credit_card_rounded,
+                      color: AppColors.onSurfaceVariant,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '\$65.00',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppSpacing.xl),
+
+            // Client Info Card
+            Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
                 color: AppColors.surfaceContainerLow,
@@ -1718,68 +1792,703 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundImage: AssetImage(art['image']),
+                  // Client avatar with star overlay
+                  Stack(
+                    children: [
+                      const CircleAvatar(
+                        radius: 36,
+                        backgroundImage: AssetImage(
+                          'assets/images/barber_julian_vance.png',
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppColors.secondary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.star,
+                            color: AppColors.onSecondary,
+                            size: 10,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: AppSpacing.md),
+
+                  // Client Details
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          art['name'],
-                          style: AppTextStyles.bodyLg.copyWith(
+                          appt['clientName'],
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          art['role'],
+                          'Loyalty Member • 12 Visits',
                           style: AppTextStyles.bodyMd.copyWith(
                             color: AppColors.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              color: AppColors.secondary,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              art['rating'],
-                              style: AppTextStyles.labelSm.copyWith(
-                                color: AppColors.secondary,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+
+                  // Phone and Mail Buttons
+                  Row(
+                    children: [
+                      _buildContactButton(Icons.phone_outlined, () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Calling ${appt['clientName']}...'),
+                          ),
+                        );
+                      }),
+                      const SizedBox(width: 8),
+                      _buildContactButton(Icons.mail_outline_rounded, () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Messaging ${appt['clientName']}...'),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.xl),
+
+            // Past Visit Notes Title & Clock Icon
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'PAST VISIT NOTES',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 12,
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.history,
+                    color: AppColors.onSurfaceVariant,
+                    size: 20,
+                  ),
+                  onPressed: () => _showAddNoteDialog(),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // Notes list
+            Column(
+              children: _pastVisitNotes.map((noteMap) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.md,
+                    top: 4,
+                    bottom: 4,
+                  ),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: AppColors.secondary, width: 2),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.greenAccent.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.borderRadiusFull,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '"${noteMap['note']}"',
+                        style: AppTextStyles.bodyMd.copyWith(
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.onSurface,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        noteMap['date']!,
+                        style: AppTextStyles.labelSm.copyWith(
+                          fontSize: 11,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: AppSpacing.xl * 1.5),
+
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isServiceStarted
+                        ? null
+                        : () {
+                            setState(() {
+                              _isServiceStarted = true;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Service Started.')),
+                            );
+                          },
+                    icon: Icon(
+                      Icons.play_arrow_rounded,
+                      size: 20,
+                      color: _isServiceStarted ? Colors.grey : Colors.white,
                     ),
-                    child: const Text(
-                      'ONLINE',
-                      style: TextStyle(
-                        color: Colors.greenAccent,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                    label: Text(
+                      _isServiceStarted ? 'In Progress' : 'Start Service',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: AppColors.outlineVariant),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _selectedActiveAppointment = null;
+                        _isServiceStarted = false;
+
+                        // Increment Stats
+                        _dailyEarnings += 80.00;
+                        _servicesEarnings += 65.00;
+                        _tipsEarnings += 15.00;
+                        _completedServices += 1;
+
+                        // Remove active appointment from schedule
+                        _appointments.removeWhere(
+                          (apt) => apt['clientName'] == appt['clientName'],
+                        );
+                        if (_activeSession != null &&
+                            _activeSession!['clientName'] ==
+                                appt['clientName']) {
+                          _activeSession = null;
+                        }
+
+                        // Insert to recent activity
+                        _recentActivity.insert(0, {
+                          'service': appt['service'],
+                          'client': appt['clientName'],
+                          'time': 'Just Now',
+                          'price': 65.00,
+                          'tip': 15.00,
+                          'icon': Icons.content_cut_rounded,
+                        });
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Service Completed. Payment processed successfully.',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 20,
+                    ),
+                    label: const Text('Complete & Charge'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: AppColors.onSecondary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactButton(IconData icon, VoidCallback onTap) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, color: Colors.white, size: 18),
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  void _showAddNoteDialog() {
+    final noteController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        title: const Text('Add Visit Note'),
+        content: TextField(
+          controller: noteController,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: 'Enter visit notes...'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (noteController.text.isNotEmpty) {
+                setState(() {
+                  _pastVisitNotes.insert(0, {
+                    'note': noteController.text,
+                    'date': 'Oct 27, 2026',
+                  });
+                });
+              }
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: AppColors.onSecondary,
+            ),
+            child: const Text('SAVE NOTE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── TAB 2: Clients Registry List ──────────────────────────────────────────
+  Widget _buildClientsTab() {
+    final filteredClients = _clients.where((client) {
+      return client['name'].toLowerCase().contains(
+        _clientSearchQuery.toLowerCase(),
+      );
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.gutter),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Client Registry',
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Search loyalty, visit history, and contact details.',
+            style: AppTextStyles.bodyMd.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Search Bar
+          TextField(
+            onChanged: (val) {
+              setState(() {
+                _clientSearchQuery = val;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: 'Search clientele...',
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: AppColors.onSurfaceVariant,
+              ),
+              fillColor: AppColors.surfaceContainerLow,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Clients list
+          if (filteredClients.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Text(
+                'No clients found matching search.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            ...filteredClients.map(
+              (client) => Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: AppRadius.borderRadiusLg,
+                  border: Border.all(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundImage: AssetImage(client['avatar']),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            client['name'],
+                            style: AppTextStyles.bodyLg.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${client['status']} • ${client['visits']}',
+                            style: AppTextStyles.bodyMd.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.phone_outlined,
+                            color: AppColors.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Calling ${client['name']}...'),
+                              ),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: AppColors.secondary,
+                            size: 16,
+                          ),
+                          onPressed: () {
+                            // Route to schedule detail simulation for this client
+                            setState(() {
+                              _selectedActiveAppointment = {
+                                'clientName': client['name'],
+                                'service': 'Signature Cut & Beard Grooming',
+                                'time': 'Loyalty Profile',
+                                'status': 'CONFIRMED',
+                                'id': 'APPT-8821',
+                              };
+                              _currentTabIndex = 1;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── TAB 3: Earnings & Performance Dashboard (Image 0) ──────────────────────
+  Widget _buildEarningsPerformanceTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.gutter),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Subheader Performance
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Performance',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              // Filter Toggle: Today / Weekly
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: AppRadius.borderRadiusMd,
+                  border: Border.all(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  children: [
+                    _buildFilterToggleOption('Today'),
+                    _buildFilterToggleOption('Weekly'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.lg),
+
+          // Total Earnings Card
+          _buildTotalEarningsCard(),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // Breakdown Cards: Services and Tips
+          Row(
+            children: [
+              Expanded(
+                child: _buildBreakdownProgressCard(
+                  title: 'SERVICES',
+                  value: '\$${_servicesEarnings.toStringAsFixed(2)}',
+                  progressValue:
+                      _servicesEarnings / 500.0, // scale to $500 target
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildBreakdownProgressCard(
+                  title: 'TIPS',
+                  value: '\$${_tipsEarnings.toStringAsFixed(2)}',
+                  progressValue: _tipsEarnings / 150.0, // scale to $150 target
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Daily Appointments graph card
+          Row(
+            mainAxisAlignment: .spaceBetween,
+            children: [
+              Text(
+                'Daily Appointments',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                '$_completedServices of $_totalServices Completed',
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildAppointmentsGraphCard(),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Recent Activity Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Activity',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Viewing all transactions.')),
+                  );
+                },
+                child: Row(
+                  children: [
+                    Text(
+                      'View All',
+                      style: AppTextStyles.labelSm.copyWith(
+                        color: AppColors.secondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppColors.secondary,
+                      size: 14,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _buildRecentActivityList(),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Weekly Goal Card
+          _buildWeeklyGoalCard(),
+          const SizedBox(height: AppSpacing.xl),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterToggleOption(String label) {
+    final isSelected = _earningsFilter == label;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _earningsFilter = label;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.secondary : Colors.transparent,
+          borderRadius: AppRadius.borderRadiusMd,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: isSelected
+                ? AppColors.onSecondary
+                : AppColors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalEarningsCard() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TOTAL EARNINGS',
+                style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                  letterSpacing: 1.5,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '\$${_dailyEarnings.toStringAsFixed(2)}',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 38,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.secondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.trending_up_rounded,
+                    color: Colors.greenAccent,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '12% from yesterday',
+                    style: AppTextStyles.bodyMd.copyWith(
+                      color: Colors.greenAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
+              ),
+            ],
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: AppRadius.borderRadiusMd,
+              ),
+              child: const Icon(
+                Icons.credit_card_rounded,
+                color: AppColors.secondary,
+                size: 28,
               ),
             ),
           ),
@@ -1788,7 +2497,299 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  // ─── TAB 4: Master Profile / Settings (Image 2) ─────────────────────────────
+  Widget _buildBreakdownProgressCard({
+    required String title,
+    required String value,
+    required double progressValue,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTextStyles.labelSm.copyWith(
+              color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+              letterSpacing: 1,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: progressValue.clamp(0.0, 1.0),
+              backgroundColor: Colors.white.withValues(alpha: 0.05),
+              color: AppColors.secondary,
+              minHeight: 4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppointmentsGraphCard() {
+    // Custom graphical grid representing scheduling load
+    return Container(
+      height: 180,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildGraphBar(0.4, false),
+                _buildGraphBar(0.8, true), // 11a highlighted
+                _buildGraphBar(0.5, false),
+                _buildGraphBar(0.3, false),
+                _buildGraphBar(0.6, false),
+                _buildGraphBar(0.2, false),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildGraphLabel('9a', false),
+              _buildGraphLabel('11a', true), // Highlighted
+              _buildGraphLabel('1p', false),
+              _buildGraphLabel('3p', false),
+              _buildGraphLabel('5p', false),
+              _buildGraphLabel('7p', false),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGraphBar(double heightFactor, bool isHighlighted) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  height: 110 * heightFactor,
+                  decoration: BoxDecoration(
+                    color: isHighlighted
+                        ? AppColors.secondary
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGraphLabel(String label, bool isHighlighted) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          label,
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 12,
+            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+            color: isHighlighted
+                ? AppColors.secondary
+                : AppColors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentActivityList() {
+    return Column(
+      children: _recentActivity.map((activity) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: AppRadius.borderRadiusMd,
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: AppRadius.borderRadiusMd,
+                  border: Border.all(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Icon(
+                  activity['icon'] as IconData,
+                  color: AppColors.secondary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      activity['service'],
+                      style: AppTextStyles.bodyLg.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${activity['client']} • ${activity['time']}',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '\$${(activity['price'] as double).toStringAsFixed(2)}',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '+\$${(activity['tip'] as double).toStringAsFixed(2)} Tip',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.greenAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildWeeklyGoalCard() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Weekly Goal',
+                  style: GoogleFonts.playfairDisplay(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You\'re only 4 appointments away from reaching your \$2,500 weekly target.',
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: const LinearProgressIndicator(
+                    value: 0.84,
+                    backgroundColor: Colors.white12,
+                    color: AppColors.secondary,
+                    minHeight: 6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.secondary.withValues(alpha: 0.05),
+              border: Border.all(
+                color: AppColors.secondary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: const Icon(
+              Icons.star_outline_rounded,
+              color: AppColors.secondary,
+              size: 28,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── TAB 4 Settings / Profile view ──────────────────────────────────────────
   Widget _buildSettingsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -1813,7 +2814,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // Julian Profile Card
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -1898,7 +2898,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Biography Section
           Text(
             'PROFESSIONAL BIOGRAPHY',
             style: AppTextStyles.labelSm.copyWith(
@@ -1922,7 +2921,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Specialties section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1989,7 +2987,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Languages Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -2052,7 +3049,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Availability Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -2090,7 +3086,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl),
 
-          // Notifications Section
           Text(
             'Notifications',
             style: GoogleFonts.playfairDisplay(
@@ -2162,7 +3157,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.xl * 1.5),
 
-          // Save Button
           ElevatedButton(
             onPressed: () => _saveProfileChanges(),
             style: ElevatedButton.styleFrom(
@@ -2182,7 +3176,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // Logout Button
           OutlinedButton(
             onPressed: () => _handleLogout(),
             style: OutlinedButton.styleFrom(
