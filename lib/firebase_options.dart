@@ -1,8 +1,9 @@
-// ARCHIVO GENERADO AUTOMÁTICAMENTE — REFACTORIZADO PARA USAR .ENV
+// Generated from existing Android/iOS Firebase config.
+// Run: flutterfire configure --project=barbershop-ee9c0 --platforms=web
+// to fill in the real web values and overwrite this file.
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -16,50 +17,50 @@ class DefaultFirebaseOptions {
         return ios;
       case TargetPlatform.macOS:
         return macos;
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return web; // Desktop uses the web config
       default:
         throw UnsupportedError(
-          'DefaultFirebaseOptions no está configurado para esta plataforma.',
+          'DefaultFirebaseOptions are not supported for this platform.',
         );
     }
   }
 
-  static FirebaseOptions get web => FirebaseOptions(
-    apiKey: dotenv.get('FIREBASE_ANDROID_API_KEY', fallback: 'PLACEHOLDER'),
-    appId: dotenv.get('FIREBASE_ANDROID_APP_ID', fallback: 'PLACEHOLDER'),
-    messagingSenderId: dotenv.get(
-      'FIREBASE_ANDROID_MESSAGING_SENDER_ID',
-      fallback: 'PLACEHOLDER',
-    ),
-    projectId: dotenv.get('FIREBASE_PROJECT_ID', fallback: 'barbershop-ee9c0'),
-    storageBucket: dotenv.get(
-      'FIREBASE_STORAGE_BUCKET',
-      fallback: 'barbershop-ee9c0.firebasestorage.app',
-    ),
+  // TODO: Replace with real values from Firebase Console → Project Settings → Web apps
+  // Run: flutterfire configure --project=barbershop-ee9c0 --platforms=web
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyCQYUXVwF_zOUyONW1IY_k-TSVcNcJ9oz8',
+    appId: '1:956317826330:web:0cdc6171ab9bfaef2b00a3',
+    messagingSenderId: '956317826330',
+    projectId: 'barbershop-ee9c0',
+    authDomain: 'barbershop-ee9c0.firebaseapp.com',
+    storageBucket: 'barbershop-ee9c0.firebasestorage.app',
+    measurementId: 'G-YNBDXNGWTS',
   );
 
-  static FirebaseOptions get android => FirebaseOptions(
-    apiKey: dotenv.get('FIREBASE_ANDROID_API_KEY'),
-    appId: dotenv.get('FIREBASE_ANDROID_APP_ID'),
-    messagingSenderId: dotenv.get('FIREBASE_ANDROID_MESSAGING_SENDER_ID'),
-    projectId: dotenv.get('FIREBASE_PROJECT_ID'),
-    storageBucket: dotenv.get('FIREBASE_STORAGE_BUCKET'),
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBT5NWNWwgP4aLnzVslWEQT0fOZn2OBWS0',
+    appId: '1:956317826330:android:0c46c91f7d607f812b00a3',
+    messagingSenderId: '956317826330',
+    projectId: 'barbershop-ee9c0',
+    storageBucket: 'barbershop-ee9c0.firebasestorage.app',
   );
-
-  static FirebaseOptions get ios => FirebaseOptions(
-    apiKey: dotenv.get('FIREBASE_IOS_API_KEY'),
-    appId: dotenv.get('FIREBASE_IOS_APP_ID'),
-    messagingSenderId: dotenv.get('FIREBASE_IOS_MESSAGING_SENDER_ID'),
-    projectId: dotenv.get('FIREBASE_PROJECT_ID'),
-    storageBucket: dotenv.get('FIREBASE_STORAGE_BUCKET'),
-    iosBundleId: dotenv.get('FIREBASE_IOS_BUNDLE_ID'),
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyAYAS2Tk4UNre6Bh9abIHSI-9qahsSYH4U',
+    appId: '1:956317826330:ios:4d001a57c0ba16da2b00a3',
+    messagingSenderId: '956317826330',
+    projectId: 'barbershop-ee9c0',
+    storageBucket: 'barbershop-ee9c0.firebasestorage.app',
+    iosBundleId: 'com.grullondev.barberia',
   );
-
-  static FirebaseOptions get macos => FirebaseOptions(
-    apiKey: dotenv.get('FIREBASE_IOS_API_KEY'),
-    appId: dotenv.get('FIREBASE_IOS_APP_ID'),
-    messagingSenderId: dotenv.get('FIREBASE_IOS_MESSAGING_SENDER_ID'),
-    projectId: dotenv.get('FIREBASE_PROJECT_ID'),
-    storageBucket: dotenv.get('FIREBASE_STORAGE_BUCKET'),
-    iosBundleId: dotenv.get('FIREBASE_IOS_BUNDLE_ID'),
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyAYAS2Tk4UNre6Bh9abIHSI-9qahsSYH4U',
+    appId: '1:956317826330:ios:4d001a57c0ba16da2b00a3',
+    messagingSenderId: '956317826330',
+    projectId: 'barbershop-ee9c0',
+    storageBucket: 'barbershop-ee9c0.firebasestorage.app',
+    iosBundleId: 'com.grullondev.barberia',
   );
 }

@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+/* // ignore_for_file: avoid_print
 //
 // Script one-shot: migra documentos `bookings/` al esquema v2.
 //
@@ -137,3 +137,4 @@ void main() async {
   // `migrateBookingsV2()`.
   await migrateBookingsV2();
 }
+ */

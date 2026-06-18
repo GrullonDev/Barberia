@@ -44,7 +44,7 @@ service cloud.firestore {
 
     // ---------- users ---------------------------------------------------------
     match /users/{userId} {
-      allow read: if isOwnerOf(userId) || isStaff();
+      allow read: if isOwnerOf(userId) || isStaff() || resource.data.role == 'barber';
 
       // Alta: el propio usuario y SOLO como 'client'
       allow create: if isOwnerOf(userId)
@@ -64,36 +64,6 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // ---------- barbers (catálogo público para que el cliente elija) ---------
-    match /barbers/{barberId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-
-      // El barbero puede actualizar su propio perfil (nombre, especialidad, disponibilidad, etc.),
-      // pero no puede modificar su ID ni su correo de invitación, y solo puede cambiar
-      // inviteStatus para aceptarlo (de pending a active).
-      allow update: if isBarber()
-                    && request.auth.uid == barberId
-                    && request.resource.data.id == resource.data.id
-                    && request.resource.data.inviteEmail == resource.data.inviteEmail
-                    && (
-                      // Caso 1: Aceptar invitación (solo modifica inviteStatus a active)
-                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inviteStatus'])
-                       && request.resource.data.inviteStatus == 'active')
-                      ||
-                      // Caso 2: Editar perfil (no modifica inviteStatus, ni cambia de active a otra cosa)
-                      (resource.data.inviteStatus == 'active'
-                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                         'name',
-                         'specialty',
-                         'specialties',
-                         'photoUrl',
-                         'bio',
-                         'title'
-                       ]))
-                    );
-    }
-
     // ---------- bookings ------------------------------------------------------
     //
     // CREATE:
@@ -108,11 +78,7 @@ service cloud.firestore {
     //   también leen y editan. DELETE queda solo para admin.
     // ------------------------------------------------------------------------
     match /bookings/{bookingId} {
-      allow read: if isStaff()
-                  || isOwnerOf(resource.data.userId)
-                  || (isBarber() && resource.data.barberId == request.auth.uid);
-
-      allow create: if isStaff();
+      allow read, create: if true;
 
       allow update: if isStaff()
                     || isOwnerOf(resource.data.userId)
@@ -151,6 +117,11 @@ service cloud.firestore {
                     && request.resource.data.type == 'barber_active'
                     && request.resource.data.barberId == request.auth.uid
                     && request.resource.data.read == false;
+    }
+
+    // ---------- notifications -------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read, write: if true;
     }
 
     // ---------- default deny --------------------------------------------------
