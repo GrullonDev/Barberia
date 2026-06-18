@@ -1,21 +1,26 @@
+import 'package:barberia/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/core/providers/config_provider.dart';
 
-class HomeFooter extends StatelessWidget {
+class HomeFooter extends ConsumerWidget {
   const HomeFooter({super.key});
 
-  static const _links = [
-    'Privacy Policy',
-    'Terms of Service',
-    'Careers',
-    'Contact',
-    'Staff Access',
+  static const _linkKeys = [
+    'privacy_policy',
+    'terms_of_service',
+    'careers',
+    'contact',
+    'staff_access',
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -37,7 +42,9 @@ class HomeFooter extends StatelessWidget {
               constraints: const BoxConstraints(
                 maxWidth: AppSpacing.containerMax,
               ),
-              child: isMobile ? _buildMobile(context) : _buildDesktop(context),
+              child: isMobile
+                  ? _buildMobile(context, l10n)
+                  : _buildDesktop(context, l10n),
             ),
           ),
         );
@@ -45,7 +52,7 @@ class HomeFooter extends StatelessWidget {
     );
   }
 
-  Widget _buildDesktop(BuildContext context) {
+  Widget _buildDesktop(BuildContext context, AppLocalizations l10n) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -64,7 +71,7 @@ class HomeFooter extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '© 2026 LUXE & BLADE GENTLEMEN LOUNGE. ALL RIGHTS RESERVED.',
+              l10n.get('all_rights_reserved'),
               style: AppTextStyles.labelSm.copyWith(
                 color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
                 fontSize: 11,
@@ -75,12 +82,12 @@ class HomeFooter extends StatelessWidget {
         // Right side: Links
         Row(
           mainAxisSize: MainAxisSize.min,
-          children: _links.map((link) {
+          children: _linkKeys.map((key) {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               child: _FooterLink(
-                label: link,
-                onTap: link == 'Staff Access'
+                label: l10n.get(key),
+                onTap: key == 'staff_access'
                     ? () => context.go('/login')
                     : null,
               ),
@@ -91,7 +98,7 @@ class HomeFooter extends StatelessWidget {
     );
   }
 
-  Widget _buildMobile(BuildContext context) {
+  Widget _buildMobile(BuildContext context, AppLocalizations l10n) {
     return Column(
       children: [
         Text(
@@ -106,16 +113,16 @@ class HomeFooter extends StatelessWidget {
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.xs,
           alignment: WrapAlignment.center,
-          children: _links.map((link) {
+          children: _linkKeys.map((key) {
             return _FooterLink(
-              label: link,
-              onTap: link == 'Staff Access' ? () => context.go('/login') : null,
+              label: l10n.get(key),
+              onTap: key == 'staff_access' ? () => context.go('/login') : null,
             );
           }).toList(),
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(
-          '© 2026 LUXE & BLADE GENTLEMEN LOUNGE. ALL RIGHTS RESERVED.',
+          l10n.get('all_rights_reserved'),
           style: AppTextStyles.labelSm.copyWith(
             color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
             fontSize: 11,

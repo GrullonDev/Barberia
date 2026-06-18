@@ -1,12 +1,17 @@
+import 'package:barberia/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/core/providers/config_provider.dart';
 
-class WhyUsSection extends StatelessWidget {
+class WhyUsSection extends ConsumerWidget {
   const WhyUsSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -26,20 +31,22 @@ class WhyUsSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('¿Por qué elegirnos?', style: AppTextStyles.headlineMd),
+                  Text(
+                    l10n.get('why_choose_us'),
+                    style: AppTextStyles.headlineMd,
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 480),
                     child: Text(
-                      'Nos diferenciamos por la obsesión en los detalles y la '
-                      'creación de un espacio donde el tiempo se detiene.',
+                      l10n.get('why_choose_us_desc'),
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
                   ),
                   const SizedBox(height: 56),
-                  isMobile ? _buildMobile() : _buildDesktop(),
+                  isMobile ? _buildMobile(l10n) : _buildDesktop(l10n),
                 ],
               ),
             ),
@@ -49,8 +56,8 @@ class WhyUsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildDesktop() {
-    return const SizedBox(
+  Widget _buildDesktop(AppLocalizations l10n) {
+    return SizedBox(
       height: 440,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -59,13 +66,11 @@ class WhyUsSection extends StatelessWidget {
             flex: 5,
             child: _LargeFeatureCard(
               icon: Icons.emoji_events_outlined,
-              title: 'Profesionalismo Incomparable',
-              description:
-                  'Nuestros barberos son maestros artesanos con años de '
-                  'formación internacional en técnicas clásicas y vanguardistas.',
+              title: l10n.get('traditional_experience'),
+              description: l10n.get('traditional_experience_desc'),
             ),
           ),
-          SizedBox(width: AppSpacing.lg),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             flex: 5,
             child: Column(
@@ -73,20 +78,16 @@ class WhyUsSection extends StatelessWidget {
                 Expanded(
                   child: _SmallFeatureCard(
                     icon: Icons.local_cafe_outlined,
-                    title: 'ATMÓSFERA PREMIUM',
-                    description:
-                        'Disfruta de una selección de cafés de especialidad o '
-                        'destilados premium mientras esperas tu turno.',
+                    title: l10n.get('luxury_atmosphere').toUpperCase(),
+                    description: l10n.get('luxury_atmosphere_desc'),
                   ),
                 ),
-                SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.lg),
                 Expanded(
                   child: _SmallFeatureCard(
                     icon: Icons.inventory_2_outlined,
-                    title: 'PRODUCTOS DE ÉLITE',
-                    description:
-                        'Solo utilizamos marcas de reconocimiento mundial como '
-                        'Uppercut Deluxe y Reuzel para tu cuidado.',
+                    title: l10n.get('premium_products').toUpperCase(),
+                    description: l10n.get('premium_products_desc'),
                   ),
                 ),
               ],
@@ -97,31 +98,25 @@ class WhyUsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildMobile() {
-    return const Column(
+  Widget _buildMobile(AppLocalizations l10n) {
+    return Column(
       children: [
         _SmallFeatureCard(
           icon: Icons.local_cafe_outlined,
-          title: 'ATMÓSFERA PREMIUM',
-          description:
-              'Disfruta de una selección de cafés de especialidad o '
-              'destilados premium mientras esperas tu turno.',
+          title: l10n.get('luxury_atmosphere').toUpperCase(),
+          description: l10n.get('luxury_atmosphere_desc'),
         ),
-        SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.lg),
         _LargeFeatureCard(
           icon: Icons.emoji_events_outlined,
-          title: 'Profesionalismo Incomparable',
-          description:
-              'Nuestros barberos son maestros artesanos con años de '
-              'formación internacional en técnicas clásicas y vanguardistas.',
+          title: l10n.get('traditional_experience'),
+          description: l10n.get('traditional_experience_desc'),
         ),
-        SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.lg),
         _SmallFeatureCard(
           icon: Icons.inventory_2_outlined,
-          title: 'PRODUCTOS DE ÉLITE',
-          description:
-              'Solo utilizamos marcas de reconocimiento mundial como '
-              'Uppercut Deluxe y Reuzel para tu cuidado.',
+          title: l10n.get('premium_products').toUpperCase(),
+          description: l10n.get('premium_products_desc'),
         ),
       ],
     );

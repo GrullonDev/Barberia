@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
+import 'package:barberia/core/providers/config_provider.dart';
 import 'package:barberia/features/home/presentation/widgets/cta_banner_section.dart';
 import 'package:barberia/features/home/presentation/widgets/gallery_section.dart';
 import 'package:barberia/features/home/presentation/widgets/hero_section.dart';
@@ -9,14 +11,14 @@ import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 import 'package:barberia/features/home/presentation/widgets/services_section.dart';
 import 'package:barberia/features/home/presentation/widgets/why_us_section.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -49,11 +51,13 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _MobileDrawer extends StatelessWidget {
+class _MobileDrawer extends ConsumerWidget {
   const _MobileDrawer();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return Drawer(
       backgroundColor: AppColors.surfaceContainerLow,
       child: SafeArea(
@@ -64,8 +68,9 @@ class _MobileDrawer extends StatelessWidget {
             children: [
               Text('LUXE & BLADE', style: AppTextStyles.headlineSm),
               const SizedBox(height: 40),
-              ...HomeNavBar.navItems.map(
-                (item) => Padding(
+              ...HomeNavBar.navItems.map((item) {
+                final label = l10n.get(item.toLowerCase());
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: TextButton(
                     onPressed: () {
@@ -80,13 +85,16 @@ class _MobileDrawer extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(item, style: AppTextStyles.bodyLg),
+                    child: Text(label, style: AppTextStyles.bodyLg),
                   ),
-                ),
-              ),
+                );
+              }),
               const Spacer(),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.go('/booking');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
@@ -95,7 +103,10 @@ class _MobileDrawer extends StatelessWidget {
                     borderRadius: AppRadius.borderRadiusSm,
                   ),
                 ),
-                child: Text('RESERVAR CITA', style: AppTextStyles.labelMd),
+                child: Text(
+                  l10n.get('book_appointment'),
+                  style: AppTextStyles.labelMd,
+                ),
               ),
             ],
           ),

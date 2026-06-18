@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
 import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/providers/config_provider.dart';
+import 'package:go_router/go_router.dart';
 
-class HeroSection extends StatelessWidget {
+class HeroSection extends ConsumerWidget {
   const HeroSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // sizeOf only rebuilds on size change, not on every MediaQuery mutation
     final size = MediaQuery.sizeOf(context);
     final isMobile = size.width < Breakpoints.tablet;
@@ -83,12 +86,14 @@ class _HeroOverlay extends StatelessWidget {
   }
 }
 
-class _HeroContent extends StatelessWidget {
+class _HeroContent extends ConsumerWidget {
   const _HeroContent({required this.isMobile});
   final bool isMobile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: isMobile
@@ -110,14 +115,13 @@ class _HeroContent extends StatelessWidget {
                   : CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Maestría en cada corte,\nestilo en cada detalle',
+                  l10n.get('maestria_title'),
                   style: AppTextStyles.headlineLg(mobile: isMobile),
                   textAlign: isMobile ? TextAlign.center : TextAlign.left,
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Redefinimos la experiencia del cuidado masculino con técnicas '
-                  'tradicionales y un ambiente diseñado para el caballero moderno.',
+                  l10n.get('experience_desc'),
                   style: AppTextStyles.bodyMd.copyWith(
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -134,14 +138,16 @@ class _HeroContent extends StatelessWidget {
   }
 }
 
-class _HeroButtons extends StatelessWidget {
+class _HeroButtons extends ConsumerWidget {
   const _HeroButtons({required this.isMobile});
   final bool isMobile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     final primary = ElevatedButton(
-      onPressed: () {},
+      onPressed: () => context.go('/booking'),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.secondary,
         foregroundColor: AppColors.onSecondary,
@@ -154,13 +160,13 @@ class _HeroButtons extends StatelessWidget {
         ),
       ),
       child: Text(
-        'RESERVAR CITA',
+        l10n.get('book_appointment'),
         style: AppTextStyles.labelMd.copyWith(color: AppColors.onSecondary),
       ),
     );
 
     final secondary = OutlinedButton(
-      onPressed: () {},
+      onPressed: () => context.go('/services'),
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.onSurface,
         side: const BorderSide(color: AppColors.onSurface, width: 1.5),
@@ -172,7 +178,7 @@ class _HeroButtons extends StatelessWidget {
           borderRadius: AppRadius.borderRadiusSm,
         ),
       ),
-      child: Text('NUESTROS SERVICIOS', style: AppTextStyles.labelMd),
+      child: Text(l10n.get('nuestros_servicios'), style: AppTextStyles.labelMd),
     );
 
     if (isMobile) {

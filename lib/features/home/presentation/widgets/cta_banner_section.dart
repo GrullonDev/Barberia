@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/core/providers/config_provider.dart';
+import 'package:go_router/go_router.dart';
 
-class CtaBannerSection extends StatelessWidget {
+class CtaBannerSection extends ConsumerWidget {
   const CtaBannerSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -24,7 +29,7 @@ class CtaBannerSection extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    '¿Listo para elevar tu estilo?',
+                    l10n.get('elevate_style_title'),
                     style: AppTextStyles.headlineMd.copyWith(
                       color: AppColors.onSecondary,
                     ),
@@ -32,8 +37,7 @@ class CtaBannerSection extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'Agenda la cita hoy mismo y descubre por qué somos la '
-                    'referencia en barbería de lujo.',
+                    l10n.get('elevate_style_desc'),
                     style: AppTextStyles.bodyMd.copyWith(
                       color: AppColors.onSecondary.withAlpha(204),
                     ),
@@ -41,7 +45,7 @@ class CtaBannerSection extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () => context.go('/booking'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.onSecondary,
                       foregroundColor: AppColors.secondary,
@@ -54,7 +58,7 @@ class CtaBannerSection extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'RESERVAR AHORA',
+                      l10n.get('book_now'),
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppColors.secondary,
                       ),

@@ -1,9 +1,12 @@
+import 'package:barberia/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/core/providers/config_provider.dart';
 
-class HomeNavBar extends StatelessWidget {
+class HomeNavBar extends ConsumerWidget {
   const HomeNavBar({required this.onMenuTap, this.activePage, super.key});
 
   final VoidCallback onMenuTap;
@@ -19,7 +22,9 @@ class HomeNavBar extends StatelessWidget {
   static const double height = 72;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -31,20 +36,20 @@ class HomeNavBar extends StatelessWidget {
                 ? AppSpacing.marginMobile
                 : AppSpacing.marginDesktop,
           ),
-          child: isMobile ? _buildMobile() : _buildDesktop(),
+          child: isMobile ? _buildMobile() : _buildDesktop(l10n),
         );
       },
     );
   }
 
-  Widget _buildDesktop() {
+  Widget _buildDesktop(AppLocalizations l10n) {
     return Row(
       children: [
         const _Logo(),
         const Spacer(),
         ...navItems.map(
           (item) => _NavLink(
-            label: item,
+            label: l10n.get(item.toLowerCase()),
             route: navRoutes[item],
             isActive: item == activePage,
           ),
@@ -132,13 +137,15 @@ class _NavLink extends StatelessWidget {
   }
 }
 
-class _CtaButton extends StatelessWidget {
+class _CtaButton extends ConsumerWidget {
   const _CtaButton();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return ElevatedButton(
-      onPressed: () => context.go('/personalizer'),
+      onPressed: () => context.go('/booking'),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.secondary,
         foregroundColor: AppColors.onSecondary,
@@ -150,7 +157,7 @@ class _CtaButton extends StatelessWidget {
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
       child: Text(
-        'BOOK APPOINTMENT',
+        l10n.get('book_appointment'),
         style: AppTextStyles.labelMd.copyWith(
           color: AppColors.onSecondary,
           fontWeight: FontWeight.w700,

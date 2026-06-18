@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/core/providers/config_provider.dart';
 
-class ServicesSection extends StatelessWidget {
+class ServicesSection extends ConsumerWidget {
   const ServicesSection({super.key});
 
-  static const _services = [
-    _ServiceData(
-      icon: Icons.content_cut,
-      title: 'Corte de Autor',
-      description:
-          'Un estudio detallado de tu fisionomía para crear el estilo que mejor proyecte tu personalidad.',
-      price: '35€',
-    ),
-    _ServiceData(
-      icon: Icons.face_retouching_natural,
-      title: 'Ritual de Barba',
-      description:
-          'Afeitado tradicional a navaja con toallas calientes y aceites esenciales de sándalo.',
-      price: '25€',
-    ),
-    _ServiceData(
-      icon: Icons.spa,
-      title: 'Tratamiento Facial',
-      description:
-          'Exfoliación e hidratación profunda diseñada específicamente para la piel masculina.',
-      price: '46€',
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
+    final services = [
+      _ServiceData(
+        icon: Icons.content_cut,
+        title: l10n.get('service_cut_title'),
+        description: l10n.get('service_cut_desc'),
+        price: 35.0,
+      ),
+      _ServiceData(
+        icon: Icons.face_retouching_natural,
+        title: l10n.get('service_beard_title'),
+        description: l10n.get('service_beard_desc'),
+        price: 25.0,
+      ),
+      _ServiceData(
+        icon: Icons.spa,
+        title: l10n.get('service_facial_title'),
+        description: l10n.get('service_facial_desc'),
+        price: 46.0,
+      ),
+    ];
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -49,11 +50,11 @@ class ServicesSection extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const _SectionTitle(title: 'Nuestros Servicios'),
+                  _SectionTitle(title: l10n.get('nuestros_servicios_title')),
                   const SizedBox(height: 56),
                   isMobile
                       ? Column(
-                          children: _services
+                          children: services
                               .map(
                                 (s) => Padding(
                                   padding: const EdgeInsets.only(
@@ -67,9 +68,9 @@ class ServicesSection extends StatelessWidget {
                       : Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (int i = 0; i < _services.length; i++) ...[
-                              Expanded(child: _ServiceCard(data: _services[i])),
-                              if (i < _services.length - 1)
+                            for (int i = 0; i < services.length; i++) ...[
+                              Expanded(child: _ServiceCard(data: services[i])),
+                              if (i < services.length - 1)
                                 const SizedBox(width: AppSpacing.lg),
                             ],
                           ],
@@ -118,15 +119,18 @@ class _ServiceData {
   final IconData icon;
   final String title;
   final String description;
-  final String price;
+  final double price;
 }
 
-class _ServiceCard extends StatelessWidget {
+class _ServiceCard extends ConsumerWidget {
   const _ServiceCard({required this.data});
   final _ServiceData data;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+    final config = ref.watch(appConfigProvider);
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: const BoxDecoration(
@@ -151,7 +155,7 @@ class _ServiceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                data.price,
+                '${config.currencySymbol}${data.price.toStringAsFixed(0)}',
                 style: AppTextStyles.headlineSm.copyWith(fontSize: 20),
               ),
               TextButton(
@@ -162,7 +166,7 @@ class _ServiceCard extends StatelessWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  'DETALLES',
+                  l10n.get('details'),
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppColors.secondary,
                   ),
