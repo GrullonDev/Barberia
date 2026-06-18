@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:barberia/core/providers/config_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:barberia/core/l10n/app_localizations.dart';
 
 class BarberPortalPage extends ConsumerStatefulWidget {
   const BarberPortalPage({super.key});
@@ -26,6 +30,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   String _selectedDay = 'FRI 27';
   String _earningsFilter = 'Today'; // 'Today' or 'Weekly'
   String _clientSearchQuery = '';
+  String _barberNameFromDb = '';
+  String _specialtyFromDb = '';
 
   // Active Session / Selected Active Appointment Details State
   Map<String, dynamic>? _selectedActiveAppointment;
@@ -182,16 +188,202 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     'SAT 28',
   ];
 
+  StreamSubscription<QuerySnapshot>? _bookingsSubscription;
+  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  int _unreadNotificationsCount = 0;
+  final DateTime _pageOpenTime = DateTime.now();
+
   @override
   void initState() {
     super.initState();
     _startSessionTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initFirebaseListeners();
+    });
   }
 
   @override
   void dispose() {
     _sessionTimer?.cancel();
+    _bookingsSubscription?.cancel();
+    _notificationsSubscription?.cancel();
     super.dispose();
+  }
+
+  void _initFirebaseListeners() {
+    final authState = ref.read(authProvider);
+    final barberName = authState.displayName ?? 'Julian Vance';
+    final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
+
+    // Listen to current barber user document for live settings details
+    if (currentBarberUid != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentBarberUid)
+          .snapshots()
+          .listen((docSnapshot) {
+            if (docSnapshot.exists && mounted) {
+              final data = docSnapshot.data();
+              if (data != null) {
+                setState(() {
+                  _barberNameFromDb =
+                      data['name'] ?? authState.displayName ?? 'Julian Vance';
+                  _bio = data['bio'] ?? _bio;
+                  _specialtyFromDb =
+                      data['specialty'] ?? 'Executive Manager & Senior Stylist';
+                  if (data['specialties'] != null) {
+                    _specialties.clear();
+                    _specialties.addAll(List<String>.from(data['specialties']));
+                  }
+                });
+              }
+            }
+          });
+    }
+
+    // 1. Listen to bookings
+    _bookingsSubscription = FirebaseFirestore.instance
+        .collection('bookings')
+        .snapshots()
+        .listen((snapshot) {
+          final List<Map<String, dynamic>> firestoreBookings = [];
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final String docBarberName = data['barberName'] ?? '';
+            final String docBarberId = data['barberId'] ?? '';
+
+            if (docBarberId == currentBarberUid ||
+                docBarberName.toLowerCase() == barberName.toLowerCase() ||
+                docBarberId == authState.email) {
+              firestoreBookings.add({
+                'id': doc.id,
+                'clientName': data['clientName'] ?? 'No Name',
+                'service': data['service'] ?? 'Premium Cut',
+                'time': data['time'] ?? '10:00 AM',
+                'status': data['status'] ?? 'PENDING',
+                'checkedIn': data['checkedIn'] as bool? ?? false,
+                'icon': Icons.content_cut_rounded,
+                'price': (data['price'] as num?)?.toDouble() ?? 50.0,
+                'date': data['date'],
+              });
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _appointments.clear();
+              _appointments.addAll(firestoreBookings);
+              // Recalculate daily performance earnings from finished appointments
+              double earnings = 0.0;
+              int completed = 0;
+              for (var apt in _appointments) {
+                if (apt['status'] == 'COMPLETED' ||
+                    apt['status'] == 'FINISHED') {
+                  earnings += apt['price'] as double;
+                  completed++;
+                }
+              }
+              if (completed > 0) {
+                _dailyEarnings = earnings;
+                _completedServices = completed;
+              }
+            });
+          }
+        });
+
+    // 2. Listen to notifications count
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+          int count = 0;
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final String docBarberName = data['barberName'] ?? '';
+            final String docBarberId = data['barberId'] ?? '';
+            if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
+                docBarberId == authState.email) {
+              count++;
+            }
+          }
+          if (mounted) {
+            setState(() {
+              _unreadNotificationsCount = count;
+            });
+          }
+        });
+
+    // 3. Listen to new notifications for in-app alert SnackBars
+    _notificationsSubscription = FirebaseFirestore.instance
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .listen((snapshot) {
+          if (!mounted || snapshot.docs.isEmpty) return;
+
+          final doc = snapshot.docs.first;
+          final data = doc.data();
+          final String docBarberName = data['barberName'] ?? '';
+          final String docBarberId = data['barberId'] ?? '';
+
+          if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
+              docBarberId == authState.email) {
+            final createdAtVal = data['createdAt'];
+            if (createdAtVal is Timestamp) {
+              final createdAt = createdAtVal.toDate();
+              if (createdAt.isAfter(_pageOpenTime)) {
+                final String title =
+                    data['title'] ??
+                    (ref.read(l10nProvider).languageCode == 'es'
+                        ? 'Nueva Cita'
+                        : 'New Appointment');
+                final String message = data['message'] ?? '';
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.secondary,
+                    duration: const Duration(seconds: 4),
+                    content: Row(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active,
+                          color: AppColors.onSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title.toUpperCase(),
+                                style: GoogleFonts.hankenGrotesk(
+                                  color: AppColors.onSecondary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                message,
+                                style: GoogleFonts.hankenGrotesk(
+                                  color: AppColors.onSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            }
+          }
+        });
   }
 
   void _startSessionTimer() {
@@ -212,27 +404,69 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _saveProfileChanges() {
+  // Maps internal status values (used for logic comparisons) to a localized
+  // display label without altering the underlying status string itself.
+  String _localizedStatusLabel(String status, AppLocalizations l10n) {
+    final isSpanish = l10n.languageCode == 'es';
+    switch (status.toUpperCase()) {
+      case 'CONFIRMED':
+        return isSpanish ? 'CONFIRMADA' : 'CONFIRMED';
+      case 'PENDING':
+        return isSpanish ? 'PENDIENTE' : 'PENDING';
+      case 'COMPLETED':
+      case 'FINISHED':
+        return isSpanish ? 'COMPLETADA' : 'COMPLETED';
+      case 'LIVE':
+        return isSpanish ? 'EN VIVO' : 'LIVE';
+      default:
+        return status;
+    }
+  }
+
+  void _saveProfileChanges(AppLocalizations l10n) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppColors.secondary,
-              content: Text(
-                'PROFILE CHANGES SAVED SUCCESSFULLY',
-                style: GoogleFonts.hankenGrotesk(
-                  color: AppColors.onSecondary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({'bio': _bio, 'specialties': _specialties})
+            .then((_) {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.secondary,
+                  content: Text(
+                    l10n.languageCode == 'es'
+                        ? 'CAMBIOS DE PERFIL GUARDADOS EXITOSAMENTE'
+                        : 'PROFILE CHANGES SAVED SUCCESSFULLY',
+                    style: GoogleFonts.hankenGrotesk(
+                      color: AppColors.onSecondary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        });
+              );
+            })
+            .catchError((e) {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.error,
+                  content: Text(
+                    l10n.languageCode == 'es'
+                        ? 'ERROR AL GUARDAR CAMBIOS: $e'
+                        : 'ERROR SAVING CHANGES: $e',
+                  ),
+                ),
+              );
+            });
+
         return Dialog(
           backgroundColor: AppColors.surfaceContainerLow,
           child: Padding(
@@ -247,7 +481,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'PUBLISHING CHANGES...',
+                  l10n.languageCode == 'es'
+                      ? 'PUBLICANDO CAMBIOS...'
+                      : 'PUBLISHING CHANGES...',
                   style: GoogleFonts.playfairDisplay(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -264,20 +500,26 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(appConfigProvider);
+    final l10n = ref.watch(l10nProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(context),
-      body: _buildBody(),
+      appBar: _buildAppBar(context, l10n),
+      body: _buildBody(config, l10n),
       floatingActionButton:
           (_currentTabIndex == 1 && _selectedActiveAppointment == null)
-          ? _buildFAB()
+          ? _buildFAB(l10n)
           : null,
-      bottomNavigationBar: _buildBottomNavBar(),
+      bottomNavigationBar: _buildBottomNavBar(l10n),
     );
   }
 
   // ─── AppBar: "PRO CUTS" styling with avatar ───────────────────────────────
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     return AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,
@@ -285,9 +527,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         icon: const Icon(Icons.menu, color: AppColors.secondary),
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Luxe & Blade menu opened.'),
-              duration: Duration(milliseconds: 800),
+            SnackBar(
+              content: Text(
+                l10n.languageCode == 'es'
+                    ? 'Menú de Luxe & Blade abierto.'
+                    : 'Luxe & Blade menu opened.',
+              ),
+              duration: const Duration(milliseconds: 800),
             ),
           );
         },
@@ -301,15 +547,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.secondary, width: 1),
             ),
-            child: const CircleAvatar(
-              backgroundImage: AssetImage(
-                'assets/images/barber_julian_vance.png',
-              ),
+            child: CircleAvatar(
+              backgroundColor: AppColors.surfaceContainerHigh,
+              child: _barberNameFromDb.isNotEmpty
+                  ? Text(
+                      _barberNameFromDb[0].toUpperCase(),
+                      style: GoogleFonts.playfairDisplay(
+                        color: AppColors.secondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : const Icon(Icons.person, color: AppColors.secondary),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Text(
-            'PRO CUTS',
+            _barberNameFromDb.isNotEmpty
+                ? _barberNameFromDb.toUpperCase()
+                : 'PRO CUTS',
             style: GoogleFonts.playfairDisplay(
               color: Colors.white,
               fontSize: 18,
@@ -320,16 +575,42 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none_rounded,
-            color: Colors.white,
-          ),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No new notifications.')),
-            );
-          },
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () => _showNotificationsDialog(context, l10n),
+            ),
+            if (_unreadNotificationsCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    '$_unreadNotificationsCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
         ),
         GestureDetector(
           onTap: () {
@@ -358,7 +639,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── Unifed Bottom Navigation: Dashboard, Schedule, Clients, Earnings ──────
-  Widget _buildBottomNavBar() {
+  Widget _buildBottomNavBar(AppLocalizations l10n) {
     return BottomNavigationBar(
       currentIndex: _currentTabIndex == 4
           ? 1
@@ -369,48 +650,48 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           _currentTabIndex = index;
         });
       },
-      items: const [
+      items: [
         BottomNavigationBarItem(
-          icon: Icon(Icons.grid_view_rounded),
-          label: 'Dashboard',
+          icon: const Icon(Icons.grid_view_rounded),
+          label: l10n.get('dashboard'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.calendar_today_rounded),
-          label: 'Schedule',
+          icon: const Icon(Icons.calendar_today_rounded),
+          label: l10n.languageCode == 'es' ? 'Horario' : 'Schedule',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.people_alt_rounded),
-          label: 'Clients',
+          icon: const Icon(Icons.people_alt_rounded),
+          label: l10n.languageCode == 'es' ? 'Clientes' : 'Clients',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.credit_card_rounded),
-          label: 'Earnings',
+          icon: const Icon(Icons.credit_card_rounded),
+          label: l10n.languageCode == 'es' ? 'Ingresos' : 'Earnings',
         ),
       ],
     );
   }
 
   // ─── Navigation routing switch ──────────────────────────────────────────────
-  Widget _buildBody() {
+  Widget _buildBody(AppConfigState config, AppLocalizations l10n) {
     switch (_currentTabIndex) {
       case 0:
-        return _buildDashboardTab();
+        return _buildDashboardTab(config, l10n);
       case 1:
-        return _buildScheduleRouterTab();
+        return _buildScheduleRouterTab(config, l10n);
       case 2:
-        return _buildClientsTab();
+        return _buildClientsTab(l10n);
       case 3:
-        return _buildEarningsPerformanceTab();
+        return _buildEarningsPerformanceTab(config, l10n);
       case 4:
-        return _buildSettingsTab(); // settings tab via avatar click
+        return _buildSettingsTab(l10n); // settings tab via avatar click
       default:
-        return _buildDashboardTab();
+        return _buildDashboardTab(config, l10n);
     }
   }
 
-  Widget _buildFAB() {
+  Widget _buildFAB(AppLocalizations l10n) {
     return FloatingActionButton(
-      onPressed: () => _showAddBookingDialog(),
+      onPressed: () => _showAddBookingDialog(l10n: l10n),
       backgroundColor: AppColors.secondary,
       foregroundColor: AppColors.onSecondary,
       elevation: 4,
@@ -422,7 +703,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── Tab 0: Dashboard (Julian's Active Session + Queue) ─────────────────────
-  Widget _buildDashboardTab() {
+  Widget _buildDashboardTab(AppConfigState config, AppLocalizations l10n) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
@@ -432,7 +713,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Active Session',
+                l10n.languageCode == 'es' ? 'Sesión Activa' : 'Active Session',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
@@ -456,7 +737,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       .fade(duration: 800.ms, begin: 0.3, end: 1.0),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    'LIVE',
+                    l10n.languageCode == 'es' ? 'EN VIVO' : 'LIVE',
                     style: AppTextStyles.labelSm.copyWith(
                       color: Colors.greenAccent,
                       fontWeight: FontWeight.w800,
@@ -468,7 +749,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          _buildActiveSessionCard(),
+          _buildActiveSessionCard(l10n),
 
           const SizedBox(height: AppSpacing.xl),
 
@@ -476,7 +757,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Next in Queue',
+                l10n.languageCode == 'es'
+                    ? 'Siguiente en Fila'
+                    : 'Next in Queue',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -490,7 +773,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   });
                 },
                 child: Text(
-                  'VIEW ALL',
+                  l10n.languageCode == 'es' ? 'VER TODO' : 'VIEW ALL',
                   style: AppTextStyles.labelSm.copyWith(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -501,12 +784,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          _buildQueueList(),
+          _buildQueueList(l10n),
 
           const SizedBox(height: AppSpacing.xl),
 
           Text(
-            'Daily Performance',
+            l10n.languageCode == 'es'
+                ? 'Rendimiento Diario'
+                : 'Daily Performance',
             style: GoogleFonts.playfairDisplay(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -519,15 +804,16 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               Expanded(
                 child: _buildPerformanceCard(
                   icon: Icons.credit_card_rounded,
-                  label: 'EARNINGS',
-                  value: '\$${_dailyEarnings.toStringAsFixed(2)}',
+                  label: l10n.languageCode == 'es' ? 'GANANCIAS' : 'EARNINGS',
+                  value:
+                      '${config.currencySymbol}${_dailyEarnings.toStringAsFixed(2)}',
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _buildPerformanceCard(
                   icon: Icons.content_cut_rounded,
-                  label: 'SERVICES',
+                  label: l10n.languageCode == 'es' ? 'SERVICIOS' : 'SERVICES',
                   value: '$_completedServices / $_totalServices',
                 ),
               ),
@@ -537,7 +823,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.xl),
 
           Text(
-            'Full Timeline',
+            l10n.languageCode == 'es' ? 'Cronología Completa' : 'Full Timeline',
             style: GoogleFonts.playfairDisplay(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -545,14 +831,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _buildTimelineGapCard(),
+          _buildTimelineGapCard(l10n),
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );
   }
 
-  Widget _buildActiveSessionCard() {
+  Widget _buildActiveSessionCard(AppLocalizations l10n) {
     if (_activeSession == null) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -570,7 +856,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'No active session',
+              l10n.languageCode == 'es'
+                  ? 'Sin sesión activa'
+                  : 'No active session',
               style: AppTextStyles.bodyLg.copyWith(
                 color: AppColors.onSurfaceVariant,
               ),
@@ -582,7 +870,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   _startSessionFromQueue(0);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('No clients in queue.')),
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'No hay clientes en fila.'
+                            : 'No clients in queue.',
+                      ),
+                    ),
                   );
                 }
               },
@@ -590,7 +884,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 backgroundColor: AppColors.secondary,
                 foregroundColor: AppColors.onSecondary,
               ),
-              child: const Text('START NEXT QUEUE SLOT'),
+              child: Text(
+                l10n.languageCode == 'es'
+                    ? 'INICIAR SIGUIENTE TURNO'
+                    : 'START NEXT QUEUE SLOT',
+              ),
             ),
           ],
         ),
@@ -650,7 +948,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'ELAPSED TIME',
+                    l10n.languageCode == 'es'
+                        ? 'TIEMPO TRANSCURRIDO'
+                        : 'ELAPSED TIME',
                     style: AppTextStyles.labelSm.copyWith(
                       fontSize: 9,
                       color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
@@ -673,7 +973,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       _selectedActiveAppointment = {
                         'clientName': _activeSession!['clientName'],
                         'service': _activeSession!['service'],
-                        'time': 'Active Now',
+                        'time': l10n.languageCode == 'es'
+                            ? 'Ahora Activo'
+                            : 'Active Now',
                         'status': 'LIVE',
                         'id': 'APPT-8821',
                       };
@@ -684,7 +986,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     Icons.check_circle_outline_rounded,
                     size: 18,
                   ),
-                  label: const Text('Finish & Charge'),
+                  label: Text(
+                    l10n.languageCode == 'es'
+                        ? 'Finalizar y Cobrar'
+                        : 'Finish & Charge',
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.secondary,
                     foregroundColor: AppColors.onSecondary,
@@ -695,9 +1001,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _cancelActiveSession(),
+                  onPressed: () => _cancelActiveSession(l10n),
                   icon: const Icon(Icons.close_rounded, size: 18),
-                  label: const Text('Cancel'),
+                  label: Text(
+                    l10n.languageCode == 'es' ? 'Cancelar' : 'Cancel',
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: AppColors.outlineVariant),
@@ -712,18 +1020,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
   }
 
-  void _cancelActiveSession() {
+  void _cancelActiveSession(AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel Active Session?'),
-        content: const Text(
-          'Are you sure you want to cancel the current session? This cannot be undone.',
+        title: Text(
+          l10n.languageCode == 'es'
+              ? '¿Cancelar Sesión Activa?'
+              : 'Cancel Active Session?',
+        ),
+        content: Text(
+          l10n.languageCode == 'es'
+              ? '¿Estás seguro de que deseas cancelar la sesión actual? Esto no se puede deshacer.'
+              : 'Are you sure you want to cancel the current session? This cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('NO'),
+            child: Text(l10n.languageCode == 'es' ? 'NO' : 'NO'),
           ),
           TextButton(
             onPressed: () {
@@ -733,7 +1047,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               });
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('YES, CANCEL'),
+            child: Text(
+              l10n.languageCode == 'es' ? 'SÍ, CANCELAR' : 'YES, CANCEL',
+            ),
           ),
         ],
       ),
@@ -752,12 +1068,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     });
   }
 
-  Widget _buildQueueList() {
+  Widget _buildQueueList(AppLocalizations l10n) {
     if (_queue.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         child: Text(
-          'No upcoming queue slots.',
+          l10n.languageCode == 'es'
+              ? 'No hay turnos en fila próximamente.'
+              : 'No upcoming queue slots.',
           style: AppTextStyles.bodyMd.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
@@ -827,7 +1145,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   Icons.more_vert,
                   color: AppColors.onSurfaceVariant,
                 ),
-                onPressed: () => _showQueueItemMenu(context, i),
+                onPressed: () => _showQueueItemMenu(context, i, l10n),
               ),
             ],
           ),
@@ -836,7 +1154,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _showQueueItemMenu(BuildContext context, int index) {
+  void _showQueueItemMenu(
+    BuildContext context,
+    int index,
+    AppLocalizations l10n,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLow,
@@ -849,7 +1171,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Icons.play_arrow_rounded,
                 color: AppColors.secondary,
               ),
-              title: Text('Start Session Now', style: AppTextStyles.labelMd),
+              title: Text(
+                l10n.languageCode == 'es'
+                    ? 'Iniciar Sesión Ahora'
+                    : 'Start Session Now',
+                style: AppTextStyles.labelMd,
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 _startSessionFromQueue(index);
@@ -860,7 +1187,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Icons.access_time_rounded,
                 color: Colors.blueAccent,
               ),
-              title: Text('Delay 10 Minutes', style: AppTextStyles.labelMd),
+              title: Text(
+                l10n.languageCode == 'es'
+                    ? 'Retrasar 10 Minutos'
+                    : 'Delay 10 Minutes',
+                style: AppTextStyles.labelMd,
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 setState(() {
@@ -875,8 +1207,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       '${hour.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Delayed queue item by 10 minutes.'),
+                  SnackBar(
+                    content: Text(
+                      l10n.languageCode == 'es'
+                          ? 'Turno retrasado 10 minutos.'
+                          : 'Delayed queue item by 10 minutes.',
+                    ),
                   ),
                 );
               },
@@ -887,7 +1223,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 color: AppColors.error,
               ),
               title: Text(
-                'Cancel Appointment',
+                l10n.languageCode == 'es'
+                    ? 'Cancelar Cita'
+                    : 'Cancel Appointment',
                 style: AppTextStyles.labelMd.copyWith(color: AppColors.error),
               ),
               onTap: () {
@@ -896,7 +1234,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   _queue.removeAt(index);
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Appointment canceled.')),
+                  SnackBar(
+                    content: Text(
+                      l10n.languageCode == 'es'
+                          ? 'Cita cancelada.'
+                          : 'Appointment canceled.',
+                    ),
+                  ),
                 );
               },
             ),
@@ -955,7 +1299,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildTimelineGapCard() {
+  Widget _buildTimelineGapCard(AppLocalizations l10n) {
     return Container(
       height: 160,
       decoration: BoxDecoration(
@@ -985,7 +1329,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Next available gap: 16:00 (30m)',
+              l10n.languageCode == 'es'
+                  ? 'Próximo espacio disponible: 16:00 (30m)'
+                  : 'Next available gap: 16:00 (30m)',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyLg.copyWith(
                 color: Colors.white.withValues(alpha: 0.9),
@@ -1012,7 +1358,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       borderRadius: BorderRadius.zero,
                     ),
                   ),
-                  child: const Text('Open Schedule'),
+                  child: Text(
+                    l10n.languageCode == 'es'
+                        ? 'Abrir Horario'
+                        : 'Open Schedule',
+                  ),
                 ),
               ),
             ),
@@ -1023,16 +1373,20 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── Tab 1 Router: Switches between Master Schedule & Active Appt Detail ────
-  Widget _buildScheduleRouterTab() {
+  Widget _buildScheduleRouterTab(AppConfigState config, AppLocalizations l10n) {
     if (_selectedActiveAppointment != null) {
-      return _buildActiveAppointmentDetailScreen(_selectedActiveAppointment!);
+      return _buildActiveAppointmentDetailScreen(
+        _selectedActiveAppointment!,
+        config,
+        l10n,
+      );
     } else {
-      return _buildMasterScheduleScreen();
+      return _buildMasterScheduleScreen(l10n);
     }
   }
 
   // Master Schedule Screen (Tab 1 base list)
-  Widget _buildMasterScheduleScreen() {
+  Widget _buildMasterScheduleScreen(AppLocalizations l10n) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
@@ -1045,7 +1399,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'MASTER SCHEDULE',
+                    l10n.languageCode == 'es'
+                        ? 'HORARIO MAESTRO'
+                        : 'MASTER SCHEDULE',
                     style: GoogleFonts.hankenGrotesk(
                       color: AppColors.secondary,
                       fontSize: 12,
@@ -1055,7 +1411,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Friday, Oct 27',
+                    l10n.languageCode == 'es'
+                        ? 'Viernes, 27 de Oct'
+                        : 'Friday, Oct 27',
                     style: GoogleFonts.playfairDisplay(
                       color: Colors.white,
                       fontSize: 28,
@@ -1065,13 +1423,17 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ],
               ),
               OutlinedButton.icon(
-                onPressed: () => _selectCalendarDate(),
+                onPressed: () => _selectCalendarDate(l10n),
                 icon: const Icon(
                   Icons.calendar_today_outlined,
                   size: 16,
                   color: AppColors.secondary,
                 ),
-                label: const Text('View Calendar'),
+                label: Text(
+                  l10n.languageCode == 'es'
+                      ? 'Ver Calendario'
+                      : 'View Calendar',
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.secondary,
                   side: const BorderSide(color: AppColors.secondary, width: 1),
@@ -1154,7 +1516,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           Row(
             children: [
               Text(
-                'APPOINTMENTS (${_appointments.length + 1})',
+                l10n.languageCode == 'es'
+                    ? 'CITAS (${_appointments.length + 1})'
+                    : 'APPOINTMENTS (${_appointments.length + 1})',
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w800,
@@ -1171,7 +1535,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Filter settings opened.')),
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Configuración de filtros abierta.'
+                            : 'Filter settings opened.',
+                      ),
+                    ),
                   );
                 },
               ),
@@ -1196,10 +1566,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       };
                     });
                   },
-                  child: _buildAppointmentCard(apt),
+                  child: _buildAppointmentCard(apt, l10n),
                 ),
               ),
-              _buildAvailableSlotCard('12:30'),
+              _buildAvailableSlotCard('12:30', l10n),
             ],
           ),
           const SizedBox(height: 80),
@@ -1208,7 +1578,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _selectCalendarDate() async {
+  void _selectCalendarDate(AppLocalizations l10n) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(2026, 10, 27),
@@ -1232,14 +1602,19 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Selected date: ${picked.toLocal().toString().split(' ')[0]}',
+            l10n.languageCode == 'es'
+                ? 'Fecha seleccionada: ${picked.toLocal().toString().split(' ')[0]}'
+                : 'Selected date: ${picked.toLocal().toString().split(' ')[0]}',
           ),
         ),
       );
     }
   }
 
-  Widget _buildAppointmentCard(Map<String, dynamic> apt) {
+  Widget _buildAppointmentCard(
+    Map<String, dynamic> apt,
+    AppLocalizations l10n,
+  ) {
     final isConfirmed = apt['status'] == 'CONFIRMED';
     final isCheckedIn = apt['checkedIn'] as bool;
 
@@ -1329,7 +1704,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
-                      apt['status'],
+                      _localizedStatusLabel(apt['status'], l10n),
                       style: AppTextStyles.labelSm.copyWith(
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
@@ -1363,7 +1738,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      '${apt['clientName']} checked in.',
+                                      l10n.languageCode == 'es'
+                                          ? '${apt['clientName']} ha llegado.'
+                                          : '${apt['clientName']} checked in.',
                                     ),
                                   ),
                                 );
@@ -1375,7 +1752,15 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           size: 16,
                           color: isCheckedIn ? Colors.grey : Colors.white,
                         ),
-                        label: Text(isCheckedIn ? 'Checked In' : 'Check In'),
+                        label: Text(
+                          isCheckedIn
+                              ? (l10n.languageCode == 'es'
+                                    ? 'Llegó'
+                                    : 'Checked In')
+                              : (l10n.languageCode == 'es'
+                                    ? 'Marcar Llegada'
+                                    : 'Check In'),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.1),
                           foregroundColor: Colors.white,
@@ -1397,7 +1782,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Appointment for ${apt['clientName']} confirmed!',
+                                l10n.languageCode == 'es'
+                                    ? '¡Cita de ${apt['clientName']} confirmada!'
+                                    : 'Appointment for ${apt['clientName']} confirmed!',
                               ),
                             ),
                           );
@@ -1407,7 +1794,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           size: 16,
                           color: AppColors.onSecondary,
                         ),
-                        label: const Text('Confirm'),
+                        label: Text(
+                          l10n.languageCode == 'es' ? 'Confirmar' : 'Confirm',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.secondary,
                           foregroundColor: AppColors.onSecondary,
@@ -1433,9 +1822,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   ),
                   onPressed: () {
                     if (isConfirmed) {
-                      _showAppointmentActionMenu(apt);
+                      _showAppointmentActionMenu(apt, l10n);
                     } else {
-                      _cancelAppointmentDialog(apt);
+                      _cancelAppointmentDialog(apt, l10n);
                     }
                   },
                 ),
@@ -1447,13 +1836,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildAvailableSlotCard(String time) {
+  Widget _buildAvailableSlotCard(String time, AppLocalizations l10n) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _showAddBookingDialog(timeSlot: time),
+          onTap: () => _showAddBookingDialog(timeSlot: time, l10n: l10n),
           borderRadius: AppRadius.borderRadiusLg,
           child: Container(
             padding: const EdgeInsets.all(24),
@@ -1476,7 +1865,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Text(
-                  '$time - Available Slot',
+                  l10n.languageCode == 'es'
+                      ? '$time - Turno Disponible'
+                      : '$time - Available Slot',
                   style: AppTextStyles.bodyLg.copyWith(
                     color: AppColors.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
@@ -1490,7 +1881,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _showAppointmentActionMenu(Map<String, dynamic> apt) {
+  void _showAppointmentActionMenu(
+    Map<String, dynamic> apt,
+    AppLocalizations l10n,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLow,
@@ -1503,7 +1897,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Icons.play_arrow_rounded,
                 color: AppColors.secondary,
               ),
-              title: Text('Start Session Now', style: AppTextStyles.labelMd),
+              title: Text(
+                l10n.languageCode == 'es'
+                    ? 'Iniciar Sesión Ahora'
+                    : 'Start Session Now',
+                style: AppTextStyles.labelMd,
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 setState(() {
@@ -1522,12 +1921,21 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Icons.edit_outlined,
                 color: Colors.blueAccent,
               ),
-              title: Text('Reschedule Session', style: AppTextStyles.labelMd),
+              title: Text(
+                l10n.languageCode == 'es'
+                    ? 'Reprogramar Sesión'
+                    : 'Reschedule Session',
+                style: AppTextStyles.labelMd,
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Select a new slot to reschedule.'),
+                  SnackBar(
+                    content: Text(
+                      l10n.languageCode == 'es'
+                          ? 'Selecciona un nuevo turno para reprogramar.'
+                          : 'Select a new slot to reschedule.',
+                    ),
                   ),
                 );
               },
@@ -1538,12 +1946,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 color: AppColors.error,
               ),
               title: Text(
-                'Cancel Appointment',
+                l10n.languageCode == 'es'
+                    ? 'Cancelar Cita'
+                    : 'Cancel Appointment',
                 style: AppTextStyles.labelMd.copyWith(color: AppColors.error),
               ),
               onTap: () {
                 Navigator.of(context).pop();
-                _cancelAppointmentDialog(apt);
+                _cancelAppointmentDialog(apt, l10n);
               },
             ),
           ],
@@ -1552,18 +1962,25 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _cancelAppointmentDialog(Map<String, dynamic> apt) {
+  void _cancelAppointmentDialog(
+    Map<String, dynamic> apt,
+    AppLocalizations l10n,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel Appointment?'),
+        title: Text(
+          l10n.languageCode == 'es' ? '¿Cancelar Cita?' : 'Cancel Appointment?',
+        ),
         content: Text(
-          'Are you sure you want to cancel the appointment for ${apt['clientName']}?',
+          l10n.languageCode == 'es'
+              ? '¿Estás seguro de que deseas cancelar la cita de ${apt['clientName']}?'
+              : 'Are you sure you want to cancel the appointment for ${apt['clientName']}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('NO'),
+            child: Text(l10n.languageCode == 'es' ? 'NO' : 'NO'),
           ),
           TextButton(
             onPressed: () {
@@ -1572,18 +1989,29 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 _appointments.remove(apt);
               });
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Appointment removed.')),
+                SnackBar(
+                  content: Text(
+                    l10n.languageCode == 'es'
+                        ? 'Cita eliminada.'
+                        : 'Appointment removed.',
+                  ),
+                ),
               );
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('YES, CANCEL'),
+            child: Text(
+              l10n.languageCode == 'es' ? 'SÍ, CANCELAR' : 'YES, CANCEL',
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showAddBookingDialog({String? timeSlot}) {
+  void _showAddBookingDialog({
+    required AppLocalizations l10n,
+    String? timeSlot,
+  }) {
     final clientNameController = TextEditingController();
     final serviceController = TextEditingController(
       text: 'Signature Cut & Shave',
@@ -1595,7 +2023,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surfaceContainerLow,
         title: Text(
-          'BOOK NEW CLIENT',
+          l10n.languageCode == 'es'
+              ? 'RESERVAR NUEVO CLIENTE'
+              : 'BOOK NEW CLIENT',
           style: GoogleFonts.playfairDisplay(
             color: AppColors.secondary,
             fontWeight: FontWeight.bold,
@@ -1608,27 +2038,37 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           children: [
             TextField(
               controller: clientNameController,
-              decoration: const InputDecoration(
-                labelText: 'Client Name',
-                hintText: 'e.g. Liam Neeson',
+              decoration: InputDecoration(
+                labelText: l10n.languageCode == 'es'
+                    ? 'Nombre del Cliente'
+                    : 'Client Name',
+                hintText: l10n.languageCode == 'es'
+                    ? 'ej. Liam Neeson'
+                    : 'e.g. Liam Neeson',
               ),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: serviceController,
-              decoration: const InputDecoration(labelText: 'Service Name'),
+              decoration: InputDecoration(
+                labelText: l10n.languageCode == 'es'
+                    ? 'Nombre del Servicio'
+                    : 'Service Name',
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
               controller: timeController,
-              decoration: const InputDecoration(labelText: 'Time Slot'),
+              decoration: InputDecoration(
+                labelText: l10n.languageCode == 'es' ? 'Horario' : 'Time Slot',
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('CANCEL'),
+            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1646,14 +2086,22 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 });
               });
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Client booked successfully.')),
+                SnackBar(
+                  content: Text(
+                    l10n.languageCode == 'es'
+                        ? 'Cliente reservado exitosamente.'
+                        : 'Client booked successfully.',
+                  ),
+                ),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondary,
               foregroundColor: AppColors.onSecondary,
             ),
-            child: const Text('BOOK APPOINTMENT'),
+            child: Text(
+              l10n.languageCode == 'es' ? 'RESERVAR CITA' : 'BOOK APPOINTMENT',
+            ),
           ),
         ],
       ),
@@ -1661,7 +2109,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── TAB 1 SUB-PAGE: Active Appointment Detail Screen (Image 1) ─────────────
-  Widget _buildActiveAppointmentDetailScreen(Map<String, dynamic> appt) {
+  Widget _buildActiveAppointmentDetailScreen(
+    Map<String, dynamic> appt,
+    AppConfigState config,
+    AppLocalizations l10n,
+  ) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -1680,7 +2132,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           },
         ),
         title: Text(
-          'Appointment Details',
+          l10n.languageCode == 'es'
+              ? 'Detalles de la Cita'
+              : 'Appointment Details',
           style: GoogleFonts.playfairDisplay(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -1705,7 +2159,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   ),
                   color: AppColors.secondary,
                   child: Text(
-                    'ACTIVE APPOINTMENT',
+                    l10n.languageCode == 'es'
+                        ? 'CITA ACTIVA'
+                        : 'ACTIVE APPOINTMENT',
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppColors.onSecondary,
                       fontWeight: FontWeight.w900,
@@ -1728,7 +2184,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
             // Service Title
             Text(
-              'The Signature Cut',
+              l10n.languageCode == 'es'
+                  ? 'El Corte Distintivo'
+                  : 'The Signature Cut',
               style: GoogleFonts.playfairDisplay(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -1749,7 +2207,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '45 Minutes',
+                      l10n.languageCode == 'es' ? '45 Minutos' : '45 Minutes',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 14,
@@ -1767,7 +2225,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '\$65.00',
+                      '${config.currencySymbol}65.00',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 14,
@@ -1836,7 +2294,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Loyalty Member • 12 Visits',
+                          l10n.languageCode == 'es'
+                              ? 'Miembro Leal • 12 Visitas'
+                              : 'Loyalty Member • 12 Visits',
                           style: AppTextStyles.bodyMd.copyWith(
                             color: AppColors.onSurfaceVariant,
                             fontSize: 13,
@@ -1852,7 +2312,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       _buildContactButton(Icons.phone_outlined, () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Calling ${appt['clientName']}...'),
+                            content: Text(
+                              l10n.languageCode == 'es'
+                                  ? 'Llamando a ${appt['clientName']}...'
+                                  : 'Calling ${appt['clientName']}...',
+                            ),
                           ),
                         );
                       }),
@@ -1860,7 +2324,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       _buildContactButton(Icons.mail_outline_rounded, () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Messaging ${appt['clientName']}...'),
+                            content: Text(
+                              l10n.languageCode == 'es'
+                                  ? 'Mensajeando a ${appt['clientName']}...'
+                                  : 'Messaging ${appt['clientName']}...',
+                            ),
                           ),
                         );
                       }),
@@ -1877,7 +2345,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'PAST VISIT NOTES',
+                  l10n.languageCode == 'es'
+                      ? 'NOTAS DE VISITAS PASADAS'
+                      : 'PAST VISIT NOTES',
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 12,
                     color: AppColors.secondary,
@@ -1891,7 +2361,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     color: AppColors.onSurfaceVariant,
                     size: 20,
                   ),
-                  onPressed: () => _showAddNoteDialog(),
+                  onPressed: () => _showAddNoteDialog(l10n),
                 ),
               ],
             ),
@@ -1952,7 +2422,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                               _isServiceStarted = true;
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Service Started.')),
+                              SnackBar(
+                                content: Text(
+                                  l10n.languageCode == 'es'
+                                      ? 'Servicio Iniciado.'
+                                      : 'Service Started.',
+                                ),
+                              ),
                             );
                           },
                     icon: Icon(
@@ -1961,7 +2437,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       color: _isServiceStarted ? Colors.grey : Colors.white,
                     ),
                     label: Text(
-                      _isServiceStarted ? 'In Progress' : 'Start Service',
+                      _isServiceStarted
+                          ? (l10n.languageCode == 'es'
+                                ? 'En Progreso'
+                                : 'In Progress')
+                          : (l10n.languageCode == 'es'
+                                ? 'Iniciar Servicio'
+                                : 'Start Service'),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
@@ -2001,7 +2483,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         _recentActivity.insert(0, {
                           'service': appt['service'],
                           'client': appt['clientName'],
-                          'time': 'Just Now',
+                          'time': l10n.languageCode == 'es'
+                              ? 'Justo Ahora'
+                              : 'Just Now',
                           'price': 65.00,
                           'tip': 15.00,
                           'icon': Icons.content_cut_rounded,
@@ -2009,9 +2493,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       });
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(
-                            'Service Completed. Payment processed successfully.',
+                            l10n.languageCode == 'es'
+                                ? 'Servicio Completado. Pago procesado exitosamente.'
+                                : 'Service Completed. Payment processed successfully.',
                           ),
                         ),
                       );
@@ -2020,7 +2506,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       Icons.check_circle_outline_rounded,
                       size: 20,
                     ),
-                    label: const Text('Complete & Charge'),
+                    label: Text(
+                      l10n.languageCode == 'es'
+                          ? 'Completar y Cobrar'
+                          : 'Complete & Charge',
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.secondary,
                       foregroundColor: AppColors.onSecondary,
@@ -2056,23 +2546,31 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _showAddNoteDialog() {
+  void _showAddNoteDialog(AppLocalizations l10n) {
     final noteController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surfaceContainerLow,
-        title: const Text('Add Visit Note'),
+        title: Text(
+          l10n.languageCode == 'es'
+              ? 'Agregar Nota de Visita'
+              : 'Add Visit Note',
+        ),
         content: TextField(
           controller: noteController,
           autofocus: true,
           maxLines: 3,
-          decoration: const InputDecoration(hintText: 'Enter visit notes...'),
+          decoration: InputDecoration(
+            hintText: l10n.languageCode == 'es'
+                ? 'Ingresa notas de la visita...'
+                : 'Enter visit notes...',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('CANCEL'),
+            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -2090,7 +2588,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               backgroundColor: AppColors.secondary,
               foregroundColor: AppColors.onSecondary,
             ),
-            child: const Text('SAVE NOTE'),
+            child: Text(
+              l10n.languageCode == 'es' ? 'GUARDAR NOTA' : 'SAVE NOTE',
+            ),
           ),
         ],
       ),
@@ -2098,7 +2598,21 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── TAB 2: Clients Registry List ──────────────────────────────────────────
-  Widget _buildClientsTab() {
+  String _localizedClientStatus(String status, AppLocalizations l10n) {
+    if (l10n.languageCode != 'es') return status;
+    switch (status) {
+      case 'Loyalty Member':
+        return 'Miembro Leal';
+      case 'Regular Client':
+        return 'Cliente Habitual';
+      case 'VIP Client':
+        return 'Cliente VIP';
+      default:
+        return status;
+    }
+  }
+
+  Widget _buildClientsTab(AppLocalizations l10n) {
     final filteredClients = _clients.where((client) {
       return client['name'].toLowerCase().contains(
         _clientSearchQuery.toLowerCase(),
@@ -2111,7 +2625,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Client Registry',
+            l10n.languageCode == 'es'
+                ? 'Registro de Clientes'
+                : 'Client Registry',
             style: GoogleFonts.playfairDisplay(
               fontSize: 26,
               fontWeight: FontWeight.bold,
@@ -2120,7 +2636,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Search loyalty, visit history, and contact details.',
+            l10n.languageCode == 'es'
+                ? 'Busca lealtad, historial de visitas y datos de contacto.'
+                : 'Search loyalty, visit history, and contact details.',
             style: AppTextStyles.bodyMd.copyWith(
               color: AppColors.onSurfaceVariant,
             ),
@@ -2135,7 +2653,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               });
             },
             decoration: InputDecoration(
-              hintText: 'Search clientele...',
+              hintText: l10n.languageCode == 'es'
+                  ? 'Buscar clientela...'
+                  : 'Search clientele...',
               prefixIcon: const Icon(
                 Icons.search_rounded,
                 color: AppColors.onSurfaceVariant,
@@ -2153,7 +2673,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
               child: Text(
-                'No clients found matching search.',
+                l10n.languageCode == 'es'
+                    ? 'No se encontraron clientes que coincidan con la búsqueda.'
+                    : 'No clients found matching search.',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
@@ -2190,7 +2712,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                             ),
                           ),
                           Text(
-                            '${client['status']} • ${client['visits']}',
+                            '${_localizedClientStatus(client['status'], l10n)} • ${client['visits']}',
                             style: AppTextStyles.bodyMd.copyWith(
                               color: AppColors.onSurfaceVariant,
                               fontSize: 12,
@@ -2210,7 +2732,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Calling ${client['name']}...'),
+                                content: Text(
+                                  l10n.languageCode == 'es'
+                                      ? 'Llamando a ${client['name']}...'
+                                      : 'Calling ${client['name']}...',
+                                ),
                               ),
                             );
                           },
@@ -2227,7 +2753,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                               _selectedActiveAppointment = {
                                 'clientName': client['name'],
                                 'service': 'Signature Cut & Beard Grooming',
-                                'time': 'Loyalty Profile',
+                                'time': l10n.languageCode == 'es'
+                                    ? 'Perfil de Lealtad'
+                                    : 'Loyalty Profile',
                                 'status': 'CONFIRMED',
                                 'id': 'APPT-8821',
                               };
@@ -2247,7 +2775,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── TAB 3: Earnings & Performance Dashboard (Image 0) ──────────────────────
-  Widget _buildEarningsPerformanceTab() {
+  Widget _buildEarningsPerformanceTab(
+    AppConfigState config,
+    AppLocalizations l10n,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
@@ -2258,7 +2789,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Performance',
+                l10n.languageCode == 'es' ? 'Rendimiento' : 'Performance',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -2277,8 +2808,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 padding: const EdgeInsets.all(3),
                 child: Row(
                   children: [
-                    _buildFilterToggleOption('Today'),
-                    _buildFilterToggleOption('Weekly'),
+                    _buildFilterToggleOption(
+                      'Today',
+                      l10n.languageCode == 'es' ? 'Hoy' : 'Today',
+                    ),
+                    _buildFilterToggleOption(
+                      'Weekly',
+                      l10n.languageCode == 'es' ? 'Semanal' : 'Weekly',
+                    ),
                   ],
                 ),
               ),
@@ -2288,7 +2825,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.lg),
 
           // Total Earnings Card
-          _buildTotalEarningsCard(),
+          _buildTotalEarningsCard(config, l10n),
 
           const SizedBox(height: AppSpacing.md),
 
@@ -2297,8 +2834,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             children: [
               Expanded(
                 child: _buildBreakdownProgressCard(
-                  title: 'SERVICES',
-                  value: '\$${_servicesEarnings.toStringAsFixed(2)}',
+                  title: l10n.languageCode == 'es' ? 'SERVICIOS' : 'SERVICES',
+                  value:
+                      '${config.currencySymbol}${_servicesEarnings.toStringAsFixed(2)}',
                   progressValue:
                       _servicesEarnings / 500.0, // scale to $500 target
                 ),
@@ -2306,8 +2844,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _buildBreakdownProgressCard(
-                  title: 'TIPS',
-                  value: '\$${_tipsEarnings.toStringAsFixed(2)}',
+                  title: l10n.languageCode == 'es' ? 'PROPINAS' : 'TIPS',
+                  value:
+                      '${config.currencySymbol}${_tipsEarnings.toStringAsFixed(2)}',
                   progressValue: _tipsEarnings / 150.0, // scale to $150 target
                 ),
               ),
@@ -2318,10 +2857,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           // Daily Appointments graph card
           Row(
-            mainAxisAlignment: .spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Daily Appointments',
+                l10n.languageCode == 'es'
+                    ? 'Citas Diarias'
+                    : 'Daily Appointments',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -2329,7 +2870,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
               ),
               Text(
-                '$_completedServices of $_totalServices Completed',
+                l10n.languageCode == 'es'
+                    ? '$_completedServices de $_totalServices Completadas'
+                    : '$_completedServices of $_totalServices Completed',
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 13,
@@ -2348,7 +2891,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Activity',
+                l10n.get('recent_activity'),
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -2358,13 +2901,19 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               TextButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Viewing all transactions.')),
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Viendo todas las transacciones.'
+                            : 'Viewing all transactions.',
+                      ),
+                    ),
                   );
                 },
                 child: Row(
                   children: [
                     Text(
-                      'View All',
+                      l10n.languageCode == 'es' ? 'Ver Todo' : 'View All',
                       style: AppTextStyles.labelSm.copyWith(
                         color: AppColors.secondary,
                         fontWeight: FontWeight.bold,
@@ -2382,24 +2931,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          _buildRecentActivityList(),
+          _buildRecentActivityList(config, l10n),
 
           const SizedBox(height: AppSpacing.xl),
 
           // Weekly Goal Card
-          _buildWeeklyGoalCard(),
+          _buildWeeklyGoalCard(config, l10n),
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );
   }
 
-  Widget _buildFilterToggleOption(String label) {
-    final isSelected = _earningsFilter == label;
+  Widget _buildFilterToggleOption(String filterKey, String label) {
+    final isSelected = _earningsFilter == filterKey;
     return GestureDetector(
       onTap: () {
         setState(() {
-          _earningsFilter = label;
+          _earningsFilter = filterKey;
         });
       },
       child: Container(
@@ -2422,7 +2971,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildTotalEarningsCard() {
+  Widget _buildTotalEarningsCard(AppConfigState config, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -2438,7 +2987,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'TOTAL EARNINGS',
+                l10n.languageCode == 'es'
+                    ? 'GANANCIAS TOTALES'
+                    : 'TOTAL EARNINGS',
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
                   letterSpacing: 1.5,
@@ -2448,7 +2999,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '\$${_dailyEarnings.toStringAsFixed(2)}',
+                '${config.currencySymbol}${_dailyEarnings.toStringAsFixed(2)}',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 38,
                   fontWeight: FontWeight.bold,
@@ -2465,7 +3016,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '12% from yesterday',
+                    l10n.languageCode == 'es'
+                        ? '12% más que ayer'
+                        : '12% from yesterday',
                     style: AppTextStyles.bodyMd.copyWith(
                       color: Colors.greenAccent,
                       fontSize: 13,
@@ -2637,7 +3190,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildRecentActivityList() {
+  Widget _buildRecentActivityList(
+    AppConfigState config,
+    AppLocalizations l10n,
+  ) {
     return Column(
       children: _recentActivity.map((activity) {
         return Container(
@@ -2696,7 +3252,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '\$${(activity['price'] as double).toStringAsFixed(2)}',
+                    '${config.currencySymbol}${(activity['price'] as double).toStringAsFixed(2)}',
                     style: GoogleFonts.playfairDisplay(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -2705,7 +3261,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '+\$${(activity['tip'] as double).toStringAsFixed(2)} Tip',
+                    '+${config.currencySymbol}${(activity['tip'] as double).toStringAsFixed(2)} ${l10n.languageCode == 'es' ? 'Propina' : 'Tip'}',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -2721,7 +3277,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildWeeklyGoalCard() {
+  Widget _buildWeeklyGoalCard(AppConfigState config, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -2739,7 +3295,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Weekly Goal',
+                  l10n.languageCode == 'es' ? 'Meta Semanal' : 'Weekly Goal',
                   style: GoogleFonts.playfairDisplay(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -2748,7 +3304,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You\'re only 4 appointments away from reaching your \$2,500 weekly target.',
+                  l10n.languageCode == 'es'
+                      ? 'Solo te faltan 4 citas para alcanzar tu meta semanal de ${config.currencySymbol}2,500.'
+                      : 'You\'re only 4 appointments away from reaching your ${config.currencySymbol}2,500 weekly target.',
                   style: AppTextStyles.bodyMd.copyWith(
                     color: AppColors.onSurfaceVariant,
                     fontSize: 14,
@@ -2790,14 +3348,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── TAB 4 Settings / Profile view ──────────────────────────────────────────
-  Widget _buildSettingsTab() {
+  Widget _buildSettingsTab(AppLocalizations l10n) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Master Profile',
+            l10n.languageCode == 'es' ? 'Perfil Maestro' : 'Master Profile',
             style: GoogleFonts.playfairDisplay(
               fontSize: 26,
               fontWeight: FontWeight.bold,
@@ -2806,7 +3364,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Configure your professional presence and availability.',
+            l10n.languageCode == 'es'
+                ? 'Configura tu presencia profesional y disponibilidad.'
+                : 'Configure your professional presence and availability.',
             style: AppTextStyles.bodyMd.copyWith(
               color: AppColors.onSurfaceVariant,
               fontSize: 14,
@@ -2827,11 +3387,23 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               children: [
                 Stack(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 36,
-                      backgroundImage: AssetImage(
-                        'assets/images/barber_julian_vance.png',
-                      ),
+                      backgroundColor: AppColors.surfaceContainerHigh,
+                      child: _barberNameFromDb.isNotEmpty
+                          ? Text(
+                              _barberNameFromDb[0].toUpperCase(),
+                              style: GoogleFonts.playfairDisplay(
+                                color: AppColors.secondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 28,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person,
+                              color: AppColors.secondary,
+                              size: 28,
+                            ),
                     ),
                     Positioned(
                       bottom: 0,
@@ -2857,7 +3429,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Julian Vane',
+                        _barberNameFromDb.isNotEmpty
+                            ? _barberNameFromDb
+                            : 'Julian Vance',
                         style: GoogleFonts.playfairDisplay(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -2865,7 +3439,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         ),
                       ),
                       Text(
-                        'Executive Manager & Senior Stylist',
+                        _specialtyFromDb.isNotEmpty
+                            ? _specialtyFromDb
+                            : 'Executive Manager & Senior Stylist',
                         style: AppTextStyles.bodyMd.copyWith(
                           color: AppColors.onSurfaceVariant,
                           fontSize: 13,
@@ -2881,7 +3457,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '4.9 (128 reviews)',
+                            l10n.languageCode == 'es'
+                                ? '4.9 (128 reseñas)'
+                                : '4.9 (128 reviews)',
                             style: AppTextStyles.labelSm.copyWith(
                               color: AppColors.secondary,
                               fontSize: 11,
@@ -2899,7 +3477,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.xl),
 
           Text(
-            'PROFESSIONAL BIOGRAPHY',
+            l10n.languageCode == 'es'
+                ? 'BIOGRAFÍA PROFESIONAL'
+                : 'PROFESSIONAL BIOGRAPHY',
             style: AppTextStyles.labelSm.copyWith(
               color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
               letterSpacing: 1.5,
@@ -2925,7 +3505,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Specialties',
+                l10n.languageCode == 'es' ? 'Especialidades' : 'Specialties',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -2959,7 +3539,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
               ),
               GestureDetector(
-                onTap: () => _showAddSpecialtyDialog(),
+                onTap: () => _showAddSpecialtyDialog(l10n),
                 child: Chip(
                   backgroundColor: AppColors.background,
                   side: const BorderSide(color: AppColors.outlineVariant),
@@ -2973,7 +3553,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Add New',
+                        l10n.get('add_new'),
                         style: TextStyle(
                           color: AppColors.secondary.withValues(alpha: 0.9),
                         ),
@@ -2991,7 +3571,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Languages',
+                l10n.languageCode == 'es' ? 'Idiomas' : 'Languages',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -3019,9 +3599,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('English', style: AppTextStyles.bodyMd),
                     Text(
-                      'NATIVE',
+                      l10n.languageCode == 'es' ? 'Inglés' : 'English',
+                      style: AppTextStyles.bodyMd,
+                    ),
+                    Text(
+                      l10n.languageCode == 'es' ? 'NATIVO' : 'NATIVE',
                       style: AppTextStyles.labelSm.copyWith(
                         color: AppColors.secondary,
                         fontWeight: FontWeight.bold,
@@ -3033,9 +3616,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Italian', style: AppTextStyles.bodyMd),
                     Text(
-                      'FLUENT',
+                      l10n.languageCode == 'es' ? 'Italiano' : 'Italian',
+                      style: AppTextStyles.bodyMd,
+                    ),
+                    Text(
+                      l10n.languageCode == 'es' ? 'FLUIDO' : 'FLUENT',
                       style: AppTextStyles.labelSm.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontWeight: FontWeight.bold,
@@ -3053,7 +3639,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Availability',
+                l10n.languageCode == 'es' ? 'Disponibilidad' : 'Availability',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -3075,11 +3661,23 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
             child: Column(
               children: [
-                _buildAvailabilityRow('Mon', true, '09:00 AM - 06:00 PM'),
+                _buildAvailabilityRow(
+                  l10n.languageCode == 'es' ? 'Lun' : 'Mon',
+                  true,
+                  '09:00 AM - 06:00 PM',
+                ),
                 const Divider(height: 16),
-                _buildAvailabilityRow('Tue', true, '09:00 AM - 06:00 PM'),
+                _buildAvailabilityRow(
+                  l10n.languageCode == 'es' ? 'Mar' : 'Tue',
+                  true,
+                  '09:00 AM - 06:00 PM',
+                ),
                 const Divider(height: 16),
-                _buildAvailabilityRow('Sun', false, 'Closed'),
+                _buildAvailabilityRow(
+                  l10n.languageCode == 'es' ? 'Dom' : 'Sun',
+                  false,
+                  l10n.languageCode == 'es' ? 'Cerrado' : 'Closed',
+                ),
               ],
             ),
           ),
@@ -3087,7 +3685,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.xl),
 
           Text(
-            'Notifications',
+            l10n.languageCode == 'es' ? 'Notificaciones' : 'Notifications',
             style: GoogleFonts.playfairDisplay(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -3107,14 +3705,18 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   child: SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(
-                      'Push Notifications',
+                      l10n.languageCode == 'es'
+                          ? 'Notificaciones Push'
+                          : 'Push Notifications',
                       style: AppTextStyles.bodyLg.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     subtitle: Text(
-                      'New bookings and reminders',
+                      l10n.languageCode == 'es'
+                          ? 'Nuevas reservas y recordatorios'
+                          : 'New bookings and reminders',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 12,
@@ -3135,14 +3737,18 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   child: SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(
-                      'Email Updates',
+                      l10n.languageCode == 'es'
+                          ? 'Actualizaciones por Correo'
+                          : 'Email Updates',
                       style: AppTextStyles.bodyLg.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     subtitle: Text(
-                      'Daily schedule & revenue reports',
+                      l10n.languageCode == 'es'
+                          ? 'Informes diarios de horario e ingresos'
+                          : 'Daily schedule & revenue reports',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 12,
@@ -3164,14 +3770,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.xl * 1.5),
 
           ElevatedButton(
-            onPressed: () => _saveProfileChanges(),
+            onPressed: () => _saveProfileChanges(l10n),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondary,
               foregroundColor: AppColors.onSecondary,
               minimumSize: const Size(double.infinity, 54),
             ),
             child: Text(
-              'SAVE CHANGES',
+              l10n.languageCode == 'es' ? 'GUARDAR CAMBIOS' : 'SAVE CHANGES',
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
@@ -3183,7 +3789,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.md),
 
           OutlinedButton(
-            onPressed: () => _handleLogout(),
+            onPressed: () => _handleLogout(l10n),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(
@@ -3193,7 +3799,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               minimumSize: const Size(double.infinity, 54),
             ),
             child: Text(
-              'LOGOUT',
+              l10n.languageCode == 'es' ? 'CERRAR SESIÓN' : 'LOGOUT',
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
@@ -3235,25 +3841,31 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _showAddSpecialtyDialog() {
+  void _showAddSpecialtyDialog(AppLocalizations l10n) {
     final textController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surfaceContainerLow,
-        title: const Text('Add Specialty'),
+        title: Text(
+          l10n.languageCode == 'es' ? 'Agregar Especialidad' : 'Add Specialty',
+        ),
         content: TextField(
           controller: textController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Specialty Name',
-            hintText: 'e.g. Buzz Cut',
+          decoration: InputDecoration(
+            labelText: l10n.languageCode == 'es'
+                ? 'Nombre de la Especialidad'
+                : 'Specialty Name',
+            hintText: l10n.languageCode == 'es'
+                ? 'ej. Corte a Máquina'
+                : 'e.g. Buzz Cut',
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('CANCEL'),
+            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -3268,18 +3880,243 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               backgroundColor: AppColors.secondary,
               foregroundColor: AppColors.onSecondary,
             ),
-            child: const Text('ADD'),
+            child: Text(l10n.languageCode == 'es' ? 'AGREGAR' : 'ADD'),
           ),
         ],
       ),
     );
   }
 
-  void _handleLogout() {
+  void _showNotificationsDialog(BuildContext context, AppLocalizations l10n) {
+    final authState = ref.read(authProvider);
+    final barberName = authState.displayName ?? 'Julian Vance';
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        child: Container(
+          width: 500,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.languageCode == 'es'
+                        ? 'NOTIFICACIONES'
+                        : 'NOTIFICATIONS',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.secondary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(color: AppColors.outlineVariant),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('notifications')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.secondary,
+                        ),
+                      );
+                    }
+
+                    final docs = snapshot.data?.docs ?? [];
+                    final barberDocs = docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final String docBarberName = data['barberName'] ?? '';
+                      final String docBarberId = data['barberId'] ?? '';
+                      return docBarberName.toLowerCase() ==
+                              barberName.toLowerCase() ||
+                          docBarberId == authState.email;
+                    }).toList();
+
+                    if (barberDocs.isEmpty) {
+                      return Center(
+                        child: Text(
+                          l10n.languageCode == 'es'
+                              ? 'No hay notificaciones para ti.'
+                              : 'No notifications for you.',
+                          style: GoogleFonts.hankenGrotesk(
+                            color: AppColors.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: barberDocs.length,
+                      itemBuilder: (context, index) {
+                        final doc = barberDocs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final String title =
+                            data['title'] ??
+                            (l10n.languageCode == 'es'
+                                ? 'Nueva Cita'
+                                : 'New Appointment');
+                        final String message = data['message'] ?? '';
+                        final bool read = data['read'] ?? false;
+                        final timestamp = data['createdAt'] as Timestamp?;
+                        final dateStr = timestamp != null
+                            ? '${timestamp.toDate().day}/${timestamp.toDate().month} ${timestamp.toDate().hour}:${timestamp.toDate().minute.toString().padLeft(2, '0')}'
+                            : '';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: read
+                                ? AppColors.surfaceContainerLowest
+                                : AppColors.surfaceContainerHigh.withValues(
+                                    alpha: 0.5,
+                                  ),
+                            border: Border.all(
+                              color: read
+                                  ? AppColors.outlineVariant.withValues(
+                                      alpha: 0.3,
+                                    )
+                                  : AppColors.secondary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title.toUpperCase(),
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: read
+                                            ? Colors.white70
+                                            : AppColors.secondary,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    dateStr,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 10,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                message,
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (!read)
+                                    TextButton(
+                                      onPressed: () async {
+                                        await FirebaseFirestore.instance
+                                            .collection('notifications')
+                                            .doc(doc.id)
+                                            .update({'read': true});
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Text(
+                                        l10n.languageCode == 'es'
+                                            ? 'Marcar como leída'
+                                            : 'Mark as read',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          color: AppColors.secondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  TextButton(
+                                    onPressed: () async {
+                                      await FirebaseFirestore.instance
+                                          .collection('notifications')
+                                          .doc(doc.id)
+                                          .delete();
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      l10n.get('delete'),
+                                      style: GoogleFonts.hankenGrotesk(
+                                        color: AppColors.error,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleLogout(AppLocalizations l10n) {
     ref.read(authProvider.notifier).logout();
     context.go('/login');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logged out of Staff Portal.')),
+      SnackBar(
+        content: Text(
+          l10n.languageCode == 'es'
+              ? 'Sesión cerrada del Portal de Personal.'
+              : 'Logged out of Staff Portal.',
+        ),
+      ),
     );
   }
 }
