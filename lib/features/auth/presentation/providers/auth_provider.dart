@@ -118,6 +118,12 @@ class AuthNotifier extends Notifier<AuthState> {
         errorMessage: _errorMessage(e.code),
       );
       return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'An unexpected error occurred: ${e.toString()}',
+      );
+      return false;
     }
   }
 

@@ -3102,54 +3102,60 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
             child: Column(
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Push Notifications',
-                    style: AppTextStyles.bodyLg.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Push Notifications',
+                      style: AppTextStyles.bodyLg.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    'New bookings and reminders',
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontSize: 12,
+                    subtitle: Text(
+                      'New bookings and reminders',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
+                    value: _pushNotifications,
+                    activeThumbColor: AppColors.secondary,
+                    onChanged: (val) {
+                      setState(() {
+                        _pushNotifications = val;
+                      });
+                    },
                   ),
-                  value: _pushNotifications,
-                  activeThumbColor: AppColors.secondary,
-                  onChanged: (val) {
-                    setState(() {
-                      _pushNotifications = val;
-                    });
-                  },
                 ),
                 const Divider(height: 16),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Email Updates',
-                    style: AppTextStyles.bodyLg.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Email Updates',
+                      style: AppTextStyles.bodyLg.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    'Daily schedule & revenue reports',
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontSize: 12,
+                    subtitle: Text(
+                      'Daily schedule & revenue reports',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
+                    value: _emailUpdates,
+                    activeThumbColor: AppColors.secondary,
+                    onChanged: (val) {
+                      setState(() {
+                        _emailUpdates = val;
+                      });
+                    },
                   ),
-                  value: _emailUpdates,
-                  activeThumbColor: AppColors.secondary,
-                  onChanged: (val) {
-                    setState(() {
-                      _emailUpdates = val;
-                    });
-                  },
                 ),
               ],
             ),
