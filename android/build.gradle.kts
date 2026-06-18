@@ -5,11 +5,7 @@ allprojects {
     }
 }
 
-extra.set("FlutterFire", mapOf(
-    "FirebaseSDKVersion" to "34.14.0"
-))
 
-println("DEBUG: extra.has('FlutterFire') = ${project.extensions.extraProperties.has("FlutterFire")}")
 
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
