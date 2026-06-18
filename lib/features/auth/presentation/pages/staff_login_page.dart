@@ -124,7 +124,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
                   if (_selectedRole == UserRole.barber) {
                     context.go('/barber/portal');
                   } else {
-                    context.go('/'); // Redirect to Home for admin/others
+                    context.go('/admin/portal');
                   }
                 },
                 child: const Text('ENTER PORTAL'),

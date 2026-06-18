@@ -1,3 +1,4 @@
+import 'package:barberia/features/admin/presentation/pages/admin_portal_page.dart';
 import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
 import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
 import 'package:barberia/features/barbers/presentation/pages/barber_portal_page.dart';
@@ -25,14 +26,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isAuthenticated = auth.isAuthenticated;
       final isLoginRoute = state.matchedLocation == '/login';
-      final isPortalRoute = state.matchedLocation.startsWith('/barber');
+      final isBarberRoute = state.matchedLocation.startsWith('/barber');
+      final isAdminRoute = state.matchedLocation.startsWith('/admin');
+      final isPortalRoute = isBarberRoute || isAdminRoute;
 
       // Unauthenticated user trying to reach a protected route
       if (!isAuthenticated && isPortalRoute) return '/login';
 
       // Authenticated staff landing on /login → send to their portal
       if (isAuthenticated && isLoginRoute) {
-        return auth.role == UserRole.admin ? '/barber/portal' : '/barber/portal';
+        return auth.role == UserRole.admin ? '/admin/portal' : '/barber/portal';
+      }
+
+      // Role mismatch redirection
+      if (isAuthenticated) {
+        if (auth.role == UserRole.admin && isBarberRoute) {
+          return '/admin/portal';
+        }
+        if (auth.role == UserRole.barber && isAdminRoute) {
+          return '/barber/portal';
+        }
       }
 
       return null;
@@ -53,6 +66,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/barber/portal',
         builder: (_, __) => const BarberPortalPage(),
       ),
+      GoRoute(
+        path: '/admin/portal',
+        builder: (_, __) => const AdminPortalPage(),
+      ),
     ],
   );
 });
+
