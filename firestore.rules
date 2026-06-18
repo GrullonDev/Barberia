@@ -64,36 +64,6 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // ---------- barbers (catálogo público para que el cliente elija) ---------
-    match /barbers/{barberId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-
-      // El barbero puede actualizar su propio perfil (nombre, especialidad, disponibilidad, etc.),
-      // pero no puede modificar su ID ni su correo de invitación, y solo puede cambiar
-      // inviteStatus para aceptarlo (de pending a active).
-      allow update: if isBarber()
-                    && request.auth.uid == barberId
-                    && request.resource.data.id == resource.data.id
-                    && request.resource.data.inviteEmail == resource.data.inviteEmail
-                    && (
-                      // Caso 1: Aceptar invitación (solo modifica inviteStatus a active)
-                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inviteStatus'])
-                       && request.resource.data.inviteStatus == 'active')
-                      ||
-                      // Caso 2: Editar perfil (no modifica inviteStatus, ni cambia de active a otra cosa)
-                      (resource.data.inviteStatus == 'active'
-                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                         'name',
-                         'specialty',
-                         'specialties',
-                         'photoUrl',
-                         'bio',
-                         'title'
-                       ]))
-                    );
-    }
-
     // ---------- bookings ------------------------------------------------------
     //
     // CREATE:

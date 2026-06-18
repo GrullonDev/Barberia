@@ -114,8 +114,11 @@ def _load_barber_working_hours(
     desde `datetime.weekday()` (0..6) haciendo `+1`.
 
     Estructura esperada: {"1": [9, 19], "2": [9, 19], ..., "7": null}
+
+    El perfil de barbero vive en `users/{uid}` (no hay colección `barbers`
+    separada — ver inviteBarber).
     """
-    snap = db.collection("barbers").document(barber_id).get()
+    snap = db.collection("users").document(barber_id).get()
     if not snap.exists:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.NOT_FOUND,
@@ -544,7 +547,8 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
 
     Crea una cuenta de Firebase Auth para el barbero, genera un enlace para
     que establezca su contraseña y envía un correo de invitación. También
-    crea los documentos `users/{uid}` y `barbers/{uid}` en Firestore.
+    crea el documento `users/{uid}` en Firestore con role: "barber" y los
+    campos de perfil de barbero (specialty, isAvailable, workingHours).
 
     Input:
         name: str
@@ -618,10 +622,8 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         else "La Barbería"
     )
 
-    # Escritura atómica: users/{uid} + barbers/{uid}.
-    batch = db.batch()
-    batch.set(
-        db.collection("users").document(barber_id),
+    # Documento único users/{uid}: identidad + perfil de barbero.
+    db.collection("users").document(barber_id).set(
         {
             "id": barber_id,
             "name": name,
@@ -633,23 +635,12 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             "isAnonymous": False,
             "inviteStatus": "pending",
             "createdAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
-    batch.set(
-        db.collection("barbers").document(barber_id),
-        {
-            "id": barber_id,
-            "name": name,
             "specialty": specialty,
-            "photoUrl": None,
             "isAvailable": True,
-            "inviteEmail": email,
-            "inviteStatus": "pending",
             # Horario por defecto: lunes–sábado 9–19, domingo cerrado.
             "workingHours": {str(d): [9, 19] for d in range(1, 7)},
-        },
+        }
     )
-    batch.commit()
 
     # Enviar correo con credenciales vía SendGrid.
     # Si las variables de entorno no están configuradas se imprime la
@@ -705,11 +696,8 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             message="barberId es requerido.",
         )
 
-    # Borrar documentos Firestore.
-    batch = db.batch()
-    batch.delete(db.collection("barbers").document(barber_id))
-    batch.delete(db.collection("users").document(barber_id))
-    batch.commit()
+    # Borrar documento Firestore.
+    db.collection("users").document(barber_id).delete()
 
     # Eliminar cuenta Firebase Auth (puede no existir para barberos creados
     # manualmente antes de este flujo).
