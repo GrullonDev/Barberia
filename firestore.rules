@@ -44,7 +44,7 @@ service cloud.firestore {
 
     // ---------- users ---------------------------------------------------------
     match /users/{userId} {
-      allow read: if isOwnerOf(userId) || isStaff();
+      allow read: if isOwnerOf(userId) || isStaff() || resource.data.role == 'barber';
 
       // Alta: el propio usuario y SOLO como 'client'
       allow create: if isOwnerOf(userId)
@@ -78,11 +78,7 @@ service cloud.firestore {
     //   también leen y editan. DELETE queda solo para admin.
     // ------------------------------------------------------------------------
     match /bookings/{bookingId} {
-      allow read: if isStaff()
-                  || isOwnerOf(resource.data.userId)
-                  || (isBarber() && resource.data.barberId == request.auth.uid);
-
-      allow create: if isStaff();
+      allow read, create: if true;
 
       allow update: if isStaff()
                     || isOwnerOf(resource.data.userId)
@@ -121,6 +117,11 @@ service cloud.firestore {
                     && request.resource.data.type == 'barber_active'
                     && request.resource.data.barberId == request.auth.uid
                     && request.resource.data.read == false;
+    }
+
+    // ---------- notifications -------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read, write: if true;
     }
 
     // ---------- default deny --------------------------------------------------
