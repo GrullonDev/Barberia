@@ -68,7 +68,9 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         role: _roleFromString(doc.data()?['role'] as String?),
         email: user.email,
-        displayName: user.displayName ?? doc.data()?['displayName'] as String?,
+        displayName:
+            user.displayName ??
+            (doc.data()?['displayName'] ?? doc.data()?['name']) as String?,
       );
     } catch (_) {
       state = const AuthState();
@@ -109,7 +111,7 @@ class AuthNotifier extends Notifier<AuthState> {
         email: credential.user!.email,
         displayName:
             credential.user!.displayName ??
-            doc.data()?['displayName'] as String?,
+            (doc.data()?['displayName'] ?? doc.data()?['name']) as String?,
       );
       return true;
     } on FirebaseAuthException catch (e) {

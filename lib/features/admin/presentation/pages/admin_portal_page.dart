@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
+import 'package:barberia/core/l10n/app_localizations.dart';
 
 class AdminPortalPage extends ConsumerStatefulWidget {
   const AdminPortalPage({super.key});
@@ -18,22 +21,128 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   int _currentTabIndex = 0;
   String _bookingFilter = 'All'; // 'All', 'Today', 'Pending'
 
+  StreamSubscription<QuerySnapshot>? _notificationSubscription;
+  int _unreadNotificationsCount = 0;
+  final DateTime _pageOpenTime = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToNotifications();
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _listenToNotifications() {
+    // Read initial unread notifications count
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+          if (mounted) {
+            setState(() {
+              _unreadNotificationsCount = snapshot.docs.length;
+            });
+          }
+        });
+
+    // Listen to new notifications for in-app SnackBars (created after page opened)
+    _notificationSubscription = FirebaseFirestore.instance
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .listen((snapshot) {
+          if (!mounted || snapshot.docs.isEmpty) return;
+
+          final doc = snapshot.docs.first;
+          final data = doc.data();
+          final createdAtVal = data['createdAt'];
+
+          if (createdAtVal is Timestamp) {
+            final createdAt = createdAtVal.toDate();
+            // Check if notification was created after the page opened (or very close)
+            if (createdAt.isAfter(_pageOpenTime)) {
+              final String title =
+                  data['title'] ??
+                  (ref.read(l10nProvider).languageCode == 'es'
+                      ? 'Nueva Notificación'
+                      : 'New Notification');
+              final String message = data['message'] ?? '';
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.secondary,
+                  duration: const Duration(seconds: 4),
+                  content: Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications_active,
+                        color: AppColors.onSecondary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title.toUpperCase(),
+                              style: GoogleFonts.hankenGrotesk(
+                                color: AppColors.onSecondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              message,
+                              style: GoogleFonts.hankenGrotesk(
+                                color: AppColors.onSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+          }
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final adminName = authState.displayName ?? 'Administrator';
+    final config = ref.watch(appConfigProvider);
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(context, adminName),
-      body: _buildBody(adminName),
-      bottomNavigationBar: _buildBottomNavBar(),
-      floatingActionButton: _currentTabIndex == 1 ? _buildFAB() : null,
+      appBar: _buildAppBar(context, adminName, l10n),
+      body: _buildBody(adminName, config, l10n),
+      bottomNavigationBar: _buildBottomNavBar(l10n),
+      floatingActionButton: _currentTabIndex == 1
+          ? _buildFAB(context, l10n)
+          : null,
     );
   }
 
   // ─── AppBar ─────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar(BuildContext context, String adminName) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    String adminName,
+    AppLocalizations l10n,
+  ) {
     return AppBar(
       backgroundColor: AppColors.surfaceContainerLow,
       elevation: 0,
@@ -41,9 +150,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
         icon: const Icon(Icons.menu, color: AppColors.secondary),
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Lounge menu opened.'),
-              duration: Duration(milliseconds: 800),
+            SnackBar(
+              content: Text(
+                l10n.languageCode == 'es'
+                    ? 'Menú del salón abierto.'
+                    : 'Lounge menu opened.',
+              ),
+              duration: const Duration(milliseconds: 800),
             ),
           );
         },
@@ -58,12 +171,42 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none_rounded,
-            color: Colors.white,
-          ),
-          onPressed: () => _showNotificationsDialog(context),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () => _showNotificationsDialog(context, l10n),
+            ),
+            if (_unreadNotificationsCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    '$_unreadNotificationsCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
         ),
         Padding(
           padding: const EdgeInsets.only(right: 16, left: 8),
@@ -91,7 +234,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   // ─── Bottom Navigation Bar ─────────────────────────────────────────
-  Widget _buildBottomNavBar() {
+  Widget _buildBottomNavBar(AppLocalizations l10n) {
     return BottomNavigationBar(
       currentIndex: _currentTabIndex,
       onTap: (index) {
@@ -99,35 +242,38 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           _currentTabIndex = index;
         });
       },
-      items: const [
+      items: [
         BottomNavigationBarItem(
-          icon: Icon(Icons.dashboard_outlined),
-          activeIcon: Icon(Icons.dashboard, color: AppColors.secondary),
-          label: 'Dashboard',
+          icon: const Icon(Icons.dashboard_outlined),
+          activeIcon: const Icon(Icons.dashboard, color: AppColors.secondary),
+          label: l10n.get('dashboard'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.calendar_today_outlined),
-          activeIcon: Icon(Icons.calendar_today, color: AppColors.secondary),
-          label: 'Bookings',
+          icon: const Icon(Icons.calendar_today_outlined),
+          activeIcon: const Icon(
+            Icons.calendar_today,
+            color: AppColors.secondary,
+          ),
+          label: l10n.get('bookings_tab'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.people_outline),
-          activeIcon: Icon(Icons.people, color: AppColors.secondary),
-          label: 'Barbers',
+          icon: const Icon(Icons.people_outline),
+          activeIcon: const Icon(Icons.people, color: AppColors.secondary),
+          label: l10n.get('barbers_tab'),
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.settings_outlined),
-          activeIcon: Icon(Icons.settings, color: AppColors.secondary),
-          label: 'Settings',
+          icon: const Icon(Icons.settings_outlined),
+          activeIcon: const Icon(Icons.settings, color: AppColors.secondary),
+          label: l10n.get('settings_tab'),
         ),
       ],
     );
   }
 
   // ─── Floating Action Button (for Bookings Tab) ──────────────────────
-  Widget _buildFAB() {
+  Widget _buildFAB(BuildContext context, AppLocalizations l10n) {
     return FloatingActionButton(
-      onPressed: () => _showAddBookingDialog(context),
+      onPressed: () => _showAddBookingDialog(context, l10n),
       backgroundColor: AppColors.secondary,
       foregroundColor: AppColors.onSecondary,
       elevation: 4,
@@ -139,23 +285,31 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   // ─── Body Routing ──────────────────────────────────────────────────
-  Widget _buildBody(String adminName) {
+  Widget _buildBody(
+    String adminName,
+    AppConfigState config,
+    AppLocalizations l10n,
+  ) {
     switch (_currentTabIndex) {
       case 0:
-        return _buildDashboardTab(adminName);
+        return _buildDashboardTab(adminName, config, l10n);
       case 1:
-        return _buildBookingsTab();
+        return _buildBookingsTab(config, l10n);
       case 2:
-        return _buildBarbersTab();
+        return _buildBarbersTab(l10n);
       case 3:
-        return _buildSettingsTab();
+        return _buildSettingsTab(config, l10n);
       default:
-        return _buildDashboardTab(adminName);
+        return _buildDashboardTab(adminName, config, l10n);
     }
   }
 
   // ─── TAB 0: DASHBOARD ──────────────────────────────────────────────
-  Widget _buildDashboardTab(String adminName) {
+  Widget _buildDashboardTab(
+    String adminName,
+    AppConfigState config,
+    AppLocalizations l10n,
+  ) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('bookings').snapshots(),
       builder: (context, bookingsSnapshot) {
@@ -194,7 +348,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'GOOD MORNING, ${adminName.toUpperCase()}',
+                (l10n.languageCode == 'es'
+                        ? 'BUENOS DÍAS, '
+                        : 'GOOD MORNING, ') +
+                    adminName.toUpperCase(),
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -204,7 +361,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Daily Overview',
+                l10n.languageCode == 'es'
+                    ? 'Resumen Diario'
+                    : 'Daily Overview',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -219,8 +378,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   Expanded(
                     child: _buildDashboardCard(
                       icon: Icons.payments_outlined,
-                      label: "TODAY'S EARNINGS",
-                      value: '\$${todayEarnings.toStringAsFixed(0)}',
+                      label: l10n.get('today_earnings'),
+                      value:
+                          '${config.currencySymbol}${todayEarnings.toStringAsFixed(0)}',
                       badge: '+12%',
                       badgeColor: const Color(
                         0xFFE9C349,
@@ -232,8 +392,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   Expanded(
                     child: _buildDashboardCard(
                       icon: Icons.track_changes_outlined,
-                      label: 'MONTHLY TARGET',
-                      value: '\$22.5k',
+                      label: l10n.get('monthly_target').toUpperCase(),
+                      value: '${config.currencySymbol}22.5k',
                       badge: '84%',
                       badgeColor: Colors.white.withValues(alpha: 0.08),
                       badgeTextColor: Colors.white70,
@@ -244,7 +404,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               const SizedBox(height: AppSpacing.lg),
 
               // Sales Trend Chart Card
-              _buildSalesTrendCard(),
+              _buildSalesTrendCard(l10n),
               const SizedBox(height: AppSpacing.xl),
 
               // Next Appointment Section
@@ -252,7 +412,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'NEXT APPOINTMENT',
+                    l10n.languageCode == 'es'
+                        ? 'PRÓXIMA CITA'
+                        : 'NEXT APPOINTMENT',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -267,7 +429,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       });
                     },
                     child: Text(
-                      'View All',
+                      l10n.languageCode == 'es' ? 'Ver Todo' : 'View All',
                       style: GoogleFonts.hankenGrotesk(
                         color: AppColors.secondary,
                         fontWeight: FontWeight.bold,
@@ -278,12 +440,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              _buildNextAppointmentCard(totalBookings),
+              _buildNextAppointmentCard(totalBookings, l10n),
               const SizedBox(height: AppSpacing.xl),
 
               // Barbers On Duty Section
               Text(
-                'ON DUTY',
+                l10n.languageCode == 'es' ? 'EN TURNO' : 'ON DUTY',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -292,7 +454,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              _buildOnDutyBarbersList(),
+              _buildOnDutyBarbersList(l10n),
             ],
           ),
         );
@@ -365,7 +527,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildSalesTrendCard() {
+  Widget _buildSalesTrendCard(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -385,7 +547,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Sales Trend',
+                    l10n.languageCode == 'es'
+                        ? 'Tendencia de Ventas'
+                        : 'Sales Trend',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -393,7 +557,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     ),
                   ),
                   Text(
-                    'Last 7 Business Days',
+                    l10n.languageCode == 'es'
+                        ? 'Últimos 7 Días Hábiles'
+                        : 'Last 7 Business Days',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
@@ -470,7 +636,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildNextAppointmentCard(List<QueryDocumentSnapshot> bookings) {
+  Widget _buildNextAppointmentCard(
+    List<QueryDocumentSnapshot> bookings,
+    AppLocalizations l10n,
+  ) {
     // Attempt to find the next booking in Firestore. If none exist, display a beautiful placeholder.
     Map<String, dynamic>? nextBooking;
     for (var doc in bookings) {
@@ -581,7 +750,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'BARBER',
+                          l10n.get('barber').toUpperCase(),
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
@@ -612,7 +781,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildOnDutyBarbersList() {
+  Widget _buildOnDutyBarbersList(AppLocalizations l10n) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
@@ -633,7 +802,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Text(
-              'No barbers currently on duty.',
+              l10n.languageCode == 'es'
+                  ? 'No hay barberos en turno actualmente.'
+                  : 'No barbers currently on duty.',
               style: GoogleFonts.hankenGrotesk(
                 color: AppColors.onSurfaceVariant,
                 fontSize: 13,
@@ -727,7 +898,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      isAvailable ? 'AVAILABLE' : 'IN SESSION',
+                      isAvailable
+                          ? (l10n.languageCode == 'es'
+                                ? 'DISPONIBLE'
+                                : 'AVAILABLE')
+                          : (l10n.languageCode == 'es'
+                                ? 'EN SESIÓN'
+                                : 'IN SESSION'),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 9,
@@ -746,7 +923,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   // ─── TAB 1: BOOKINGS ───────────────────────────────────────────────
-  Widget _buildBookingsTab() {
+  Widget _buildBookingsTab(AppConfigState config, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -761,7 +938,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bookings',
+                l10n.get('bookings_tab'),
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -770,7 +947,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                "Manage today's lounge schedule",
+                l10n.languageCode == 'es'
+                    ? 'Gestiona el horario del salón de hoy'
+                    : "Manage today's lounge schedule",
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 13,
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
@@ -788,11 +967,20 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           ),
           child: Row(
             children: [
-              _buildFilterChip('All'),
+              _buildFilterChip(
+                'All',
+                l10n.languageCode == 'es' ? 'Todas' : 'All',
+              ),
               const SizedBox(width: AppSpacing.sm),
-              _buildFilterChip('Today'),
+              _buildFilterChip(
+                'Today',
+                l10n.languageCode == 'es' ? 'Hoy' : 'Today',
+              ),
               const SizedBox(width: AppSpacing.sm),
-              _buildFilterChip('Pending'),
+              _buildFilterChip(
+                'Pending',
+                l10n.languageCode == 'es' ? 'Pendientes' : 'Pending',
+              ),
             ],
           ),
         ),
@@ -837,7 +1025,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               }).toList();
 
               if (filteredDocs.isEmpty) {
-                return _buildBookingsEmptyState();
+                return _buildBookingsEmptyState(l10n);
               }
 
               return ListView.builder(
@@ -865,6 +1053,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     time: time,
                     status: status,
                     price: price,
+                    config: config,
+                    l10n: l10n,
                   );
                 },
               );
@@ -875,12 +1065,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildFilterChip(String label) {
-    final bool isSelected = _bookingFilter == label;
+  Widget _buildFilterChip(String filterKey, String label) {
+    final bool isSelected = _bookingFilter == filterKey;
     return GestureDetector(
       onTap: () {
         setState(() {
-          _bookingFilter = label;
+          _bookingFilter = filterKey;
         });
       },
       child: Container(
@@ -908,7 +1098,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildBookingsEmptyState() {
+  Widget _buildBookingsEmptyState(AppLocalizations l10n) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -922,7 +1112,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No reservations found',
+              l10n.languageCode == 'es'
+                  ? 'No se encontraron reservas'
+                  : 'No reservations found',
               style: GoogleFonts.playfairDisplay(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -931,7 +1123,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'There are no bookings matching the selected filter. You can manually register one using the button below.',
+              l10n.languageCode == 'es'
+                  ? 'No hay reservas que coincidan con el filtro seleccionado. Puedes registrar una manualmente usando el botón de abajo.'
+                  : 'There are no bookings matching the selected filter. You can manually register one using the button below.',
               textAlign: TextAlign.center,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 13,
@@ -952,6 +1146,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     required String time,
     required String status,
     required double price,
+    required AppConfigState config,
+    required AppLocalizations l10n,
   }) {
     Color statusBg = Colors.white.withValues(alpha: 0.05);
     Color statusText = Colors.white;
@@ -1027,7 +1223,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SERVICE',
+                      l10n.get('service').toUpperCase(),
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 9,
                         letterSpacing: 1.0,
@@ -1054,7 +1250,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'BARBER',
+                      l10n.get('barber').toUpperCase(),
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 9,
                         letterSpacing: 1.0,
@@ -1083,7 +1279,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '\$${price.toStringAsFixed(2)}',
+                '${config.currencySymbol}${price.toStringAsFixed(2)}',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1102,10 +1298,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                         ),
                         minimumSize: Size.zero,
                       ),
-                      onPressed: () => _updateBookingStatus(id, 'CONFIRMED'),
-                      child: const Text(
-                        'Confirm',
-                        style: TextStyle(fontSize: 12),
+                      onPressed: () =>
+                          _updateBookingStatus(id, 'CONFIRMED', l10n),
+                      child: Text(
+                        l10n.languageCode == 'es' ? 'Confirmar' : 'Confirm',
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1120,10 +1317,14 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                         ),
                         minimumSize: Size.zero,
                       ),
-                      onPressed: () => _updateBookingStatus(id, 'COMPLETED'),
-                      child: const Text(
-                        'Complete',
-                        style: TextStyle(fontSize: 12, color: Colors.green),
+                      onPressed: () =>
+                          _updateBookingStatus(id, 'COMPLETED', l10n),
+                      child: Text(
+                        l10n.languageCode == 'es' ? 'Completar' : 'Complete',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.green,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1137,10 +1338,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       ),
                       minimumSize: Size.zero,
                     ),
-                    onPressed: () => _deleteBooking(id),
-                    child: const Text(
-                      'Delete',
-                      style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                    onPressed: () => _deleteBooking(id, l10n),
+                    child: Text(
+                      l10n.get('delete'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 ],
@@ -1152,39 +1356,63 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _updateBookingStatus(String bookingId, String newStatus) async {
+  void _updateBookingStatus(
+    String bookingId,
+    String newStatus,
+    AppLocalizations l10n,
+  ) async {
     try {
       await FirebaseFirestore.instance
           .collection('bookings')
           .doc(bookingId)
           .update({'status': newStatus});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Booking status updated to $newStatus')),
+        SnackBar(
+          content: Text(
+            l10n.languageCode == 'es'
+                ? 'Estado de la reserva actualizado a $newStatus'
+                : 'Booking status updated to $newStatus',
+          ),
+        ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating status: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.languageCode == 'es'
+                ? 'Error al actualizar estado: $e'
+                : 'Error updating status: $e',
+          ),
+        ),
+      );
     }
   }
 
-  void _deleteBooking(String bookingId) async {
+  void _deleteBooking(String bookingId, AppLocalizations l10n) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Reservation?'),
-        content: const Text(
-          'Are you sure you want to remove this booking permanently?',
+        title: Text(
+          l10n.languageCode == 'es'
+              ? '¿Eliminar Reserva?'
+              : 'Delete Reservation?',
+        ),
+        content: Text(
+          l10n.languageCode == 'es'
+              ? '¿Estás seguro de que deseas eliminar esta reserva permanentemente?'
+              : 'Are you sure you want to remove this booking permanently?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('NO'),
+            child: Text(l10n.languageCode == 'es' ? 'NO' : 'NO'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('YES, DELETE'),
+            child: Text(
+              l10n.languageCode == 'es' ? 'SÍ, ELIMINAR' : 'YES, DELETE',
+            ),
           ),
         ],
       ),
@@ -1197,18 +1425,30 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             .doc(bookingId)
             .delete();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Booking deleted successfully.')),
+          SnackBar(
+            content: Text(
+              l10n.languageCode == 'es'
+                  ? 'Reserva eliminada exitosamente.'
+                  : 'Booking deleted successfully.',
+            ),
+          ),
         );
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting booking: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.languageCode == 'es'
+                  ? 'Error al eliminar reserva: $e'
+                  : 'Error deleting booking: $e',
+            ),
+          ),
+        );
       }
     }
   }
 
   // ─── TAB 2: BARBERS ────────────────────────────────────────────────
-  Widget _buildBarbersTab() {
+  Widget _buildBarbersTab(AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1221,7 +1461,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Our Barbers',
+                    l10n.languageCode == 'es'
+                        ? 'Nuestros Barberos'
+                        : 'Our Barbers',
                     style: GoogleFonts.playfairDisplay(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -1230,7 +1472,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Staff Management',
+                    l10n.languageCode == 'es'
+                        ? 'Gestión de Personal'
+                        : 'Staff Management',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 13,
                       color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
@@ -1239,13 +1483,14 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 ],
               ),
               ElevatedButton.icon(
-                onPressed: () => _showAddEditBarberDialog(context),
+                onPressed: () =>
+                    _showAddEditBarberDialog(context, l10n, null, null),
                 icon: const Icon(
                   Icons.person_add_alt_1,
                   size: 18,
                   color: AppColors.onSecondary,
                 ),
-                label: const Text('Add New'),
+                label: Text(l10n.get('add_new')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
@@ -1273,7 +1518,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               if (docs.isEmpty) {
                 return Center(
                   child: Text(
-                    'No barbers registered yet.',
+                    l10n.get('no_barbers'),
                     style: GoogleFonts.hankenGrotesk(
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -1290,7 +1535,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 itemBuilder: (context, index) {
                   if (index == docs.length) {
                     // Performance Overview Summary Card at the bottom
-                    return _buildPerformanceOverviewCard();
+                    return _buildPerformanceOverviewCard(l10n);
                   }
 
                   final doc = docs[index];
@@ -1309,6 +1554,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     isAvailable: isAvailable,
                     bio: bio,
                     data: data,
+                    l10n: l10n,
                   );
                 },
               );
@@ -1326,6 +1572,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     required bool isAvailable,
     required String bio,
     required Map<String, dynamic> data,
+    required AppLocalizations l10n,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1399,7 +1646,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                           ),
                           color: AppColors.secondary.withValues(alpha: 0.1),
                           child: Text(
-                            'MASTER',
+                            l10n.languageCode == 'es' ? 'MAESTRO' : 'MASTER',
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
@@ -1444,7 +1691,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isAvailable ? 'Available' : 'Busy',
+                          isAvailable
+                              ? (l10n.languageCode == 'es'
+                                    ? 'Disponible'
+                                    : 'Available')
+                              : (l10n.languageCode == 'es' ? 'Ocupado' : 'Busy'),
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             color: isAvailable ? Colors.green : Colors.orange,
@@ -1471,13 +1722,14 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _showAddEditBarberDialog(context, data, id),
+                  onPressed: () =>
+                      _showAddEditBarberDialog(context, l10n, data, id),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.outlineVariant),
                     minimumSize: const Size(double.infinity, 40),
                   ),
                   child: Text(
-                    'Edit Profile',
+                    l10n.get('edit_profile'),
                     style: GoogleFonts.hankenGrotesk(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1488,7 +1740,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               const SizedBox(width: 12),
               IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                onPressed: () => _deleteBarber(id, name),
+                onPressed: () => _deleteBarber(id, name, l10n),
               ),
             ],
           ),
@@ -1497,7 +1749,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildPerformanceOverviewCard() {
+  Widget _buildPerformanceOverviewCard(AppLocalizations l10n) {
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 24),
       padding: const EdgeInsets.all(20),
@@ -1512,7 +1764,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           Row(
             children: [
               Text(
-                'Performance Overview',
+                l10n.get('performance_overview'),
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1530,11 +1782,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildOverviewMetric('94%', 'SATISFACTION'),
+              _buildOverviewMetric('94%', l10n.get('satisfaction')),
               Container(width: 1, height: 32, color: AppColors.outlineVariant),
-              _buildOverviewMetric('120', 'WEEKLY CUTS'),
+              _buildOverviewMetric('120', l10n.get('weekly_cuts')),
               Container(width: 1, height: 32, color: AppColors.outlineVariant),
-              _buildOverviewMetric('4.8', 'AVG RATING'),
+              _buildOverviewMetric('4.8', l10n.get('avg_rating')),
             ],
           ),
         ],
@@ -1567,23 +1819,25 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _deleteBarber(String id, String name) async {
+  void _deleteBarber(String id, String name, AppLocalizations l10n) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Barber?'),
+        title: Text(l10n.get('delete_barber_confirm')),
         content: Text(
-          'Are you sure you want to delete barber "$name" from staff?',
+          l10n.languageCode == 'es'
+              ? '¿Estás seguro de que deseas eliminar al barbero "$name" del personal?'
+              : 'Are you sure you want to delete barber "$name" from staff?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: Text(l10n.get('cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('DELETE'),
+            child: Text(l10n.get('delete')),
           ),
         ],
       ),
@@ -1593,18 +1847,30 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       try {
         await FirebaseFirestore.instance.collection('users').doc(id).delete();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Barber "$name" deleted successfully.')),
+          SnackBar(
+            content: Text(
+              l10n.languageCode == 'es'
+                  ? 'Barbero "$name" eliminado exitosamente.'
+                  : 'Barber "$name" deleted successfully.',
+            ),
+          ),
         );
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting barber: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.languageCode == 'es'
+                  ? 'Error al eliminar barbero: $e'
+                  : 'Error deleting barber: $e',
+            ),
+          ),
+        );
       }
     }
   }
 
   // ─── TAB 3: SETTINGS ───────────────────────────────────────────────
-  Widget _buildSettingsTab() {
+  Widget _buildSettingsTab(AppConfigState config, AppLocalizations l10n) {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('config')
@@ -1627,7 +1893,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Settings & Config',
+                l10n.get('settings_title'),
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -1641,21 +1907,21 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 children: [
                   Expanded(
                     child: _buildSettingSwitchCard(
-                      label: 'SHOP STATUS',
+                      label: l10n.get('shop_status'),
                       valueText: openDays[DateTime.now().weekday - 1]
-                          ? 'OPEN'
-                          : 'CLOSED',
+                          ? (l10n.languageCode == 'es' ? 'ABIERTO' : 'OPEN')
+                          : (l10n.languageCode == 'es' ? 'CERRADO' : 'CLOSED'),
                       isActive: openDays[DateTime.now().weekday - 1],
                       onChanged: (val) {
-                        _toggleShopStatus(openDays);
+                        _toggleShopStatus(openDays, l10n);
                       },
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: _buildSettingSwitchCard(
-                      label: 'NOTIFICATIONS',
-                      valueText: 'ON',
+                      label: l10n.get('notifications'),
+                      valueText: l10n.languageCode == 'es' ? 'ACTIVADO' : 'ON',
                       isActive: true,
                       onChanged: (val) {},
                     ),
@@ -1665,27 +1931,31 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               const SizedBox(height: AppSpacing.lg),
 
               // Business Info
-              _buildBusinessInfoSection(configData),
+              _buildBusinessInfoSection(configData, l10n),
+              const SizedBox(height: AppSpacing.lg),
+
+              // App Configuration
+              _buildAppConfigurationSection(configData, l10n),
               const SizedBox(height: AppSpacing.lg),
 
               // Manage Services
-              _buildManageServicesSection(),
+              _buildManageServicesSection(config, l10n),
               const SizedBox(height: AppSpacing.lg),
 
               // Operating Hours
-              _buildOperatingHoursSection(openHour, closeHour, openDays),
+              _buildOperatingHoursSection(openHour, closeHour, openDays, l10n),
               const SizedBox(height: AppSpacing.xl),
 
               // Delete Account
               OutlinedButton(
-                onPressed: () => _handleLogout(context),
+                onPressed: () => _handleLogout(context, l10n),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.redAccent,
                   side: const BorderSide(color: Colors.redAccent),
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 child: Text(
-                  'LOG OUT FROM PORTAL',
+                  l10n.get('logout_portal'),
                   style: GoogleFonts.hankenGrotesk(
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
@@ -1695,7 +1965,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               const SizedBox(height: AppSpacing.sm),
               Center(
                 child: Text(
-                  'Version 2.4.0 (Enterprise Edition)',
+                  '${l10n.get('version')} 2.4.0 (Enterprise Edition)',
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 10,
                     color: AppColors.onSurfaceVariant.withValues(alpha: 0.4),
@@ -1764,7 +2034,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _toggleShopStatus(List<dynamic> openDays) async {
+  void _toggleShopStatus(List<dynamic> openDays, AppLocalizations l10n) async {
     // Toggle current weekday's status in the array
     final weekdayIndex = DateTime.now().weekday - 1;
     final List<bool> newOpenDays = List<bool>.from(
@@ -1777,21 +2047,35 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           .collection('config')
           .doc('barberia')
           .update({'openDays': newOpenDays});
+      final String newStatus = newOpenDays[weekdayIndex]
+          ? (l10n.languageCode == 'es' ? 'ABIERTO' : 'OPEN')
+          : (l10n.languageCode == 'es' ? 'CERRADO' : 'CLOSED');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Shop status updated for today to ${newOpenDays[weekdayIndex] ? "OPEN" : "CLOSED"}.',
+            l10n.languageCode == 'es'
+                ? 'Estado de la tienda actualizado para hoy a $newStatus.'
+                : 'Shop status updated for today to $newStatus.',
           ),
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating status: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.languageCode == 'es'
+                ? 'Error al actualizar estado: $e'
+                : 'Error updating status: $e',
+          ),
+        ),
+      );
     }
   }
 
-  Widget _buildBusinessInfoSection(Map<String, dynamic> configData) {
+  Widget _buildBusinessInfoSection(
+    Map<String, dynamic> configData,
+    AppLocalizations l10n,
+  ) {
     final String shopName =
         configData['businessName'] ?? "The Gentleman's Lounge";
     final String phone = configData['phone'] ?? '+1 (555) 765-4321';
@@ -1814,7 +2098,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'BUSINESS INFO',
+                l10n.get('business_info'),
                 style: GoogleFonts.playfairDisplay(
                   color: AppColors.secondary,
                   fontSize: 16,
@@ -1823,9 +2107,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 ),
               ),
               GestureDetector(
-                onTap: () => _showEditBusinessInfoDialog(context, configData),
+                onTap: () =>
+                    _showEditBusinessInfoDialog(context, configData, l10n),
                 child: Text(
-                  'Edit',
+                  l10n.get('edit'),
                   style: GoogleFonts.hankenGrotesk(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -1836,13 +2121,229 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             ],
           ),
           const Divider(height: 32),
-          _buildInfoRow('SHOP NAME', shopName),
+          _buildInfoRow(l10n.get('shop_name'), shopName),
           const SizedBox(height: 16),
-          _buildInfoRow('CONTACT EMAIL', email),
+          _buildInfoRow(l10n.get('contact_email'), email),
           const SizedBox(height: 16),
-          _buildInfoRow('PHONE NUMBER', phone),
+          _buildInfoRow(l10n.get('phone_number'), phone),
           const SizedBox(height: 16),
-          _buildInfoRow('LOCATION', address),
+          _buildInfoRow(l10n.get('location'), address),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppConfigurationSection(
+    Map<String, dynamic> configData,
+    AppLocalizations l10n,
+  ) {
+    final String currentLanguage = configData['language'] ?? 'es';
+    final String currentCurrency = configData['currencySymbol'] ?? 'Q';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.languageCode == 'es'
+                    ? 'CONFIGURACIÓN DE LA APP'
+                    : 'APP CONFIGURATION',
+                style: GoogleFonts.playfairDisplay(
+                  color: AppColors.secondary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.get('language_setting'),
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentLanguage == 'es' ? 'Español' : 'English',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              DropdownButton<String>(
+                value: currentLanguage,
+                dropdownColor: AppColors.surfaceContainerHigh,
+                underline: Container(),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'es',
+                    child: Text(
+                      'Español',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text(
+                      'English',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+                onChanged: (newLang) async {
+                  if (newLang != null) {
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('config')
+                          .doc('barberia')
+                          .update({'language': newLang});
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              newLang == 'es'
+                                  ? 'Idioma cambiado a Español.'
+                                  : 'Language changed to English.',
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error updating language: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.get('currency_setting'),
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentCurrency,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.secondary,
+                ),
+                onPressed: () {
+                  final currencyController = TextEditingController(
+                    text: currentCurrency,
+                  );
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Editar Símbolo de Moneda'
+                            : 'Edit Currency Symbol',
+                      ),
+                      content: TextField(
+                        controller: currencyController,
+                        maxLength: 5,
+                        decoration: InputDecoration(
+                          labelText: l10n.languageCode == 'es'
+                              ? 'Símbolo de Moneda (ej. Q, \$, €)'
+                              : 'Currency Symbol (e.g. Q, \$, €)',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(l10n.get('cancel')),
+                        ),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final symbol = currencyController.text.trim();
+                            if (symbol.isEmpty) return;
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('config')
+                                  .doc('barberia')
+                                  .update({'currencySymbol': symbol});
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      l10n.languageCode == 'es'
+                                          ? 'Símbolo de moneda actualizado a "$symbol".'
+                                          : 'Currency symbol updated to "$symbol".',
+                                    ),
+                                  ),
+                                  // duration: const Duration(seconds: 2),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            }
+                          },
+                          child: Text(l10n.get('save')),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1874,7 +2375,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildManageServicesSection() {
+  Widget _buildManageServicesSection(
+    AppConfigState config,
+    AppLocalizations l10n,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1891,7 +2395,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'MANAGE SERVICES',
+                l10n.get('manage_services'),
                 style: GoogleFonts.playfairDisplay(
                   color: AppColors.secondary,
                   fontSize: 16,
@@ -1900,7 +2404,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () => _showAddEditServiceDialog(context),
+                onPressed: () => _showAddEditServiceDialog(context, l10n),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
@@ -1910,7 +2414,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   ),
                   minimumSize: Size.zero,
                 ),
-                child: const Text('Add New', style: TextStyle(fontSize: 11)),
+                child: Text(
+                  l10n.get('add_new'),
+                  style: const TextStyle(fontSize: 11),
+                ),
               ),
             ],
           ),
@@ -1930,7 +2437,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               final services = snapshot.data?.docs ?? [];
               if (services.isEmpty) {
                 return Text(
-                  'No services added yet.',
+                  l10n.languageCode == 'es'
+                      ? 'Aún no se han agregado servicios.'
+                      : 'No services added yet.',
                   style: GoogleFonts.hankenGrotesk(
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -1992,7 +2501,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '$duration mins • Scissor & Clipper precision',
+                                l10n.languageCode == 'es'
+                                    ? '$duration min • Precisión de tijera y máquina'
+                                    : '$duration mins • Scissor & Clipper precision',
                                 style: GoogleFonts.hankenGrotesk(
                                   fontSize: 11,
                                   color: AppColors.onSurfaceVariant.withValues(
@@ -2004,7 +2515,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                           ),
                         ),
                         Text(
-                          '\$${price.toStringAsFixed(2)}',
+                          '${config.currencySymbol}${price.toStringAsFixed(2)}',
                           style: GoogleFonts.hankenGrotesk(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
@@ -2020,6 +2531,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                           ),
                           onPressed: () => _showAddEditServiceDialog(
                             context,
+                            l10n,
                             data,
                             serviceId,
                           ),
@@ -2030,7 +2542,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                             color: Colors.redAccent,
                             size: 18,
                           ),
-                          onPressed: () => _deleteService(serviceId, name),
+                          onPressed: () =>
+                              _deleteService(serviceId, name, l10n),
                         ),
                       ],
                     ),
@@ -2044,23 +2557,27 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _deleteService(String serviceId, String name) async {
+  void _deleteService(String serviceId, String name, AppLocalizations l10n) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Service?'),
+        title: Text(
+          l10n.languageCode == 'es' ? '¿Eliminar Servicio?' : 'Delete Service?',
+        ),
         content: Text(
-          'Are you sure you want to remove service "$name"? This will affect online client bookings.',
+          l10n.languageCode == 'es'
+              ? '¿Estás seguro de que deseas eliminar el servicio "$name"? Esto afectará las reservas en línea de los clientes.'
+              : 'Are you sure you want to remove service "$name"? This will affect online client bookings.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: Text(l10n.get('cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('DELETE'),
+            child: Text(l10n.get('delete')),
           ),
         ],
       ),
@@ -2072,13 +2589,25 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             .collection('services')
             .doc(serviceId)
             .delete();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Service "$name" deleted.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.languageCode == 'es'
+                  ? 'Servicio "$name" eliminado.'
+                  : 'Service "$name" deleted.',
+            ),
+          ),
+        );
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting service: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.languageCode == 'es'
+                  ? 'Error al eliminar servicio: $e'
+                  : 'Error deleting service: $e',
+            ),
+          ),
+        );
       }
     }
   }
@@ -2087,8 +2616,18 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     int openHour,
     int closeHour,
     List<dynamic> openDays,
+    AppLocalizations l10n,
   ) {
-    final weekdays = [
+    final weekdaysEs = [
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo',
+    ];
+    final weekdaysEn = [
       'Monday',
       'Tuesday',
       'Wednesday',
@@ -2097,6 +2636,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       'Saturday',
       'Sunday',
     ];
+    final weekdays = l10n.languageCode == 'es' ? weekdaysEs : weekdaysEn;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2114,7 +2654,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'OPERATING HOURS',
+                l10n.get('operating_hours'),
                 style: GoogleFonts.playfairDisplay(
                   color: AppColors.secondary,
                   fontSize: 16,
@@ -2128,9 +2668,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   openHour,
                   closeHour,
                   openDays,
+                  l10n,
                 ),
                 child: Text(
-                  'Edit',
+                  l10n.get('edit'),
                   style: GoogleFonts.hankenGrotesk(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -2151,7 +2692,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               final bool isOpen = openDays[index] as bool;
               final String timeString = isOpen
                   ? "${openHour.toString().padLeft(2, '0')}:00 AM - ${(closeHour > 12 ? closeHour - 12 : closeHour).toString().padLeft(2, '0')}:00 PM"
-                  : 'CLOSED';
+                  : (l10n.languageCode == 'es' ? 'CERRADO' : 'CLOSED');
 
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2185,23 +2726,27 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _handleLogout(BuildContext context) async {
+  void _handleLogout(BuildContext context, AppLocalizations l10n) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Log Out?'),
-        content: const Text(
-          'Are you sure you want to log out from the Administrator Portal?',
+        title: Text(l10n.languageCode == 'es' ? '¿Cerrar Sesión?' : 'Log Out?'),
+        content: Text(
+          l10n.languageCode == 'es'
+              ? '¿Estás seguro de que deseas cerrar sesión del Portal de Administración?'
+              : 'Are you sure you want to log out from the Administrator Portal?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: Text(l10n.get('cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.secondary),
-            child: const Text('LOG OUT'),
+            child: Text(
+              l10n.languageCode == 'es' ? 'CERRAR SESIÓN' : 'LOG OUT',
+            ),
           ),
         ],
       ),
@@ -2217,18 +2762,233 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
   // ─── DIALOGS & SHEET MODALS ─────────────────────────────────────────
 
-  void _showNotificationsDialog(BuildContext context) {
+  void _showNotificationsDialog(BuildContext context, AppLocalizations l10n) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Notifications'),
-        content: const Text('No new administrator notifications.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        child: Container(
+          width: 500,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.get('notifications'),
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.secondary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(color: AppColors.outlineVariant),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('notifications')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.secondary,
+                        ),
+                      );
+                    }
+
+                    final docs = snapshot.data?.docs ?? [];
+                    if (docs.isEmpty) {
+                      return Center(
+                        child: Text(
+                          l10n.languageCode == 'es'
+                              ? 'No hay notificaciones.'
+                              : 'No notifications.',
+                          style: GoogleFonts.hankenGrotesk(
+                            color: AppColors.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final String title =
+                            data['title'] ??
+                            (l10n.languageCode == 'es'
+                                ? 'Nueva Cita'
+                                : 'New Appointment');
+                        final String message = data['message'] ?? '';
+                        final bool read = data['read'] ?? false;
+                        final timestamp = data['createdAt'] as Timestamp?;
+                        final dateStr = timestamp != null
+                            ? '${timestamp.toDate().day}/${timestamp.toDate().month} ${timestamp.toDate().hour}:${timestamp.toDate().minute.toString().padLeft(2, '0')}'
+                            : '';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: read
+                                ? AppColors.surfaceContainerLowest
+                                : AppColors.surfaceContainerHigh.withValues(
+                                    alpha: 0.5,
+                                  ),
+                            border: Border.all(
+                              color: read
+                                  ? AppColors.outlineVariant.withValues(
+                                      alpha: 0.3,
+                                    )
+                                  : AppColors.secondary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title.toUpperCase(),
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: read
+                                            ? Colors.white70
+                                            : AppColors.secondary,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    dateStr,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 10,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                message,
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (!read)
+                                    TextButton(
+                                      onPressed: () async {
+                                        await FirebaseFirestore.instance
+                                            .collection('notifications')
+                                            .doc(doc.id)
+                                            .update({'read': true});
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Text(
+                                        l10n.languageCode == 'es'
+                                            ? 'Marcar como leída'
+                                            : 'Mark as read',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          color: AppColors.secondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  TextButton(
+                                    onPressed: () async {
+                                      await FirebaseFirestore.instance
+                                          .collection('notifications')
+                                          .doc(doc.id)
+                                          .delete();
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      l10n.get('delete'),
+                                      style: GoogleFonts.hankenGrotesk(
+                                        color: AppColors.error,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () async {
+                      final batch = FirebaseFirestore.instance.batch();
+                      final snapshot = await FirebaseFirestore.instance
+                          .collection('notifications')
+                          .get();
+                      for (var doc in snapshot.docs) {
+                        batch.delete(doc.reference);
+                      }
+                      await batch.commit();
+                    },
+                    child: Text(
+                      l10n.languageCode == 'es' ? 'LIMPIAR TODO' : 'CLEAR ALL',
+                      style: GoogleFonts.hankenGrotesk(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2236,6 +2996,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   void _showEditBusinessInfoDialog(
     BuildContext context,
     Map<String, dynamic> currentConfig,
+    AppLocalizations l10n,
   ) {
     final nameController = TextEditingController(
       text: currentConfig['businessName'] ?? "The Gentleman's Lounge",
@@ -2254,7 +3015,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Edit Business Info',
+          l10n.get('edit_business_info'),
           style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
         ),
         content: SingleChildScrollView(
@@ -2263,23 +3024,29 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Shop Name'),
+                decoration: InputDecoration(labelText: l10n.get('shop_name')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: emailController,
-                decoration: const InputDecoration(labelText: 'Contact Email'),
+                decoration: InputDecoration(
+                  labelText: l10n.get('contact_email'),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Phone Number'),
+                decoration: InputDecoration(
+                  labelText: l10n.get('phone_number'),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: addressController,
-                decoration: const InputDecoration(
-                  labelText: 'Address/Location',
+                decoration: InputDecoration(
+                  labelText: l10n.languageCode == 'es'
+                      ? 'Dirección/Ubicación'
+                      : 'Address/Location',
                 ),
               ),
             ],
@@ -2288,7 +3055,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
+            child: Text(l10n.get('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -2305,18 +3072,28 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Business Info updated successfully.'),
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Información de negocio actualizada exitosamente.'
+                            : 'Business Info updated successfully.',
+                      ),
                     ),
                   );
                 }
               } catch (e) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Error updating: $e')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      l10n.languageCode == 'es'
+                          ? 'Error al actualizar: $e'
+                          : 'Error updating: $e',
+                    ),
+                  ),
+                );
               }
             },
-            child: const Text('SAVE'),
+            child: Text(l10n.get('save')),
           ),
         ],
       ),
@@ -2324,10 +3101,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   void _showAddEditServiceDialog(
-    BuildContext context, [
+    BuildContext context,
+    AppLocalizations l10n, [
     Map<String, dynamic>? service,
     String? serviceId,
   ]) {
+    final config = ref.read(appConfigProvider);
     final isEdit = service != null;
     final nameController = TextEditingController(text: service?['name'] ?? '');
     final priceController = TextEditingController(
@@ -2346,7 +3125,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          isEdit ? 'Edit Service' : 'Add New Service',
+          isEdit
+              ? (l10n.languageCode == 'es' ? 'Editar Servicio' : 'Edit Service')
+              : (l10n.languageCode == 'es'
+                    ? 'Agregar Nuevo Servicio'
+                    : 'Add New Service'),
           style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
         ),
         content: SingleChildScrollView(
@@ -2355,7 +3138,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Service Name'),
+                decoration: InputDecoration(
+                  labelText: l10n.languageCode == 'es'
+                      ? 'Nombre del Servicio'
+                      : 'Service Name',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -2363,20 +3150,29 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(labelText: 'Price (\$)'),
+                decoration: InputDecoration(
+                  labelText:
+                      '${l10n.get('price')} (${config.currencySymbol})',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: durationController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Duration (Minutes)',
+                decoration: InputDecoration(
+                  labelText: l10n.languageCode == 'es'
+                      ? 'Duración (Minutos)'
+                      : 'Duration (Minutes)',
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(
+                  labelText: l10n.languageCode == 'es'
+                      ? 'Descripción'
+                      : 'Description',
+                ),
               ),
             ],
           ),
@@ -2384,7 +3180,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
+            child: Text(l10n.get('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -2395,9 +3191,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   price == null ||
                   duration == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(
-                      'Please fill all fields with correct formats.',
+                      l10n.languageCode == 'es'
+                          ? 'Por favor completa todos los campos con formatos correctos.'
+                          : 'Please fill all fields with correct formats.',
                     ),
                   ),
                 );
@@ -2430,8 +3228,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     SnackBar(
                       content: Text(
                         isEdit
-                            ? 'Service updated.'
-                            : 'Service added successfully.',
+                            ? (l10n.languageCode == 'es'
+                                  ? 'Servicio actualizado.'
+                                  : 'Service updated.')
+                            : (l10n.languageCode == 'es'
+                                  ? 'Servicio agregado exitosamente.'
+                                  : 'Service added successfully.'),
                       ),
                     ),
                   );
@@ -2442,7 +3244,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
-            child: const Text('SAVE'),
+            child: Text(l10n.get('save')),
           ),
         ],
       ),
@@ -2450,7 +3252,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   void _showAddEditBarberDialog(
-    BuildContext context, [
+    BuildContext context,
+    AppLocalizations l10n, [
     Map<String, dynamic>? barber,
     String? barberId,
   ]) {
@@ -2470,7 +3273,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setStateBuilder) => AlertDialog(
           title: Text(
-            isEdit ? 'Edit Barber Profile' : 'Invite/Add Barber',
+            isEdit
+                ? l10n.get('edit_barber')
+                : (l10n.languageCode == 'es'
+                      ? 'Invitar/Agregar Barbero'
+                      : 'Invite/Add Barber'),
             style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
           ),
           content: SingleChildScrollView(
@@ -2479,38 +3286,50 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Barber Full Name',
+                  decoration: InputDecoration(
+                    labelText: l10n.languageCode == 'es'
+                        ? 'Nombre Completo del Barbero'
+                        : 'Barber Full Name',
                   ),
                 ),
                 const SizedBox(height: 12),
                 if (!isEdit) ...[
                   TextField(
                     controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Barber Email',
+                    decoration: InputDecoration(
+                      labelText: l10n.languageCode == 'es'
+                          ? 'Correo del Barbero'
+                          : 'Barber Email',
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
                 TextField(
                   controller: specialtyController,
-                  decoration: const InputDecoration(
-                    labelText: 'Specialty/Title',
+                  decoration: InputDecoration(
+                    labelText: l10n.languageCode == 'es'
+                        ? 'Especialidad/Título'
+                        : 'Specialty/Title',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: bioController,
-                  decoration: const InputDecoration(
-                    labelText: 'Short Biography',
+                  decoration: InputDecoration(
+                    labelText: l10n.languageCode == 'es'
+                        ? 'Biografía Corta'
+                        : 'Short Biography',
                   ),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Available for Sessions:'),
+                    Text(
+                      l10n.languageCode == 'es'
+                          ? 'Disponible para Sesiones:'
+                          : 'Available for Sessions:',
+                    ),
                     Switch(
                       value: isAvailable,
                       activeThumbColor: AppColors.secondary,
@@ -2528,15 +3347,19 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
+              child: Text(l10n.get('cancel')),
             ),
             ElevatedButton(
               onPressed: () async {
                 if (nameController.text.isEmpty ||
                     (!isEdit && emailController.text.isEmpty)) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill required fields.'),
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Por favor completa los campos requeridos.'
+                            : 'Please fill required fields.',
+                      ),
                     ),
                   );
                   return;
@@ -2582,8 +3405,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       SnackBar(
                         content: Text(
                           isEdit
-                              ? 'Profile updated.'
-                              : 'Barber added successfully.',
+                              ? (l10n.languageCode == 'es'
+                                    ? 'Perfil actualizado.'
+                                    : 'Profile updated.')
+                              : (l10n.languageCode == 'es'
+                                    ? 'Barbero agregado exitosamente.'
+                                    : 'Barber added successfully.'),
                         ),
                       ),
                     );
@@ -2594,7 +3421,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   ).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
-              child: const Text('SAVE'),
+              child: Text(l10n.get('save')),
             ),
           ],
         ),
@@ -2607,11 +3434,21 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     int openHour,
     int closeHour,
     List<dynamic> openDays,
+    AppLocalizations l10n,
   ) {
     int localOpen = openHour;
     int localClose = closeHour;
     List<bool> localDays = List<bool>.from(openDays.map((x) => x as bool));
-    final weekdays = [
+    final weekdaysEs = [
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo',
+    ];
+    final weekdaysEn = [
       'Monday',
       'Tuesday',
       'Wednesday',
@@ -2620,13 +3457,14 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       'Saturday',
       'Sunday',
     ];
+    final weekdays = l10n.languageCode == 'es' ? weekdaysEs : weekdaysEn;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setStateBuilder) => AlertDialog(
           title: Text(
-            'Edit Operating Hours',
+            l10n.get('operating_hours_settings'),
             style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
           ),
           content: SingleChildScrollView(
@@ -2637,7 +3475,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Open Hour (AM):'),
+                    Text(
+                      '${l10n.get('open_hour')} (AM):',
+                    ),
                     DropdownButton<int>(
                       value: localOpen,
                       dropdownColor: AppColors.surfaceContainerHigh,
@@ -2656,7 +3496,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Close Hour (PM):'),
+                    Text(
+                      '${l10n.get('close_hour')} (PM):',
+                    ),
                     DropdownButton<int>(
                       value: localClose > 12 ? localClose - 12 : localClose,
                       dropdownColor: AppColors.surfaceContainerHigh,
@@ -2675,9 +3517,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Workdays:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  l10n.get('days_open'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Column(
@@ -2700,7 +3542,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
+              child: Text(l10n.get('cancel')),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -2716,16 +3558,28 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Operating Hours updated.')),
+                      SnackBar(
+                        content: Text(
+                          l10n.languageCode == 'es'
+                              ? 'Horario de atención actualizado.'
+                              : 'Operating Hours updated.',
+                        ),
+                      ),
                     );
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error updating: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Error al actualizar: $e'
+                            : 'Error updating: $e',
+                      ),
+                    ),
+                  );
                 }
               },
-              child: const Text('SAVE'),
+              child: Text(l10n.get('save')),
             ),
           ],
         ),
@@ -2733,7 +3587,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _showAddBookingDialog(BuildContext context) {
+  void _showAddBookingDialog(BuildContext context, AppLocalizations l10n) {
+    final config = ref.read(appConfigProvider);
     final clientController = TextEditingController();
     final serviceController = TextEditingController();
     final priceController = TextEditingController(text: '50');
@@ -2760,7 +3615,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           return StatefulBuilder(
             builder: (context, setStateBuilder) => AlertDialog(
               title: Text(
-                'Register Booking',
+                l10n.languageCode == 'es'
+                    ? 'Registrar Reserva'
+                    : 'Register Booking',
                 style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
               ),
               content: SingleChildScrollView(
@@ -2769,38 +3626,47 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   children: [
                     TextField(
                       controller: clientController,
-                      decoration: const InputDecoration(
-                        labelText: 'Client Name',
+                      decoration: InputDecoration(
+                        labelText: l10n.languageCode == 'es'
+                            ? 'Nombre del Cliente'
+                            : 'Client Name',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: serviceController,
-                      decoration: const InputDecoration(
-                        labelText: 'Service Name',
+                      decoration: InputDecoration(
+                        labelText: l10n.languageCode == 'es'
+                            ? 'Nombre del Servicio'
+                            : 'Service Name',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: priceController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Price (\$)',
+                      decoration: InputDecoration(
+                        labelText:
+                            '${l10n.get('price')} (${config.currencySymbol})',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: timeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Time (e.g. 02:30 PM)',
+                      decoration: InputDecoration(
+                        labelText: l10n.languageCode == 'es'
+                            ? 'Hora (ej. 02:30 PM)'
+                            : 'Time (e.g. 02:30 PM)',
                       ),
                     ),
                     const SizedBox(height: 12),
                     if (barberNames.isNotEmpty) ...[
                       DropdownButtonFormField<String>(
                         dropdownColor: AppColors.surfaceContainerHigh,
-                        decoration: const InputDecoration(
-                          labelText: 'Assigned Barber',
+                        decoration: InputDecoration(
+                          labelText: l10n.languageCode == 'es'
+                              ? 'Barbero Asignado'
+                              : 'Assigned Barber',
                         ),
                         initialValue: selectedBarberName,
                         items: barberNames.map((name) {
@@ -2820,7 +3686,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
+                  child: Text(l10n.get('cancel')),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -2829,9 +3695,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                         serviceController.text.isEmpty ||
                         price == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(
-                            'Please fill required fields with valid values.',
+                            l10n.languageCode == 'es'
+                                ? 'Por favor completa los campos requeridos con valores válidos.'
+                                : 'Please fill required fields with valid values.',
                           ),
                         ),
                       );
@@ -2853,8 +3721,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       if (context.mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Booking registered successfully.'),
+                          SnackBar(
+                            content: Text(
+                              l10n.languageCode == 'es'
+                                  ? 'Reserva registrada exitosamente.'
+                                  : 'Booking registered successfully.',
+                            ),
                           ),
                         );
                       }
@@ -2864,7 +3736,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       );
                     }
                   },
-                  child: const Text('SAVE'),
+                  child: Text(l10n.get('save')),
                 ),
               ],
             ),
