@@ -57,42 +57,46 @@ class HomeFooter extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Left side: Logo and Copyright
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'LUXE & BLADE',
-              style: AppTextStyles.headlineSm.copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.04 * 18,
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'LUXE & BLADE',
+                style: AppTextStyles.headlineSm.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.04 * 18,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              l10n.get('all_rights_reserved'),
-              style: AppTextStyles.labelSm.copyWith(
-                color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
-                fontSize: 11,
+              const SizedBox(height: 6),
+              Text(
+                l10n.get('all_rights_reserved'),
+                style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         // Right side: Links
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: _linkKeys.map((key) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              child: _FooterLink(
-                label: l10n.get(key),
-                onTap: key == 'staff_access'
-                    ? () => context.go('/login')
-                    : null,
-              ),
-            );
-          }).toList(),
+        Flexible(
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            children: _linkKeys.map((key) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                child: _FooterLink(
+                  label: l10n.get(key),
+                  onTap: key == 'staff_access'
+                      ? () => context.go('/login')
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );

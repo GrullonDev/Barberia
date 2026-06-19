@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
 import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
 import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/providers/config_provider.dart';
+import 'package:barberia/core/l10n/app_localizations.dart';
 
-class MembershipPage extends StatelessWidget {
+class MembershipPage extends ConsumerWidget {
   const MembershipPage({super.key});
 
   static final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+    final config = ref.watch(appConfigProvider);
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
-      drawer: _MembershipDrawer(),
+      drawer: const _MembershipDrawer(),
       body: Column(
         children: [
           HomeNavBar(
@@ -27,10 +33,10 @@ class MembershipPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildHeroSection(context),
-                  _buildPricingSection(context),
-                  _buildBenefitsSection(context),
-                  _buildElevateSection(context),
+                  _buildHeroSection(context, l10n),
+                  _buildPricingSection(context, l10n, config),
+                  _buildBenefitsSection(context, l10n),
+                  _buildElevateSection(context, l10n),
                   const HomeFooter(),
                 ],
               ),
@@ -43,7 +49,7 @@ class MembershipPage extends StatelessWidget {
 
   // ─── Hero Section ───────────────────────────────────────────────────────────
 
-  Widget _buildHeroSection(BuildContext context) {
+  Widget _buildHeroSection(BuildContext context, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: AppSpacing.xxl + 24,
@@ -75,7 +81,9 @@ class MembershipPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'The Inner Circle',
+                l10n.languageCode == 'es'
+                    ? 'El Círculo Interno'
+                    : 'The Inner Circle',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.headlineLg().copyWith(
                   color: const Color(0xFFE2E2E2),
@@ -87,7 +95,9 @@ class MembershipPage extends StatelessWidget {
               Container(width: 60, height: 2, color: AppColors.secondary),
               const SizedBox(height: AppSpacing.xl),
               Text(
-                'Experience the pinnacle of grooming. Our exclusive memberships offer more than just a cut—they provide a sanctuary of style, priority access, and the ultimate luxury of time.',
+                l10n.languageCode == 'es'
+                    ? 'Experimenta la cima del cuidado masculino. Nuestras membresías exclusivas ofrecen más que un corte: brindan un santuario de estilo, acceso prioritario y el máximo lujo del tiempo.'
+                    : 'Experience the pinnacle of grooming. Our exclusive memberships offer more than just a cut—they provide a sanctuary of style, priority access, and the ultimate luxury of time.',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
@@ -104,10 +114,62 @@ class MembershipPage extends StatelessWidget {
 
   // ─── Pricing Section ────────────────────────────────────────────────────────
 
-  Widget _buildPricingSection(BuildContext context) {
+  Widget _buildPricingSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    AppConfigState config,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
+        final isSpanish = l10n.languageCode == 'es';
+
+        final essentialBullets = isSpanish
+            ? [
+                '1 Corte Mensual de Autor',
+                '10% de Descuento en Todos los Productos de Venta',
+                'Café o Agua de Cortesía',
+                'Acceso a Eventos Selectos',
+              ]
+            : [
+                '1 Signature Monthly Cut',
+                '10% Off All Retail Products',
+                'Complimentary Coffee or Water',
+                'Access to Select Events',
+              ];
+
+        final prestigeBullets = isSpanish
+            ? [
+                '2 Cortes Mensuales de Autor',
+                'Estado de Reserva Prioritaria',
+                '1 Afeitado con Toalla Caliente al Trimestre',
+                'Servicio de Bebidas Premium',
+                '15% de Descuento en Todos los Productos de Venta',
+              ]
+            : [
+                '2 Signature Monthly Cuts',
+                'Priority Booking Status',
+                '1 Hot Towel Shave per Quarter',
+                'Premium Drink Service',
+                '15% Off All Retail Products',
+              ];
+
+        final legendaryBullets = isSpanish
+            ? [
+                'Cortes & Estilizado Ilimitados',
+                'Acceso a Suite Privada VIP',
+                'Kit Mensual de Productos de Autor',
+                'Servicio de Valet Parking',
+                'Pases de Invitado de Conserjería',
+              ]
+            : [
+                'Unlimited Cuts & Styling',
+                'VIP Private Suite Access',
+                'Monthly Signature Product Kit',
+                'Valet Parking Service',
+                'Concierge Guest Passes',
+              ];
+
         return Container(
           color: AppColors.background,
           padding: EdgeInsets.symmetric(
@@ -126,42 +188,28 @@ class MembershipPage extends StatelessWidget {
                       children: [
                         _buildPricingCard(
                           context: context,
-                          title: 'Essential',
-                          price: '\$85',
-                          bullets: [
-                            '1 Signature Monthly Cut',
-                            '10% Off All Retail Products',
-                            'Complimentary Coffee or Water',
-                            'Access to Select Events',
-                          ],
+                          l10n: l10n,
+                          title: isSpanish ? 'Esencial' : 'Essential',
+                          price: '${config.currencySymbol}85',
+                          bullets: essentialBullets,
                           isHighlighted: false,
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         _buildPricingCard(
                           context: context,
-                          title: 'Prestige',
-                          price: '\$150',
-                          bullets: [
-                            '2 Signature Monthly Cuts',
-                            'Priority Booking Status',
-                            '1 Hot Towel Shave per Quarter',
-                            'Premium Drink Service',
-                            '15% Off All Retail Products',
-                          ],
+                          l10n: l10n,
+                          title: isSpanish ? 'Prestigio' : 'Prestige',
+                          price: '${config.currencySymbol}150',
+                          bullets: prestigeBullets,
                           isHighlighted: true,
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         _buildPricingCard(
                           context: context,
-                          title: 'Legendary',
-                          price: '\$225',
-                          bullets: [
-                            'Unlimited Cuts & Styling',
-                            'VIP Private Suite Access',
-                            'Monthly Signature Product Kit',
-                            'Valet Parking Service',
-                            'Concierge Guest Passes',
-                          ],
+                          l10n: l10n,
+                          title: isSpanish ? 'Legendario' : 'Legendary',
+                          price: '${config.currencySymbol}225',
+                          bullets: legendaryBullets,
                           isHighlighted: false,
                         ),
                       ],
@@ -173,14 +221,10 @@ class MembershipPage extends StatelessWidget {
                           Expanded(
                             child: _buildPricingCard(
                               context: context,
-                              title: 'Essential',
-                              price: '\$85',
-                              bullets: [
-                                '1 Signature Monthly Cut',
-                                '10% Off All Retail Products',
-                                'Complimentary Coffee or Water',
-                                'Access to Select Events',
-                              ],
+                              l10n: l10n,
+                              title: isSpanish ? 'Esencial' : 'Essential',
+                              price: '${config.currencySymbol}85',
+                              bullets: essentialBullets,
                               isHighlighted: false,
                             ),
                           ),
@@ -188,15 +232,10 @@ class MembershipPage extends StatelessWidget {
                           Expanded(
                             child: _buildPricingCard(
                               context: context,
-                              title: 'Prestige',
-                              price: '\$150',
-                              bullets: [
-                                '2 Signature Monthly Cuts',
-                                'Priority Booking Status',
-                                '1 Hot Towel Shave per Quarter',
-                                'Premium Drink Service',
-                                '15% Off All Retail Products',
-                              ],
+                              l10n: l10n,
+                              title: isSpanish ? 'Prestigio' : 'Prestige',
+                              price: '${config.currencySymbol}150',
+                              bullets: prestigeBullets,
                               isHighlighted: true,
                             ),
                           ),
@@ -204,15 +243,10 @@ class MembershipPage extends StatelessWidget {
                           Expanded(
                             child: _buildPricingCard(
                               context: context,
-                              title: 'Legendary',
-                              price: '\$225',
-                              bullets: [
-                                'Unlimited Cuts & Styling',
-                                'VIP Private Suite Access',
-                                'Monthly Signature Product Kit',
-                                'Valet Parking Service',
-                                'Concierge Guest Passes',
-                              ],
+                              l10n: l10n,
+                              title: isSpanish ? 'Legendario' : 'Legendary',
+                              price: '${config.currencySymbol}225',
+                              bullets: legendaryBullets,
                               isHighlighted: false,
                             ),
                           ),
@@ -228,6 +262,7 @@ class MembershipPage extends StatelessWidget {
 
   Widget _buildPricingCard({
     required BuildContext context,
+    required AppLocalizations l10n,
     required String title,
     required String price,
     required List<String> bullets,
@@ -279,7 +314,7 @@ class MembershipPage extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '/ month',
+                      l10n.languageCode == 'es' ? '/ mes' : '/ month',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 14,
@@ -341,7 +376,7 @@ class MembershipPage extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'JOIN THE CLUB',
+                    l10n.get('join_club'),
                     style: AppTextStyles.labelMd.copyWith(
                       color: isHighlighted
                           ? AppColors.onSecondary
@@ -367,7 +402,7 @@ class MembershipPage extends StatelessWidget {
                   ),
                   color: AppColors.secondary,
                   child: Text(
-                    'MOST POPULAR',
+                    l10n.get('most_popular'),
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppColors.onSecondary,
                       fontWeight: FontWeight.w900,
@@ -385,29 +420,36 @@ class MembershipPage extends StatelessWidget {
 
   // ─── Benefits Section ──────────────────────────────────────────────────────
 
-  Widget _buildBenefitsSection(BuildContext context) {
+  Widget _buildBenefitsSection(BuildContext context, AppLocalizations l10n) {
+    final isSpanish = l10n.languageCode == 'es';
     final List<Map<String, dynamic>> benefits = [
       {
         'icon': Icons.priority_high,
-        'title': 'Priority Booking',
-        'desc': 'Members get first access to our master barbers\' schedules.',
+        'title': isSpanish ? 'Reserva Prioritaria' : 'Priority Booking',
+        'desc': isSpanish
+            ? 'Los miembros tienen acceso exclusivo primero a las agendas de nuestros maestros barberos.'
+            : 'Members get first access to our master barbers\' schedules.',
       },
       {
         'icon': Icons.local_bar_outlined,
-        'title': 'Complimentary Bar',
-        'desc':
-            'Enjoy a curated selection of premium whiskeys and artisan coffee.',
+        'title': isSpanish ? 'Bar de Cortesía' : 'Complimentary Bar',
+        'desc': isSpanish
+            ? 'Disfruta de una selección exclusiva de whiskies premium y café artesanal.'
+            : 'Enjoy a curated selection of premium whiskeys and artisan coffee.',
       },
       {
         'icon': Icons.shopping_bag_outlined,
-        'title': 'Signature Products',
-        'desc':
-            'Exclusive discounts and early access to our private label scents.',
+        'title': isSpanish ? 'Productos de Autor' : 'Signature Products',
+        'desc': isSpanish
+            ? 'Descuentos exclusivos y acceso anticipado a nuestras fragancias de marca propia.'
+            : 'Exclusive discounts and early access to our private label scents.',
       },
       {
         'icon': Icons.calendar_today_outlined,
-        'title': 'Member Events',
-        'desc': 'Monthly networking mixers and styling masterclasses.',
+        'title': isSpanish ? 'Eventos para Miembros' : 'Member Events',
+        'desc': isSpanish
+            ? 'Reuniones mensuales de networking y clases magistrales de estilismo.'
+            : 'Monthly networking mixers and styling masterclasses.',
       },
     ];
 
@@ -430,7 +472,9 @@ class MembershipPage extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'Unrivaled Benefits',
+                    isSpanish
+                        ? 'Beneficios Inigualables'
+                        : 'Unrivaled Benefits',
                     style: AppTextStyles.headlineSm.copyWith(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
@@ -439,7 +483,9 @@ class MembershipPage extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'More than a haircut. A commitment to excellence.',
+                    isSpanish
+                        ? 'Más que un corte de cabello. Un compromiso con la excelencia.'
+                        : 'More than a haircut. A commitment to excellence.',
                     style: AppTextStyles.bodyMd.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -520,7 +566,8 @@ class MembershipPage extends StatelessWidget {
 
   // ─── Elevate Presence Section ──────────────────────────────────────────────
 
-  Widget _buildElevateSection(BuildContext context) {
+  Widget _buildElevateSection(BuildContext context, AppLocalizations l10n) {
+    final isSpanish = l10n.languageCode == 'es';
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -538,7 +585,9 @@ class MembershipPage extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'Ready to elevate your presence?',
+                    isSpanish
+                        ? '¿Listo para elevar tu presencia?'
+                        : 'Ready to elevate your presence?',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.headlineSm.copyWith(
                       fontSize: 32,
@@ -548,7 +597,9 @@ class MembershipPage extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'Membership slots are limited to ensure the highest quality of service for our Inner Circle. Apply today to secure your place.',
+                    isSpanish
+                        ? 'Los cupos de membresía son limitados para garantizar la más alta calidad de servicio para nuestro Círculo Interno. Solicítalo hoy para asegurar tu lugar.'
+                        : 'Membership slots are limited to ensure the highest quality of service for our Inner Circle. Apply today to secure your place.',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodyMd.copyWith(
                       color: AppColors.onSurfaceVariant,
@@ -560,11 +611,19 @@ class MembershipPage extends StatelessWidget {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildElevateButton(context, 'JOIN PRESTIGE', true),
+                            _buildElevateButton(
+                              context,
+                              isSpanish
+                                  ? 'UNIRSE A PRESTIGIO'
+                                  : 'JOIN PRESTIGE',
+                              true,
+                            ),
                             const SizedBox(height: AppSpacing.md),
                             _buildElevateButton(
                               context,
-                              'CONTACT CONCIERGE',
+                              isSpanish
+                                  ? 'CONTACTAR CONSERJERÍA'
+                                  : 'CONTACT CONCIERGE',
                               false,
                             ),
                           ],
@@ -572,11 +631,19 @@ class MembershipPage extends StatelessWidget {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _buildElevateButton(context, 'JOIN PRESTIGE', true),
+                            _buildElevateButton(
+                              context,
+                              isSpanish
+                                  ? 'UNIRSE A PRESTIGIO'
+                                  : 'JOIN PRESTIGE',
+                              true,
+                            ),
                             const SizedBox(width: AppSpacing.md),
                             _buildElevateButton(
                               context,
-                              'CONTACT CONCIERGE',
+                              isSpanish
+                                  ? 'CONTACTAR CONSERJERÍA'
+                                  : 'CONTACT CONCIERGE',
                               false,
                             ),
                           ],
@@ -618,9 +685,13 @@ class MembershipPage extends StatelessWidget {
   }
 }
 
-class _MembershipDrawer extends StatelessWidget {
+class _MembershipDrawer extends ConsumerWidget {
+  const _MembershipDrawer();
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return Drawer(
       backgroundColor: AppColors.surfaceContainerLow,
       child: SafeArea(
@@ -631,8 +702,9 @@ class _MembershipDrawer extends StatelessWidget {
             children: [
               Text('LUXE & BLADE', style: AppTextStyles.headlineSm),
               const SizedBox(height: 40),
-              ...HomeNavBar.navItems.map(
-                (item) => Padding(
+              ...HomeNavBar.navItems.map((item) {
+                final label = l10n.get(item.toLowerCase());
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: TextButton(
                     onPressed: () {
@@ -647,22 +719,28 @@ class _MembershipDrawer extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(item, style: AppTextStyles.bodyLg),
+                    child: Text(label, style: AppTextStyles.bodyLg),
                   ),
-                ),
-              ),
+                );
+              }),
               const Spacer(),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.go('/booking');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
                   minimumSize: const Size(double.infinity, 48),
                   shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.borderRadiusSm,
+                    borderRadius: BorderRadius.zero,
                   ),
                 ),
-                child: Text('RESERVAR CITA', style: AppTextStyles.labelMd),
+                child: Text(
+                  l10n.get('book_appointment'),
+                  style: AppTextStyles.labelMd,
+                ),
               ),
             ],
           ),

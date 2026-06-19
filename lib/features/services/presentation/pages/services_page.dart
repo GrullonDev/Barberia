@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
 import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
 import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
+import 'package:barberia/core/providers/config_provider.dart';
+import 'package:barberia/core/l10n/app_localizations.dart';
 
-class ServicesPage extends StatelessWidget {
+class ServicesPage extends ConsumerWidget {
   const ServicesPage({super.key});
 
   static final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+    final config = ref.watch(appConfigProvider);
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
-      drawer: _ServicesDrawer(),
+      drawer: const _ServicesDrawer(),
       body: Column(
         children: [
           HomeNavBar(
@@ -27,11 +33,11 @@ class ServicesPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildHeroSection(context),
-                  _buildHaircutsSection(context),
-                  _buildShavesSection(context),
-                  _buildSpaSection(context),
-                  _buildMembershipCtaSection(context),
+                  _buildHeroSection(context, l10n),
+                  _buildHaircutsSection(context, l10n, config),
+                  _buildShavesSection(context, l10n, config),
+                  _buildSpaSection(context, l10n, config),
+                  _buildMembershipCtaSection(context, l10n),
                   const HomeFooter(),
                 ],
               ),
@@ -44,7 +50,7 @@ class ServicesPage extends StatelessWidget {
 
   // ─── Hero Section ───────────────────────────────────────────────────────────
 
-  Widget _buildHeroSection(BuildContext context) {
+  Widget _buildHeroSection(BuildContext context, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: AppSpacing.xxl + 32,
@@ -67,7 +73,9 @@ class ServicesPage extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                'THE GENTLEMAN\'S RITUAL',
+                l10n.languageCode == 'es'
+                    ? 'EL RITUAL DEL CABALLERO'
+                    : 'THE GENTLEMAN\'S RITUAL',
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.secondary,
                   fontWeight: FontWeight.w700,
@@ -76,7 +84,7 @@ class ServicesPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'The Art of Grooming',
+                l10n.get('barberia_subtitle'),
                 textAlign: TextAlign.center,
                 style: AppTextStyles.headlineLg().copyWith(
                   color: const Color(0xFFE2E2E2),
@@ -88,7 +96,7 @@ class ServicesPage extends StatelessWidget {
               Container(width: 60, height: 2, color: AppColors.secondary),
               const SizedBox(height: AppSpacing.xl),
               Text(
-                'Elevating the barbershop experience through precision, tradition, and an unwavering commitment to the modern man\'s distinction.',
+                l10n.get('barberia_hero_text'),
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
@@ -138,7 +146,11 @@ class ServicesPage extends StatelessWidget {
 
   // ─── Haircuts & Styling Section ─────────────────────────────────────────────
 
-  Widget _buildHaircutsSection(BuildContext context) {
+  Widget _buildHaircutsSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    AppConfigState config,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -158,31 +170,36 @@ class ServicesPage extends StatelessWidget {
               child: Column(
                 children: [
                   _buildSectionHeader(
-                    title: 'Haircuts & Styling',
-                    subtitle:
-                        'Masterfully sculpted silhouettes tailored to your identity.',
+                    title: l10n.languageCode == 'es'
+                        ? 'Cortes & Estilizado'
+                        : 'Haircuts & Styling',
+                    subtitle: l10n.languageCode == 'es'
+                        ? 'Siluetas esculpidas con maestría y adaptadas a tu identidad.'
+                        : 'Masterfully sculpted silhouettes tailored to your identity.',
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   isMobile
                       ? Column(
                           children: [
                             _buildCutCard(
-                              title: 'The Signature Cut',
-                              price: '\$65',
+                              title: l10n.get('service_cut_title'),
+                              price: '${config.currencySymbol}65',
                               duration: '45 MIN',
-                              desc:
-                                  'A bespoke consultation, precision haircut, hot towel finish, and signature style using premium pomades.',
+                              desc: l10n.get('signature_cut_desc'),
+                              l10n: l10n,
                             ),
                             const SizedBox(height: AppSpacing.xl),
                             _buildCutCard(
-                              title: 'Master Stylist Session',
-                              price: '\$85',
+                              title: l10n.languageCode == 'es'
+                                  ? 'Sesión de Maestro Estilista'
+                                  : 'Master Stylist Session',
+                              price: '${config.currencySymbol}85',
                               duration: '60 MIN',
-                              desc:
-                                  'Extended consultation with our Lead Barber, including scalp analysis and specialized texture work.',
+                              desc: l10n.get('master_session_desc'),
+                              l10n: l10n,
                             ),
                             const SizedBox(height: AppSpacing.xl),
-                            _buildQuoteCard(),
+                            _buildQuoteCard(l10n),
                           ],
                         )
                       : IntrinsicHeight(
@@ -191,25 +208,27 @@ class ServicesPage extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: _buildCutCard(
-                                  title: 'The Signature Cut',
-                                  price: '\$65',
+                                  title: l10n.get('service_cut_title'),
+                                  price: '${config.currencySymbol}65',
                                   duration: '45 MIN',
-                                  desc:
-                                      'A bespoke consultation, precision haircut, hot towel finish, and signature style using premium pomades.',
+                                  desc: l10n.get('signature_cut_desc'),
+                                  l10n: l10n,
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.xl),
                               Expanded(
                                 child: _buildCutCard(
-                                  title: 'Master Stylist Session',
-                                  price: '\$85',
+                                  title: l10n.languageCode == 'es'
+                                      ? 'Sesión de Maestro Estilista'
+                                      : 'Master Stylist Session',
+                                  price: '${config.currencySymbol}85',
                                   duration: '60 MIN',
-                                  desc:
-                                      'Extended consultation with our Lead Barber, including scalp analysis and specialized texture work.',
+                                  desc: l10n.get('master_session_desc'),
+                                  l10n: l10n,
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.xl),
-                              Expanded(child: _buildQuoteCard()),
+                              Expanded(child: _buildQuoteCard(l10n)),
                             ],
                           ),
                         ),
@@ -227,6 +246,7 @@ class ServicesPage extends StatelessWidget {
     required String price,
     required String duration,
     required String desc,
+    required AppLocalizations l10n,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -290,31 +310,38 @@ class ServicesPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xxl),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.secondary,
-              side: const BorderSide(color: AppColors.secondary, width: 1.5),
-              minimumSize: const Size(double.infinity, 44),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-              ),
-            ),
-            child: Text(
-              'SELECT SERVICE',
-              style: AppTextStyles.labelMd.copyWith(
-                color: AppColors.secondary,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.08 * 14,
-              ),
-            ),
+          Builder(
+            builder: (context) {
+              return OutlinedButton(
+                onPressed: () => context.go('/booking'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondary,
+                  side: const BorderSide(
+                    color: AppColors.secondary,
+                    width: 1.5,
+                  ),
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
+                ),
+                child: Text(
+                  l10n.get('select_service_pricing'),
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.08 * 14,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuoteCard() {
+  Widget _buildQuoteCard(AppLocalizations l10n) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
@@ -334,7 +361,7 @@ class ServicesPage extends StatelessWidget {
           children: [
             const Spacer(),
             Text(
-              '“Style is the only luxury that is really cheap.”',
+              l10n.get('style_quote'),
               style: AppTextStyles.bodyMd.copyWith(
                 fontStyle: FontStyle.italic,
                 fontSize: 18,
@@ -351,7 +378,11 @@ class ServicesPage extends StatelessWidget {
 
   // ─── Shaves & Beard Care Section ───────────────────────────────────────────
 
-  Widget _buildShavesSection(BuildContext context) {
+  Widget _buildShavesSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    AppConfigState config,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -371,17 +402,25 @@ class ServicesPage extends StatelessWidget {
               child: Column(
                 children: [
                   _buildSectionHeader(
-                    title: 'Shaves & Beard Care',
-                    subtitle:
-                        'The ultimate ritual of heat, steel, and soothing botanicals.',
+                    title: l10n.languageCode == 'es'
+                        ? 'Afeitados & Cuidado de Barba'
+                        : 'Shaves & Beard Care',
+                    subtitle: l10n.languageCode == 'es'
+                        ? 'El ritual definitivo de calor, acero y botánicos relajantes.'
+                        : 'The ultimate ritual of heat, steel, and soothing botanicals.',
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   isMobile
                       ? Column(
                           children: [
-                            _buildPopularShaveCard(context, isMobile: true),
+                            _buildPopularShaveCard(
+                              context,
+                              l10n,
+                              config,
+                              isMobile: true,
+                            ),
                             const SizedBox(height: AppSpacing.xl),
-                            _buildBeardSculptureCard(),
+                            _buildBeardSculptureCard(l10n, config),
                           ],
                         )
                       : IntrinsicHeight(
@@ -392,13 +431,15 @@ class ServicesPage extends StatelessWidget {
                                 flex: 2,
                                 child: _buildPopularShaveCard(
                                   context,
+                                  l10n,
+                                  config,
                                   isMobile: false,
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.xl),
                               Expanded(
                                 flex: 1,
-                                child: _buildBeardSculptureCard(),
+                                child: _buildBeardSculptureCard(l10n, config),
                               ),
                             ],
                           ),
@@ -413,7 +454,9 @@ class ServicesPage extends StatelessWidget {
   }
 
   Widget _buildPopularShaveCard(
-    BuildContext context, {
+    BuildContext context,
+    AppLocalizations l10n,
+    AppConfigState config, {
     required bool isMobile,
   }) {
     final detailsWidget = Padding(
@@ -431,7 +474,7 @@ class ServicesPage extends StatelessWidget {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    'MOST POPULAR',
+                    l10n.get('most_popular'),
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppColors.secondary,
                       fontWeight: FontWeight.w900,
@@ -443,7 +486,7 @@ class ServicesPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '\$55',
+                        '${config.currencySymbol}55',
                         style: AppTextStyles.headlineLg().copyWith(
                           color: const Color(0xFFE2E2E2),
                           fontSize: 32,
@@ -465,7 +508,9 @@ class ServicesPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Royal Straight Razor Shave',
+                l10n.languageCode == 'es'
+                    ? 'Afeitado Real a Navaja'
+                    : 'Royal Straight Razor Shave',
                 style: AppTextStyles.headlineSm.copyWith(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -474,7 +519,7 @@ class ServicesPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Multi-stage hot towel preparation, pre-shave oil infusion, rich lather application, and a double-pass shave followed by a cold towel finish and sandalwood aftershave.',
+                l10n.get('royal_shave_desc'),
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 13,
@@ -485,7 +530,7 @@ class ServicesPage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xxl),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () => context.go('/booking'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondary,
               foregroundColor: AppColors.onSecondary,
@@ -496,7 +541,7 @@ class ServicesPage extends StatelessWidget {
               ),
             ),
             child: Text(
-              'BOOK THE RITUAL',
+              l10n.get('book_ritual'),
               style: AppTextStyles.labelMd.copyWith(
                 color: AppColors.onSecondary,
                 fontWeight: FontWeight.w900,
@@ -544,7 +589,10 @@ class ServicesPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBeardSculptureCard() {
+  Widget _buildBeardSculptureCard(
+    AppLocalizations l10n,
+    AppConfigState config,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
@@ -568,7 +616,7 @@ class ServicesPage extends StatelessWidget {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    '\$40',
+                    '${config.currencySymbol}40',
                     style: AppTextStyles.headlineLg().copyWith(
                       color: const Color(0xFFE2E2E2),
                       fontSize: 32,
@@ -588,7 +636,9 @@ class ServicesPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
               Text(
-                'Beard Sculpture',
+                l10n.languageCode == 'es'
+                    ? 'Escultura de Barba'
+                    : 'Beard Sculpture',
                 style: AppTextStyles.headlineSm.copyWith(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -597,7 +647,7 @@ class ServicesPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Architectural shaping for any length, including line-up with straight razor and conditioning treatment.',
+                l10n.get('beard_sculpture_desc'),
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 13,
@@ -607,24 +657,31 @@ class ServicesPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xxl),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.secondary,
-              side: const BorderSide(color: AppColors.secondary, width: 1.5),
-              minimumSize: const Size(double.infinity, 44),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-              ),
-            ),
-            child: Text(
-              'SELECT SERVICE',
-              style: AppTextStyles.labelMd.copyWith(
-                color: AppColors.secondary,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.08 * 14,
-              ),
-            ),
+          Builder(
+            builder: (context) {
+              return OutlinedButton(
+                onPressed: () => context.go('/booking'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondary,
+                  side: const BorderSide(
+                    color: AppColors.secondary,
+                    width: 1.5,
+                  ),
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
+                ),
+                child: Text(
+                  l10n.get('select_service_pricing'),
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.08 * 14,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -633,38 +690,48 @@ class ServicesPage extends StatelessWidget {
 
   // ─── Spa & Extras Section ──────────────────────────────────────────────────
 
-  Widget _buildSpaSection(BuildContext context) {
+  Widget _buildSpaSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    AppConfigState config,
+  ) {
     final List<Map<String, dynamic>> spaServices = [
       {
-        'category': 'SKINCARE',
+        'category': l10n.languageCode == 'es' ? 'CUIDADO DE PIEL' : 'SKINCARE',
         'categoryColor': const Color(0xFFC5A880),
-        'title': 'Activated Charcoal Mask',
-        'desc': 'Deep pore cleansing and detoxifying treatment.',
-        'price': '\$25',
+        'title': l10n.languageCode == 'es'
+            ? 'Mascarilla de Carbón Activado'
+            : 'Activated Charcoal Mask',
+        'desc': l10n.get('activated_charcoal_desc'),
+        'price': '${config.currencySymbol}25',
         'duration': '15 MIN',
       },
       {
-        'category': 'RELAXATION',
+        'category': l10n.languageCode == 'es' ? 'RELAJACIÓN' : 'RELAXATION',
         'categoryColor': const Color(0xFFC5A880),
-        'title': 'Scalp Massage',
-        'desc': 'Invigorating 15-minute massage with peppermint oil.',
-        'price': '\$30',
+        'title': l10n.languageCode == 'es' ? 'Masaje Capilar' : 'Scalp Massage',
+        'desc': l10n.get('scalp_massage_desc'),
+        'price': '${config.currencySymbol}30',
         'duration': '15 MIN',
       },
       {
-        'category': 'GROOMING',
+        'category': l10n.languageCode == 'es' ? 'CUIDADO' : 'GROOMING',
         'categoryColor': const Color(0xFFC5A880),
-        'title': 'Grey Blending',
-        'desc': 'Natural-looking subtle reduction of grey hair.',
-        'price': '\$45',
+        'title': l10n.languageCode == 'es'
+            ? 'Matización de Canas'
+            : 'Grey Blending',
+        'desc': l10n.get('grey_blending_desc'),
+        'price': '${config.currencySymbol}45',
         'duration': '30 MIN',
       },
       {
-        'category': 'THE FINISH',
+        'category': l10n.languageCode == 'es' ? 'EL ACABADO' : 'THE FINISH',
         'categoryColor': const Color(0xFFC5A880),
-        'title': 'Nose & Ear Wax',
-        'desc': 'Professional removal for a clean, sharp look.',
-        'price': '\$20',
+        'title': l10n.languageCode == 'es'
+            ? 'Depilación de Nariz & Orejas'
+            : 'Nose & Ear Wax',
+        'desc': l10n.get('ear_nose_wax_desc'),
+        'price': '${config.currencySymbol}20',
         'duration': '10 MIN',
       },
     ];
@@ -688,9 +755,12 @@ class ServicesPage extends StatelessWidget {
               child: Column(
                 children: [
                   _buildSectionHeader(
-                    title: 'Spa & Extras',
-                    subtitle:
-                        'Refined treatments for the discerning gentleman.',
+                    title: l10n.languageCode == 'es'
+                        ? 'Spa & Extras'
+                        : 'Spa & Extras',
+                    subtitle: l10n.languageCode == 'es'
+                        ? 'Tratamientos refinados para el caballero exigente.'
+                        : 'Refined treatments for the discerning gentleman.',
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   isMobile
@@ -802,7 +872,10 @@ class ServicesPage extends StatelessWidget {
 
   // ─── Executive Lounge Membership Section ───────────────────────────────────
 
-  Widget _buildMembershipCtaSection(BuildContext context) {
+  Widget _buildMembershipCtaSection(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -820,7 +893,9 @@ class ServicesPage extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'The Executive Lounge Membership',
+                    l10n.languageCode == 'es'
+                        ? 'Membresía del Club Ejecutivo'
+                        : 'The Executive Lounge Membership',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.headlineSm.copyWith(
                       fontSize: 32,
@@ -830,7 +905,9 @@ class ServicesPage extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'Join our exclusive circle for priority bookings, complimentary beverages, and a standing appointment that ensures you never have a hair out of place.',
+                    l10n.languageCode == 'es'
+                        ? 'Únete a nuestro círculo exclusivo para reservas prioritarias, bebidas de cortesía y una cita permanente que asegura tu distinción.'
+                        : 'Join our exclusive circle for priority bookings, complimentary beverages, and a standing appointment that ensures you never have a hair out of place.',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.bodyMd.copyWith(
                       color: AppColors.onSurfaceVariant,
@@ -844,14 +921,18 @@ class ServicesPage extends StatelessWidget {
                           children: [
                             _buildCtaButton(
                               context,
-                              'DISCOVER BENEFITS',
+                              l10n.languageCode == 'es'
+                                  ? 'DESCUBRIR BENEFICIOS'
+                                  : 'DISCOVER BENEFITS',
                               true,
                               '/membership',
                             ),
                             const SizedBox(height: AppSpacing.md),
                             _buildCtaButton(
                               context,
-                              'BOOK APPOINTMENT',
+                              l10n.languageCode == 'es'
+                                  ? 'RESERVAR CITA'
+                                  : 'BOOK APPOINTMENT',
                               false,
                               '/booking',
                             ),
@@ -862,14 +943,18 @@ class ServicesPage extends StatelessWidget {
                           children: [
                             _buildCtaButton(
                               context,
-                              'DISCOVER BENEFITS',
+                              l10n.languageCode == 'es'
+                                  ? 'DESCUBRIR BENEFICIOS'
+                                  : 'DISCOVER BENEFITS',
                               true,
                               '/membership',
                             ),
                             const SizedBox(width: AppSpacing.md),
                             _buildCtaButton(
                               context,
-                              'BOOK APPOINTMENT',
+                              l10n.languageCode == 'es'
+                                  ? 'RESERVAR CITA'
+                                  : 'BOOK APPOINTMENT',
                               false,
                               '/booking',
                             ),
@@ -917,9 +1002,13 @@ class ServicesPage extends StatelessWidget {
   }
 }
 
-class _ServicesDrawer extends StatelessWidget {
+class _ServicesDrawer extends ConsumerWidget {
+  const _ServicesDrawer();
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
+
     return Drawer(
       backgroundColor: AppColors.surfaceContainerLow,
       child: SafeArea(
@@ -930,8 +1019,9 @@ class _ServicesDrawer extends StatelessWidget {
             children: [
               Text('LUXE & BLADE', style: AppTextStyles.headlineSm),
               const SizedBox(height: 40),
-              ...HomeNavBar.navItems.map(
-                (item) => Padding(
+              ...HomeNavBar.navItems.map((item) {
+                final label = l10n.get(item.toLowerCase());
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: TextButton(
                     onPressed: () {
@@ -946,10 +1036,10 @@ class _ServicesDrawer extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(item, style: AppTextStyles.bodyLg),
+                    child: Text(label, style: AppTextStyles.bodyLg),
                   ),
-                ),
-              ),
+                );
+              }),
               const Spacer(),
               ElevatedButton(
                 onPressed: () {
@@ -964,7 +1054,10 @@ class _ServicesDrawer extends StatelessWidget {
                     borderRadius: BorderRadius.zero,
                   ),
                 ),
-                child: Text('BOOK APPOINTMENT', style: AppTextStyles.labelMd),
+                child: Text(
+                  l10n.get('book_appointment'),
+                  style: AppTextStyles.labelMd,
+                ),
               ),
             ],
           ),

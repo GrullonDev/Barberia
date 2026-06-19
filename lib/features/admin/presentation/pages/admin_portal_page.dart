@@ -361,9 +361,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                l10n.languageCode == 'es'
-                    ? 'Resumen Diario'
-                    : 'Daily Overview',
+                l10n.languageCode == 'es' ? 'Resumen Diario' : 'Daily Overview',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -1695,7 +1693,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                               ? (l10n.languageCode == 'es'
                                     ? 'Disponible'
                                     : 'Available')
-                              : (l10n.languageCode == 'es' ? 'Ocupado' : 'Busy'),
+                              : (l10n.languageCode == 'es'
+                                    ? 'Ocupado'
+                                    : 'Busy'),
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             color: isAvailable ? Colors.green : Colors.orange,
@@ -2557,7 +2557,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _deleteService(String serviceId, String name, AppLocalizations l10n) async {
+  void _deleteService(
+    String serviceId,
+    String name,
+    AppLocalizations l10n,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -3151,8 +3155,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText:
-                      '${l10n.get('price')} (${config.currencySymbol})',
+                  labelText: '${l10n.get('price')} (${config.currencySymbol})',
                 ),
               ),
               const SizedBox(height: 12),
@@ -3475,9 +3478,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${l10n.get('open_hour')} (AM):',
-                    ),
+                    Text('${l10n.get('open_hour')} (AM):'),
                     DropdownButton<int>(
                       value: localOpen,
                       dropdownColor: AppColors.surfaceContainerHigh,
@@ -3496,9 +3497,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${l10n.get('close_hour')} (PM):',
-                    ),
+                    Text('${l10n.get('close_hour')} (PM):'),
                     DropdownButton<int>(
                       value: localClose > 12 ? localClose - 12 : localClose,
                       dropdownColor: AppColors.surfaceContainerHigh,
