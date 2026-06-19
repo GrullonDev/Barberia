@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +30,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   String _selectedDay = 'FRI 27';
   String _earningsFilter = 'Today'; // 'Today' or 'Weekly'
   String _clientSearchQuery = '';
+  String _barberNameFromDb = '';
+  String _specialtyFromDb = '';
 
   // Active Session / Selected Active Appointment Details State
   Map<String, dynamic>? _selectedActiveAppointment;
@@ -184,16 +188,202 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     'SAT 28',
   ];
 
+  StreamSubscription<QuerySnapshot>? _bookingsSubscription;
+  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  int _unreadNotificationsCount = 0;
+  final DateTime _pageOpenTime = DateTime.now();
+
   @override
   void initState() {
     super.initState();
     _startSessionTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initFirebaseListeners();
+    });
   }
 
   @override
   void dispose() {
     _sessionTimer?.cancel();
+    _bookingsSubscription?.cancel();
+    _notificationsSubscription?.cancel();
     super.dispose();
+  }
+
+  void _initFirebaseListeners() {
+    final authState = ref.read(authProvider);
+    final barberName = authState.displayName ?? 'Julian Vance';
+    final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
+
+    // Listen to current barber user document for live settings details
+    if (currentBarberUid != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentBarberUid)
+          .snapshots()
+          .listen((docSnapshot) {
+            if (docSnapshot.exists && mounted) {
+              final data = docSnapshot.data();
+              if (data != null) {
+                setState(() {
+                  _barberNameFromDb =
+                      data['name'] ?? authState.displayName ?? 'Julian Vance';
+                  _bio = data['bio'] ?? _bio;
+                  _specialtyFromDb =
+                      data['specialty'] ?? 'Executive Manager & Senior Stylist';
+                  if (data['specialties'] != null) {
+                    _specialties.clear();
+                    _specialties.addAll(List<String>.from(data['specialties']));
+                  }
+                });
+              }
+            }
+          });
+    }
+
+    // 1. Listen to bookings
+    _bookingsSubscription = FirebaseFirestore.instance
+        .collection('bookings')
+        .snapshots()
+        .listen((snapshot) {
+          final List<Map<String, dynamic>> firestoreBookings = [];
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final String docBarberName = data['barberName'] ?? '';
+            final String docBarberId = data['barberId'] ?? '';
+
+            if (docBarberId == currentBarberUid ||
+                docBarberName.toLowerCase() == barberName.toLowerCase() ||
+                docBarberId == authState.email) {
+              firestoreBookings.add({
+                'id': doc.id,
+                'clientName': data['clientName'] ?? 'No Name',
+                'service': data['service'] ?? 'Premium Cut',
+                'time': data['time'] ?? '10:00 AM',
+                'status': data['status'] ?? 'PENDING',
+                'checkedIn': data['checkedIn'] as bool? ?? false,
+                'icon': Icons.content_cut_rounded,
+                'price': (data['price'] as num?)?.toDouble() ?? 50.0,
+                'date': data['date'],
+              });
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _appointments.clear();
+              _appointments.addAll(firestoreBookings);
+              // Recalculate daily performance earnings from finished appointments
+              double earnings = 0.0;
+              int completed = 0;
+              for (var apt in _appointments) {
+                if (apt['status'] == 'COMPLETED' ||
+                    apt['status'] == 'FINISHED') {
+                  earnings += apt['price'] as double;
+                  completed++;
+                }
+              }
+              if (completed > 0) {
+                _dailyEarnings = earnings;
+                _completedServices = completed;
+              }
+            });
+          }
+        });
+
+    // 2. Listen to notifications count
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+          int count = 0;
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final String docBarberName = data['barberName'] ?? '';
+            final String docBarberId = data['barberId'] ?? '';
+            if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
+                docBarberId == authState.email) {
+              count++;
+            }
+          }
+          if (mounted) {
+            setState(() {
+              _unreadNotificationsCount = count;
+            });
+          }
+        });
+
+    // 3. Listen to new notifications for in-app alert SnackBars
+    _notificationsSubscription = FirebaseFirestore.instance
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .listen((snapshot) {
+          if (!mounted || snapshot.docs.isEmpty) return;
+
+          final doc = snapshot.docs.first;
+          final data = doc.data();
+          final String docBarberName = data['barberName'] ?? '';
+          final String docBarberId = data['barberId'] ?? '';
+
+          if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
+              docBarberId == authState.email) {
+            final createdAtVal = data['createdAt'];
+            if (createdAtVal is Timestamp) {
+              final createdAt = createdAtVal.toDate();
+              if (createdAt.isAfter(_pageOpenTime)) {
+                final String title =
+                    data['title'] ??
+                    (ref.read(l10nProvider).languageCode == 'es'
+                        ? 'Nueva Cita'
+                        : 'New Appointment');
+                final String message = data['message'] ?? '';
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.secondary,
+                    duration: const Duration(seconds: 4),
+                    content: Row(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active,
+                          color: AppColors.onSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title.toUpperCase(),
+                                style: GoogleFonts.hankenGrotesk(
+                                  color: AppColors.onSecondary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                message,
+                                style: GoogleFonts.hankenGrotesk(
+                                  color: AppColors.onSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            }
+          }
+        });
   }
 
   void _startSessionTimer() {
@@ -214,29 +404,69 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _saveProfileChanges(AppLocalizations l10n) {
+  // Maps internal status values (used for logic comparisons) to a localized
+  // display label without altering the underlying status string itself.
+  String _localizedStatusLabel(String status, AppLocalizations l10n) {
+    final isSpanish = l10n.languageCode == 'es';
+    switch (status.toUpperCase()) {
+      case 'CONFIRMED':
+        return isSpanish ? 'CONFIRMADA' : 'CONFIRMED';
+      case 'PENDING':
+        return isSpanish ? 'PENDIENTE' : 'PENDING';
+      case 'COMPLETED':
+      case 'FINISHED':
+        return isSpanish ? 'COMPLETADA' : 'COMPLETED';
+      case 'LIVE':
+        return isSpanish ? 'EN VIVO' : 'LIVE';
+      default:
+        return status;
+    }
+  }
+
+  void _saveProfileChanges(AppLocalizations l10n) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppColors.secondary,
-              content: Text(
-                l10n.languageCode == 'es'
-                    ? 'CAMBIOS DE PERFIL GUARDADOS CON ÉXITO'
-                    : 'PROFILE CHANGES SAVED SUCCESSFULLY',
-                style: GoogleFonts.hankenGrotesk(
-                  color: AppColors.onSecondary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({'bio': _bio, 'specialties': _specialties})
+            .then((_) {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.secondary,
+                  content: Text(
+                    l10n.languageCode == 'es'
+                        ? 'CAMBIOS DE PERFIL GUARDADOS EXITOSAMENTE'
+                        : 'PROFILE CHANGES SAVED SUCCESSFULLY',
+                    style: GoogleFonts.hankenGrotesk(
+                      color: AppColors.onSecondary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        });
+              );
+            })
+            .catchError((e) {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.error,
+                  content: Text(
+                    l10n.languageCode == 'es'
+                        ? 'ERROR AL GUARDAR CAMBIOS: $e'
+                        : 'ERROR SAVING CHANGES: $e',
+                  ),
+                ),
+              );
+            });
+
         return Dialog(
           backgroundColor: AppColors.surfaceContainerLow,
           child: Padding(
@@ -270,12 +500,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = ref.watch(l10nProvider);
     final config = ref.watch(appConfigProvider);
+    final l10n = ref.watch(l10nProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context, l10n),
-      body: _buildBody(l10n, config),
+      body: _buildBody(config, l10n),
       floatingActionButton:
           (_currentTabIndex == 1 && _selectedActiveAppointment == null)
           ? _buildFAB(l10n)
@@ -316,15 +547,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.secondary, width: 1),
             ),
-            child: const CircleAvatar(
-              backgroundImage: AssetImage(
-                'assets/images/barber_julian_vance.png',
-              ),
+            child: CircleAvatar(
+              backgroundColor: AppColors.surfaceContainerHigh,
+              child: _barberNameFromDb.isNotEmpty
+                  ? Text(
+                      _barberNameFromDb[0].toUpperCase(),
+                      style: GoogleFonts.playfairDisplay(
+                        color: AppColors.secondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : const Icon(Icons.person, color: AppColors.secondary),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Text(
-            'PRO CUTS',
+            _barberNameFromDb.isNotEmpty
+                ? _barberNameFromDb.toUpperCase()
+                : 'PRO CUTS',
             style: GoogleFonts.playfairDisplay(
               color: Colors.white,
               fontSize: 18,
@@ -335,22 +575,42 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none_rounded,
-            color: Colors.white,
-          ),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  l10n.languageCode == 'es'
-                      ? 'No hay notificaciones nuevas.'
-                      : 'No new notifications.',
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () => _showNotificationsDialog(context, l10n),
+            ),
+            if (_unreadNotificationsCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    '$_unreadNotificationsCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            );
-          },
+          ],
         ),
         GestureDetector(
           onTap: () {
@@ -412,26 +672,26 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── Navigation routing switch ──────────────────────────────────────────────
-  Widget _buildBody(AppLocalizations l10n, AppConfigState config) {
+  Widget _buildBody(AppConfigState config, AppLocalizations l10n) {
     switch (_currentTabIndex) {
       case 0:
-        return _buildDashboardTab(l10n, config);
+        return _buildDashboardTab(config, l10n);
       case 1:
-        return _buildScheduleRouterTab(l10n, config);
+        return _buildScheduleRouterTab(config, l10n);
       case 2:
         return _buildClientsTab(l10n);
       case 3:
-        return _buildEarningsPerformanceTab(l10n, config);
+        return _buildEarningsPerformanceTab(config, l10n);
       case 4:
         return _buildSettingsTab(l10n); // settings tab via avatar click
       default:
-        return _buildDashboardTab(l10n, config);
+        return _buildDashboardTab(config, l10n);
     }
   }
 
   Widget _buildFAB(AppLocalizations l10n) {
     return FloatingActionButton(
-      onPressed: () => _showAddBookingDialog(l10n),
+      onPressed: () => _showAddBookingDialog(l10n: l10n),
       backgroundColor: AppColors.secondary,
       foregroundColor: AppColors.onSecondary,
       elevation: 4,
@@ -443,7 +703,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── Tab 0: Dashboard (Julian's Active Session + Queue) ─────────────────────
-  Widget _buildDashboardTab(AppLocalizations l10n, AppConfigState config) {
+  Widget _buildDashboardTab(AppConfigState config, AppLocalizations l10n) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
@@ -544,7 +804,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               Expanded(
                 child: _buildPerformanceCard(
                   icon: Icons.credit_card_rounded,
-                  label: l10n.languageCode == 'es' ? 'INGRESOS' : 'EARNINGS',
+                  label: l10n.languageCode == 'es' ? 'GANANCIAS' : 'EARNINGS',
                   value:
                       '${config.currencySymbol}${_dailyEarnings.toStringAsFixed(2)}',
                 ),
@@ -563,9 +823,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.xl),
 
           Text(
-            l10n.languageCode == 'es'
-                ? 'Línea de Tiempo Completa'
-                : 'Full Timeline',
+            l10n.languageCode == 'es' ? 'Cronología Completa' : 'Full Timeline',
             style: GoogleFonts.playfairDisplay(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -716,7 +974,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         'clientName': _activeSession!['clientName'],
                         'service': _activeSession!['service'],
                         'time': l10n.languageCode == 'es'
-                            ? 'Activo Ahora'
+                            ? 'Ahora Activo'
                             : 'Active Now',
                         'status': 'LIVE',
                         'id': 'APPT-8821',
@@ -816,7 +1074,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         child: Text(
           l10n.languageCode == 'es'
-              ? 'No hay turnos próximos en fila.'
+              ? 'No hay turnos en fila próximamente.'
               : 'No upcoming queue slots.',
           style: AppTextStyles.bodyMd.copyWith(
             color: AppColors.onSurfaceVariant,
@@ -1115,12 +1373,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── Tab 1 Router: Switches between Master Schedule & Active Appt Detail ────
-  Widget _buildScheduleRouterTab(AppLocalizations l10n, AppConfigState config) {
+  Widget _buildScheduleRouterTab(AppConfigState config, AppLocalizations l10n) {
     if (_selectedActiveAppointment != null) {
       return _buildActiveAppointmentDetailScreen(
         _selectedActiveAppointment!,
-        l10n,
         config,
+        l10n,
       );
     } else {
       return _buildMasterScheduleScreen(l10n);
@@ -1154,7 +1412,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   const SizedBox(height: 2),
                   Text(
                     l10n.languageCode == 'es'
-                        ? 'Viernes, 27 Oct'
+                        ? 'Viernes, 27 de Oct'
                         : 'Friday, Oct 27',
                     style: GoogleFonts.playfairDisplay(
                       color: Colors.white,
@@ -1280,7 +1538,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     SnackBar(
                       content: Text(
                         l10n.languageCode == 'es'
-                            ? 'Ajustes de filtro abiertos.'
+                            ? 'Configuración de filtros abierta.'
                             : 'Filter settings opened.',
                       ),
                     ),
@@ -1359,9 +1617,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   ) {
     final isConfirmed = apt['status'] == 'CONFIRMED';
     final isCheckedIn = apt['checkedIn'] as bool;
-    final statusLabel = isConfirmed
-        ? (l10n.languageCode == 'es' ? 'CONFIRMADA' : 'CONFIRMED')
-        : (l10n.languageCode == 'es' ? 'PENDIENTE' : 'PENDING');
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -1449,7 +1704,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       borderRadius: BorderRadius.zero,
                     ),
                     child: Text(
-                      statusLabel,
+                      _localizedStatusLabel(apt['status'], l10n),
                       style: AppTextStyles.labelSm.copyWith(
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
@@ -1484,7 +1739,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                                   SnackBar(
                                     content: Text(
                                       l10n.languageCode == 'es'
-                                          ? '${apt['clientName']} llegó.'
+                                          ? '${apt['clientName']} ha llegado.'
                                           : '${apt['clientName']} checked in.',
                                     ),
                                   ),
@@ -1587,7 +1842,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _showAddBookingDialog(l10n, timeSlot: time),
+          onTap: () => _showAddBookingDialog(timeSlot: time, l10n: l10n),
           borderRadius: AppRadius.borderRadiusLg,
           child: Container(
             padding: const EdgeInsets.all(24),
@@ -1611,7 +1866,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 const SizedBox(width: AppSpacing.md),
                 Text(
                   l10n.languageCode == 'es'
-                      ? '$time - Espacio Disponible'
+                      ? '$time - Turno Disponible'
                       : '$time - Available Slot',
                   style: AppTextStyles.bodyLg.copyWith(
                     color: AppColors.onSurfaceVariant,
@@ -1678,7 +1933,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   SnackBar(
                     content: Text(
                       l10n.languageCode == 'es'
-                          ? 'Selecciona un nuevo horario para reprogramar.'
+                          ? 'Selecciona un nuevo turno para reprogramar.'
                           : 'Select a new slot to reschedule.',
                     ),
                   ),
@@ -1753,7 +2008,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _showAddBookingDialog(AppLocalizations l10n, {String? timeSlot}) {
+  void _showAddBookingDialog({
+    required AppLocalizations l10n,
+    String? timeSlot,
+  }) {
     final clientNameController = TextEditingController();
     final serviceController = TextEditingController(
       text: 'Signature Cut & Shave',
@@ -1785,7 +2043,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ? 'Nombre del Cliente'
                     : 'Client Name',
                 hintText: l10n.languageCode == 'es'
-                    ? 'p. ej. Liam Neeson'
+                    ? 'ej. Liam Neeson'
                     : 'e.g. Liam Neeson',
               ),
             ),
@@ -1810,7 +2068,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.get('cancel')),
+            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1831,7 +2089,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 SnackBar(
                   content: Text(
                     l10n.languageCode == 'es'
-                        ? 'Cliente reservado con éxito.'
+                        ? 'Cliente reservado exitosamente.'
                         : 'Client booked successfully.',
                   ),
                 ),
@@ -1853,8 +2111,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   // ─── TAB 1 SUB-PAGE: Active Appointment Detail Screen (Image 1) ─────────────
   Widget _buildActiveAppointmentDetailScreen(
     Map<String, dynamic> appt,
-    AppLocalizations l10n,
     AppConfigState config,
+    AppLocalizations l10n,
   ) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1926,7 +2184,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
             // Service Title
             Text(
-              'The Signature Cut',
+              l10n.languageCode == 'es'
+                  ? 'El Corte Distintivo'
+                  : 'The Signature Cut',
               style: GoogleFonts.playfairDisplay(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -2035,7 +2295,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         const SizedBox(height: 2),
                         Text(
                           l10n.languageCode == 'es'
-                              ? 'Miembro de Lealtad • 12 Visitas'
+                              ? 'Miembro Leal • 12 Visitas'
                               : 'Loyalty Member • 12 Visits',
                           style: AppTextStyles.bodyMd.copyWith(
                             color: AppColors.onSurfaceVariant,
@@ -2066,7 +2326,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           SnackBar(
                             content: Text(
                               l10n.languageCode == 'es'
-                                  ? 'Enviando mensaje a ${appt['clientName']}...'
+                                  ? 'Mensajeando a ${appt['clientName']}...'
                                   : 'Messaging ${appt['clientName']}...',
                             ),
                           ),
@@ -2224,7 +2484,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           'service': appt['service'],
                           'client': appt['clientName'],
                           'time': l10n.languageCode == 'es'
-                              ? 'Ahora Mismo'
+                              ? 'Justo Ahora'
                               : 'Just Now',
                           'price': 65.00,
                           'tip': 15.00,
@@ -2236,7 +2496,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         SnackBar(
                           content: Text(
                             l10n.languageCode == 'es'
-                                ? 'Servicio Completado. Pago procesado con éxito.'
+                                ? 'Servicio Completado. Pago procesado exitosamente.'
                                 : 'Service Completed. Payment processed successfully.',
                           ),
                         ),
@@ -2310,7 +2570,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.get('cancel')),
+            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -2338,6 +2598,20 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   // ─── TAB 2: Clients Registry List ──────────────────────────────────────────
+  String _localizedClientStatus(String status, AppLocalizations l10n) {
+    if (l10n.languageCode != 'es') return status;
+    switch (status) {
+      case 'Loyalty Member':
+        return 'Miembro Leal';
+      case 'Regular Client':
+        return 'Cliente Habitual';
+      case 'VIP Client':
+        return 'Cliente VIP';
+      default:
+        return status;
+    }
+  }
+
   Widget _buildClientsTab(AppLocalizations l10n) {
     final filteredClients = _clients.where((client) {
       return client['name'].toLowerCase().contains(
@@ -2438,7 +2712,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                             ),
                           ),
                           Text(
-                            '${client['status']} • ${client['visits']}',
+                            '${_localizedClientStatus(client['status'], l10n)} • ${client['visits']}',
                             style: AppTextStyles.bodyMd.copyWith(
                               color: AppColors.onSurfaceVariant,
                               fontSize: 12,
@@ -2502,8 +2776,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   // ─── TAB 3: Earnings & Performance Dashboard (Image 0) ──────────────────────
   Widget _buildEarningsPerformanceTab(
-    AppLocalizations l10n,
     AppConfigState config,
+    AppLocalizations l10n,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -2551,7 +2825,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.lg),
 
           // Total Earnings Card
-          _buildTotalEarningsCard(l10n, config),
+          _buildTotalEarningsCard(config, l10n),
 
           const SizedBox(height: AppSpacing.md),
 
@@ -2597,7 +2871,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               Text(
                 l10n.languageCode == 'es'
-                    ? '$_completedServices de $_totalServices Completados'
+                    ? '$_completedServices de $_totalServices Completadas'
                     : '$_completedServices of $_totalServices Completed',
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
@@ -2657,24 +2931,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          _buildRecentActivityList(l10n, config),
+          _buildRecentActivityList(config, l10n),
 
           const SizedBox(height: AppSpacing.xl),
 
           // Weekly Goal Card
-          _buildWeeklyGoalCard(l10n, config),
+          _buildWeeklyGoalCard(config, l10n),
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );
   }
 
-  Widget _buildFilterToggleOption(String label, String displayLabel) {
-    final isSelected = _earningsFilter == label;
+  Widget _buildFilterToggleOption(String filterKey, String label) {
+    final isSelected = _earningsFilter == filterKey;
     return GestureDetector(
       onTap: () {
         setState(() {
-          _earningsFilter = label;
+          _earningsFilter = filterKey;
         });
       },
       child: Container(
@@ -2684,7 +2958,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           borderRadius: AppRadius.borderRadiusMd,
         ),
         child: Text(
-          displayLabel,
+          label,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 13,
             fontWeight: FontWeight.w800,
@@ -2697,7 +2971,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildTotalEarningsCard(AppLocalizations l10n, AppConfigState config) {
+  Widget _buildTotalEarningsCard(AppConfigState config, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -2714,7 +2988,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             children: [
               Text(
                 l10n.languageCode == 'es'
-                    ? 'INGRESOS TOTALES'
+                    ? 'GANANCIAS TOTALES'
                     : 'TOTAL EARNINGS',
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
@@ -2917,8 +3191,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   Widget _buildRecentActivityList(
-    AppLocalizations l10n,
     AppConfigState config,
+    AppLocalizations l10n,
   ) {
     return Column(
       children: _recentActivity.map((activity) {
@@ -3003,7 +3277,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildWeeklyGoalCard(AppLocalizations l10n, AppConfigState config) {
+  Widget _buildWeeklyGoalCard(AppConfigState config, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -3031,7 +3305,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 const SizedBox(height: 8),
                 Text(
                   l10n.languageCode == 'es'
-                      ? 'Estás a solo 4 citas de alcanzar tu meta semanal de ${config.currencySymbol}2,500.'
+                      ? 'Solo te faltan 4 citas para alcanzar tu meta semanal de ${config.currencySymbol}2,500.'
                       : 'You\'re only 4 appointments away from reaching your ${config.currencySymbol}2,500 weekly target.',
                   style: AppTextStyles.bodyMd.copyWith(
                     color: AppColors.onSurfaceVariant,
@@ -3113,11 +3387,23 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               children: [
                 Stack(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 36,
-                      backgroundImage: AssetImage(
-                        'assets/images/barber_julian_vance.png',
-                      ),
+                      backgroundColor: AppColors.surfaceContainerHigh,
+                      child: _barberNameFromDb.isNotEmpty
+                          ? Text(
+                              _barberNameFromDb[0].toUpperCase(),
+                              style: GoogleFonts.playfairDisplay(
+                                color: AppColors.secondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 28,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person,
+                              color: AppColors.secondary,
+                              size: 28,
+                            ),
                     ),
                     Positioned(
                       bottom: 0,
@@ -3143,7 +3429,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Julian Vane',
+                        _barberNameFromDb.isNotEmpty
+                            ? _barberNameFromDb
+                            : 'Julian Vance',
                         style: GoogleFonts.playfairDisplay(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -3151,8 +3439,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         ),
                       ),
                       Text(
-                        l10n.languageCode == 'es'
-                            ? 'Gerente Ejecutivo y Estilista Senior'
+                        _specialtyFromDb.isNotEmpty
+                            ? _specialtyFromDb
                             : 'Executive Manager & Senior Stylist',
                         style: AppTextStyles.bodyMd.copyWith(
                           color: AppColors.onSurfaceVariant,
@@ -3397,7 +3685,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.xl),
 
           Text(
-            l10n.get('notifications'),
+            l10n.languageCode == 'es' ? 'Notificaciones' : 'Notifications',
             style: GoogleFonts.playfairDisplay(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -3459,7 +3747,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ),
                     subtitle: Text(
                       l10n.languageCode == 'es'
-                          ? 'Horario diario e informes de ingresos'
+                          ? 'Informes diarios de horario e ingresos'
                           : 'Daily schedule & revenue reports',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
@@ -3570,14 +3858,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ? 'Nombre de la Especialidad'
                 : 'Specialty Name',
             hintText: l10n.languageCode == 'es'
-                ? 'p. ej. Corte al Rape'
+                ? 'ej. Corte a Máquina'
                 : 'e.g. Buzz Cut',
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.get('cancel')),
+            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -3599,6 +3887,225 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
+  void _showNotificationsDialog(BuildContext context, AppLocalizations l10n) {
+    final authState = ref.read(authProvider);
+    final barberName = authState.displayName ?? 'Julian Vance';
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        child: Container(
+          width: 500,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.languageCode == 'es'
+                        ? 'NOTIFICACIONES'
+                        : 'NOTIFICATIONS',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.secondary,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(color: AppColors.outlineVariant),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('notifications')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.secondary,
+                        ),
+                      );
+                    }
+
+                    final docs = snapshot.data?.docs ?? [];
+                    final barberDocs = docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final String docBarberName = data['barberName'] ?? '';
+                      final String docBarberId = data['barberId'] ?? '';
+                      return docBarberName.toLowerCase() ==
+                              barberName.toLowerCase() ||
+                          docBarberId == authState.email;
+                    }).toList();
+
+                    if (barberDocs.isEmpty) {
+                      return Center(
+                        child: Text(
+                          l10n.languageCode == 'es'
+                              ? 'No hay notificaciones para ti.'
+                              : 'No notifications for you.',
+                          style: GoogleFonts.hankenGrotesk(
+                            color: AppColors.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: barberDocs.length,
+                      itemBuilder: (context, index) {
+                        final doc = barberDocs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final String title =
+                            data['title'] ??
+                            (l10n.languageCode == 'es'
+                                ? 'Nueva Cita'
+                                : 'New Appointment');
+                        final String message = data['message'] ?? '';
+                        final bool read = data['read'] ?? false;
+                        final timestamp = data['createdAt'] as Timestamp?;
+                        final dateStr = timestamp != null
+                            ? '${timestamp.toDate().day}/${timestamp.toDate().month} ${timestamp.toDate().hour}:${timestamp.toDate().minute.toString().padLeft(2, '0')}'
+                            : '';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: read
+                                ? AppColors.surfaceContainerLowest
+                                : AppColors.surfaceContainerHigh.withValues(
+                                    alpha: 0.5,
+                                  ),
+                            border: Border.all(
+                              color: read
+                                  ? AppColors.outlineVariant.withValues(
+                                      alpha: 0.3,
+                                    )
+                                  : AppColors.secondary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title.toUpperCase(),
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: read
+                                            ? Colors.white70
+                                            : AppColors.secondary,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    dateStr,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 10,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                message,
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (!read)
+                                    TextButton(
+                                      onPressed: () async {
+                                        await FirebaseFirestore.instance
+                                            .collection('notifications')
+                                            .doc(doc.id)
+                                            .update({'read': true});
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Text(
+                                        l10n.languageCode == 'es'
+                                            ? 'Marcar como leída'
+                                            : 'Mark as read',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          color: AppColors.secondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  TextButton(
+                                    onPressed: () async {
+                                      await FirebaseFirestore.instance
+                                          .collection('notifications')
+                                          .doc(doc.id)
+                                          .delete();
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      l10n.get('delete'),
+                                      style: GoogleFonts.hankenGrotesk(
+                                        color: AppColors.error,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _handleLogout(AppLocalizations l10n) {
     ref.read(authProvider.notifier).logout();
     context.go('/login');
@@ -3606,7 +4113,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       SnackBar(
         content: Text(
           l10n.languageCode == 'es'
-              ? 'Sesión cerrada del Portal del Personal.'
+              ? 'Sesión cerrada del Portal de Personal.'
               : 'Logged out of Staff Portal.',
         ),
       ),
