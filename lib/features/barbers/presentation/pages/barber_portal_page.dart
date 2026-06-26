@@ -26,22 +26,71 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   double _servicesEarnings = 395.00;
   double _tipsEarnings = 87.50;
   int _completedServices = 8;
-  final int _totalServices = 10;
   String _selectedDay = 'FRI 27';
   String _earningsFilter = 'Today'; // 'Today' or 'Weekly'
   String _clientSearchQuery = '';
   String _barberNameFromDb = '';
   String _specialtyFromDb = '';
 
+  // Total services booked today; derived live from this barber's Firestore bookings.
+  int get _totalServices =>
+      _appointments.where((apt) => _isOnDate(apt['date'], DateTime.now())).length;
+
+  // Yesterday's completed earnings, used to compute the real day-over-day trend.
+  double get _yesterdayEarnings {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return _appointments
+        .where(
+          (apt) =>
+              _isOnDate(apt['date'], yesterday) &&
+              _isCompletedStatus(apt['status'] as String?),
+        )
+        .fold<double>(
+          0.0,
+          (acc, apt) => acc + (apt['price'] as double) + (apt['tip'] as double),
+        );
+  }
+
+  // This week's completed earnings/services, used by the Earnings tab's "Weekly" filter.
+  double get _weeklyServicesEarnings => _appointments
+      .where(
+        (apt) =>
+            _isThisWeek(apt['date']) &&
+            _isCompletedStatus(apt['status'] as String?),
+      )
+      .fold<double>(0.0, (acc, apt) => acc + (apt['price'] as double));
+
+  double get _weeklyTipsEarnings => _appointments
+      .where(
+        (apt) =>
+            _isThisWeek(apt['date']) &&
+            _isCompletedStatus(apt['status'] as String?),
+      )
+      .fold<double>(0.0, (acc, apt) => acc + (apt['tip'] as double));
+
+  int get _weeklyCompletedServices => _appointments
+      .where(
+        (apt) =>
+            _isThisWeek(apt['date']) &&
+            _isCompletedStatus(apt['status'] as String?),
+      )
+      .length;
+
+  int get _weeklyTotalServices =>
+      _appointments.where((apt) => _isThisWeek(apt['date'])).length;
+
   // Active Session / Selected Active Appointment Details State
   Map<String, dynamic>? _selectedActiveAppointment;
   bool _isServiceStarted = false;
 
-  Map<String, dynamic>? _activeSession = {
-    'clientName': 'Julian Sterling',
-    'service': 'Modern Fade & Beard Trim',
-    'secondsElapsed': 1461, // 24 mins 21 secs
-  };
+  // The booking currently being serviced, derived live from Firestore status == 'LIVE'.
+  Map<String, dynamic>? get _activeSession {
+    for (final apt in _appointments) {
+      if (apt['status'] == 'LIVE') return apt;
+    }
+    return null;
+  }
+
   Timer? _sessionTimer;
 
   // Appointments List
@@ -75,19 +124,33 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     },
   ];
 
-  // Next in Queue list
-  final List<Map<String, dynamic>> _queue = [
-    {
-      'clientName': 'Elias Thorne',
-      'service': 'Signature Scissor Cut',
-      'time': '14:30',
-    },
-    {
-      'clientName': 'Arthur Vance',
-      'service': 'Hot Towel Shave',
-      'time': '15:15',
-    },
-  ];
+  // Appointments still pending/confirmed/in-progress; completed ones move to the revenue screen.
+  List<Map<String, dynamic>> get _activeAppointments => _appointments
+      .where(
+        (apt) =>
+            apt['status'] != 'COMPLETED' && apt['status'] != 'FINISHED',
+      )
+      .toList();
+
+  // Next in Queue list: real upcoming bookings for this barber that haven't
+  // started or finished yet, sorted by time. Items share the same Map
+  // references held in `_appointments`, so editing a queue item (delay,
+  // check-in) also updates the underlying appointment.
+  List<Map<String, dynamic>> get _queue {
+    final list = _appointments
+        .where(
+          (apt) =>
+              apt['status'] != 'LIVE' &&
+              apt['status'] != 'COMPLETED' &&
+              apt['status'] != 'FINISHED' &&
+              apt['status'] != 'CANCELLED',
+        )
+        .toList();
+    list.sort(
+      (a, b) => (a['time'] as String).compareTo(b['time'] as String),
+    );
+    return list;
+  }
 
   // Past Visit Notes for client details
   final List<Map<String, String>> _pastVisitNotes = [
@@ -103,70 +166,67 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     },
   ];
 
-  // Recent Activity Transactions
-  final List<Map<String, dynamic>> _recentActivity = [
-    {
-      'service': 'Executive Fade + Beard',
-      'client': 'James Wilson',
-      'time': '2:30 PM',
-      'price': 65.00,
-      'tip': 15.00,
-      'icon': Icons.content_cut_rounded,
-    },
-    {
-      'service': 'Straight Razor Shave',
-      'client': 'Marcus Reed',
-      'time': '1:15 PM',
-      'price': 45.00,
-      'tip': 10.00,
-      'icon': Icons.face_rounded,
-    },
-    {
-      'service': 'Signature Grooming',
-      'client': 'Ethan Hunt',
-      'time': '11:45 AM',
-      'price': 85.00,
-      'tip': 20.00,
-      'icon': Icons.dry_cleaning_rounded,
-    },
-  ];
+  // Recent Activity Transactions: derived from completed bookings in Firestore.
+  List<Map<String, dynamic>> get _recentActivity => _appointments
+      .where(
+        (apt) => apt['status'] == 'COMPLETED' || apt['status'] == 'FINISHED',
+      )
+      .map(
+        (apt) => {
+          'service': apt['service'],
+          'client': apt['clientName'],
+          'time': apt['time'],
+          'price': apt['price'] as double,
+          'tip': apt['tip'] as double,
+          'icon': apt['icon'],
+        },
+      )
+      .toList()
+      .reversed
+      .toList();
 
-  // Client Registry List
-  final List<Map<String, dynamic>> _clients = [
-    {
-      'name': 'Julian Sterling',
-      'status': 'Loyalty Member',
-      'visits': '12 Visits',
-      'phone': '+1 (555) 234-5678',
-      'email': 'julian.s@lounge.com',
-      'avatar':
-          'assets/images/barber_julian_vance.png', // Fallback or working image
-    },
-    {
-      'name': 'James Wilson',
-      'status': 'Regular Client',
-      'visits': '8 Visits',
-      'phone': '+1 (555) 987-6543',
-      'email': 'james.w@lounge.com',
-      'avatar': 'assets/images/barber_marcus_reed.png',
-    },
-    {
-      'name': 'Marcus Reed',
-      'status': 'VIP Client',
-      'visits': '24 Visits',
-      'phone': '+1 (555) 456-7890',
-      'email': 'marcus.r@lounge.com',
-      'avatar': 'assets/images/barber_dorian_grey.png',
-    },
-    {
-      'name': 'Ethan Hunt',
-      'status': 'Loyalty Member',
-      'visits': '15 Visits',
-      'phone': '+1 (555) 111-2222',
-      'email': 'ethan.h@lounge.com',
-      'avatar': 'assets/images/barber_julian_vance.png',
-    },
-  ];
+  // Client Registry List — derived live from this barber's actual bookings in Firestore,
+  // grouped by client so repeat bookers show an accurate visit count and loyalty tier.
+  List<Map<String, dynamic>> get _clients {
+    final Map<String, Map<String, dynamic>> grouped = {};
+    for (final apt in _appointments) {
+      final name = (apt['clientName'] as String?)?.trim();
+      if (name == null || name.isEmpty || name == 'No Name') continue;
+      final email = (apt['clientEmail'] as String?) ?? '';
+      final phone = (apt['clientPhone'] as String?) ?? '';
+      final key = email.isNotEmpty ? email.toLowerCase() : name.toLowerCase();
+
+      final existing = grouped[key];
+      if (existing == null) {
+        grouped[key] = {
+          'name': name,
+          'visitCount': 1,
+          'phone': phone,
+          'email': email,
+        };
+      } else {
+        existing['visitCount'] = (existing['visitCount'] as int) + 1;
+        if (phone.isNotEmpty) existing['phone'] = phone;
+        if (email.isNotEmpty) existing['email'] = email;
+      }
+    }
+
+    return grouped.values.map((client) {
+      final visitCount = client['visitCount'] as int;
+      final status = visitCount >= 20
+          ? 'VIP Client'
+          : visitCount >= 10
+          ? 'Loyalty Member'
+          : 'Regular Client';
+      return {
+        'name': client['name'],
+        'status': status,
+        'visits': '$visitCount Visit${visitCount == 1 ? '' : 's'}',
+        'phone': client['phone'],
+        'email': client['email'],
+      };
+    }).toList()..sort((a, b) => a['name'].compareTo(b['name']));
+  }
 
   // Profile Settings State
   String _bio =
@@ -178,6 +238,27 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   ];
   bool _pushNotifications = true;
   bool _emailUpdates = false;
+
+  // Which days this barber is available; defaults to Mon-Fri until loaded
+  // from (or saved to) the 'availability' field on their Firestore user doc.
+  final Map<String, bool> _availability = {
+    'Mon': true,
+    'Tue': true,
+    'Wed': true,
+    'Thu': true,
+    'Fri': true,
+    'Sat': false,
+    'Sun': false,
+  };
+  static const List<String> _weekdayOrder = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ];
 
   final List<String> _days = [
     'MON 23',
@@ -235,6 +316,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     _specialties.clear();
                     _specialties.addAll(List<String>.from(data['specialties']));
                   }
+                  final availabilityData = data['availability'];
+                  if (availabilityData is Map) {
+                    for (final day in _weekdayOrder) {
+                      if (availabilityData[day] is bool) {
+                        _availability[day] = availabilityData[day] as bool;
+                      }
+                    }
+                  }
                 });
               }
             }
@@ -258,13 +347,17 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               firestoreBookings.add({
                 'id': doc.id,
                 'clientName': data['clientName'] ?? 'No Name',
+                'clientEmail': data['clientEmail'] ?? '',
+                'clientPhone': data['clientPhone'] ?? '',
                 'service': data['service'] ?? 'Premium Cut',
                 'time': data['time'] ?? '10:00 AM',
                 'status': data['status'] ?? 'PENDING',
                 'checkedIn': data['checkedIn'] as bool? ?? false,
                 'icon': Icons.content_cut_rounded,
                 'price': (data['price'] as num?)?.toDouble() ?? 50.0,
+                'tip': (data['tip'] as num?)?.toDouble() ?? 0.0,
                 'date': data['date'],
+                'serviceStartedAt': data['serviceStartedAt'],
               });
             }
           }
@@ -273,20 +366,23 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             setState(() {
               _appointments.clear();
               _appointments.addAll(firestoreBookings);
-              // Recalculate daily performance earnings from finished appointments
-              double earnings = 0.0;
+              // Recalculate today's performance earnings from completed appointments dated today.
+              final today = DateTime.now();
+              double servicesEarnings = 0.0;
+              double tipsEarnings = 0.0;
               int completed = 0;
               for (var apt in _appointments) {
-                if (apt['status'] == 'COMPLETED' ||
-                    apt['status'] == 'FINISHED') {
-                  earnings += apt['price'] as double;
+                if (_isOnDate(apt['date'], today) &&
+                    _isCompletedStatus(apt['status'] as String?)) {
+                  servicesEarnings += apt['price'] as double;
+                  tipsEarnings += apt['tip'] as double;
                   completed++;
                 }
               }
-              if (completed > 0) {
-                _dailyEarnings = earnings;
-                _completedServices = completed;
-              }
+              _servicesEarnings = servicesEarnings;
+              _tipsEarnings = tipsEarnings;
+              _dailyEarnings = servicesEarnings + tipsEarnings;
+              _completedServices = completed;
             });
           }
         });
@@ -386,15 +482,23 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         });
   }
 
+  // Ticks every second purely to redraw the elapsed-time label, which is
+  // computed live from the booking's real 'serviceStartedAt' Firestore timestamp.
   void _startSessionTimer() {
     _sessionTimer?.cancel();
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_activeSession != null) {
-        setState(() {
-          _activeSession!['secondsElapsed'] =
-              (_activeSession!['secondsElapsed'] as int) + 1;
-        });
+      if (mounted && _activeSession != null) {
+        setState(() {});
       }
+    });
+  }
+
+  Future<void> _startLiveSession(String? bookingId) async {
+    if (bookingId == null) return;
+    await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update({
+      'status': 'LIVE',
+      'checkedIn': true,
+      'serviceStartedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -403,6 +507,123 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     final seconds = totalSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+
+  // Bookings store time as "09:00 AM" (see booking_page.dart's time slots), so
+  // parsing must handle the AM/PM suffix rather than assuming 24-hour "HH:MM".
+  ({int hour, int minute}) _parseTime(String timeStr) {
+    final cleaned = timeStr.trim().toUpperCase();
+    final isPM = cleaned.contains('PM');
+    final isAM = cleaned.contains('AM');
+    final numericPart = cleaned.replaceAll(RegExp(r'[^0-9:]'), '');
+    final parts = numericPart.split(':');
+    int hour = int.tryParse(parts[0]) ?? 0;
+    final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    if (isPM && hour != 12) hour += 12;
+    if (isAM && hour == 12) hour = 0;
+    return (hour: hour, minute: minute);
+  }
+
+  String _formatNoteDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _formatTime12h(int hour24, int minute) {
+    final period = hour24 >= 12 ? 'PM' : 'AM';
+    int hour12 = hour24 % 12;
+    if (hour12 == 0) hour12 = 12;
+    return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  String _formatScheduleHeaderDate(DateTime date, AppLocalizations l10n) {
+    const weekdaysEn = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    const weekdaysEs = [
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo',
+    ];
+    const monthsEn = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const monthsEs = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
+    final isSpanish = l10n.languageCode == 'es';
+    final weekday = (isSpanish ? weekdaysEs : weekdaysEn)[date.weekday - 1];
+    final month = (isSpanish ? monthsEs : monthsEn)[date.month - 1];
+    return isSpanish
+        ? '$weekday, ${date.day} de $month'
+        : '$weekday, $month ${date.day}';
+  }
+
+  bool _isOnDate(dynamic dateValue, DateTime day) {
+    if (dateValue is! Timestamp) return false;
+    final d = dateValue.toDate();
+    return d.year == day.year && d.month == day.month && d.day == day.day;
+  }
+
+  bool _isThisWeek(dynamic dateValue) {
+    if (dateValue is! Timestamp) return false;
+    final d = dateValue.toDate();
+    final now = DateTime.now();
+    final startOfWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 7));
+    return !d.isBefore(startOfWeek) && d.isBefore(endOfWeek);
+  }
+
+  bool _isCompletedStatus(String? status) =>
+      status == 'COMPLETED' || status == 'FINISHED';
 
   // Maps internal status values (used for logic comparisons) to a localized
   // display label without altering the underlying status string itself.
@@ -423,6 +644,22 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     }
   }
 
+  Future<void> _updateBookingStatus(String? bookingId, String newStatus) async {
+    if (bookingId == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('bookings')
+          .doc(bookingId)
+          .update({'status': newStatus});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update booking status: $e')),
+        );
+      }
+    }
+  }
+
   void _saveProfileChanges(AppLocalizations l10n) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -434,7 +671,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
-            .update({'bio': _bio, 'specialties': _specialties})
+            .update({
+              'bio': _bio,
+              'specialties': _specialties,
+              'availability': _availability,
+            })
             .then((_) {
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
@@ -895,8 +1136,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       );
     }
 
+    final startedAtTimestamp = _activeSession!['serviceStartedAt'];
+    final startedAt = startedAtTimestamp is Timestamp
+        ? startedAtTimestamp.toDate()
+        : DateTime.now();
+    final elapsedSeconds = DateTime.now().difference(startedAt).inSeconds;
     final durationText = _formatDuration(
-      _activeSession!['secondsElapsed'] as int,
+      elapsedSeconds < 0 ? 0 : elapsedSeconds,
     );
 
     return Container(
@@ -970,15 +1216,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   onPressed: () {
                     // Open the client details active view in Schedule tab
                     setState(() {
-                      _selectedActiveAppointment = {
-                        'clientName': _activeSession!['clientName'],
-                        'service': _activeSession!['service'],
-                        'time': l10n.languageCode == 'es'
-                            ? 'Ahora Activo'
-                            : 'Active Now',
-                        'status': 'LIVE',
-                        'id': 'APPT-8821',
-                      };
+                      _selectedActiveAppointment = _activeSession;
+                      _isServiceStarted = true;
                       _currentTabIndex = 1;
                     });
                   },
@@ -1042,9 +1281,16 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              setState(() {
-                _activeSession = null;
-              });
+              final bookingId = _activeSession?['id'] as String?;
+              if (bookingId != null) {
+                FirebaseFirestore.instance
+                    .collection('bookings')
+                    .doc(bookingId)
+                    .update({
+                      'status': 'CONFIRMED',
+                      'serviceStartedAt': FieldValue.delete(),
+                    });
+              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: Text(
@@ -1057,15 +1303,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   void _startSessionFromQueue(int index) {
-    setState(() {
-      final item = _queue.removeAt(index);
-      _activeSession = {
-        'clientName': item['clientName'],
-        'service': item['service'],
-        'secondsElapsed': 0,
-      };
-      _startSessionTimer();
-    });
+    final queue = _queue;
+    if (index >= queue.length) return;
+    _startLiveSession(queue[index]['id'] as String?);
+    _startSessionTimer();
   }
 
   Widget _buildQueueList(AppLocalizations l10n) {
@@ -1084,9 +1325,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     }
 
     return Column(
-      children: _queue.asMap().entries.map((entry) {
-        final i = entry.key;
-        final item = entry.value;
+      children: _queue.map((item) {
         return Container(
           margin: const EdgeInsets.only(bottom: AppSpacing.sm),
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -1145,7 +1384,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   Icons.more_vert,
                   color: AppColors.onSurfaceVariant,
                 ),
-                onPressed: () => _showQueueItemMenu(context, i, l10n),
+                onPressed: () => _showQueueItemMenu(context, item, l10n),
               ),
             ],
           ),
@@ -1156,7 +1395,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   void _showQueueItemMenu(
     BuildContext context,
-    int index,
+    Map<String, dynamic> item,
     AppLocalizations l10n,
   ) {
     showModalBottomSheet(
@@ -1179,7 +1418,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               onTap: () {
                 Navigator.of(context).pop();
-                _startSessionFromQueue(index);
+                _startLiveSession(item['id'] as String?);
+                _startSessionTimer();
               },
             ),
             ListTile(
@@ -1195,17 +1435,21 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               onTap: () {
                 Navigator.of(context).pop();
+                final parsed = _parseTime(item['time'] as String);
+                int hour = parsed.hour;
+                int min = parsed.minute + 10;
+                if (min >= 60) {
+                  hour = (hour + 1) % 24;
+                  min -= 60;
+                }
+                final newTime = _formatTime12h(hour, min);
                 setState(() {
-                  final timeParts = _queue[index]['time'].split(':');
-                  int hour = int.parse(timeParts[0]);
-                  int min = int.parse(timeParts[1]) + 10;
-                  if (min >= 60) {
-                    hour = (hour + 1) % 24;
-                    min -= 60;
-                  }
-                  _queue[index]['time'] =
-                      '${hour.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+                  item['time'] = newTime;
                 });
+                FirebaseFirestore.instance
+                    .collection('bookings')
+                    .doc(item['id'])
+                    .update({'time': newTime});
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -1228,10 +1472,18 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     : 'Cancel Appointment',
                 style: AppTextStyles.labelMd.copyWith(color: AppColors.error),
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.of(context).pop();
+                final bookingId = item['id'];
+                if (bookingId != null) {
+                  await FirebaseFirestore.instance
+                      .collection('bookings')
+                      .doc(bookingId)
+                      .delete();
+                }
+                if (!mounted) return;
                 setState(() {
-                  _queue.removeAt(index);
+                  _appointments.removeWhere((a) => a['id'] == bookingId);
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -1301,7 +1553,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   Widget _buildTimelineGapCard(AppLocalizations l10n) {
     return Container(
-      height: 160,
+      constraints: const BoxConstraints(minHeight: 200),
       decoration: BoxDecoration(
         borderRadius: AppRadius.borderRadiusLg,
         border: Border.all(color: AppColors.outlineVariant, width: 1),
@@ -1395,33 +1647,35 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? 'HORARIO MAESTRO'
-                        : 'MASTER SCHEDULE',
-                    style: GoogleFonts.hankenGrotesk(
-                      color: AppColors.secondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.languageCode == 'es'
+                          ? 'HORARIO MAESTRO'
+                          : 'MASTER SCHEDULE',
+                      style: GoogleFonts.hankenGrotesk(
+                        color: AppColors.secondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? 'Viernes, 27 de Oct'
-                        : 'Friday, Oct 27',
-                    style: GoogleFonts.playfairDisplay(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatScheduleHeaderDate(DateTime.now(), l10n),
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.playfairDisplay(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: AppSpacing.md),
               OutlinedButton.icon(
                 onPressed: () => _selectCalendarDate(l10n),
                 icon: const Icon(
@@ -1517,8 +1771,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             children: [
               Text(
                 l10n.languageCode == 'es'
-                    ? 'CITAS (${_appointments.length + 1})'
-                    : 'APPOINTMENTS (${_appointments.length + 1})',
+                    ? 'CITAS (${_activeAppointments.length + 1})'
+                    : 'APPOINTMENTS (${_activeAppointments.length + 1})',
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w800,
@@ -1553,7 +1807,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           // Appointments list
           Column(
             children: [
-              ..._appointments.map(
+              ..._activeAppointments.map(
                 (apt) => GestureDetector(
                   onTap: () {
                     setState(() {
@@ -1562,7 +1816,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         'service': apt['service'],
                         'time': apt['time'],
                         'status': apt['status'],
-                        'id': 'APPT-8821',
+                        'id': apt['id'],
+                        'price': apt['price'],
                       };
                     });
                   },
@@ -1735,6 +1990,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                                 setState(() {
                                   apt['checkedIn'] = true;
                                 });
+                                FirebaseFirestore.instance
+                                    .collection('bookings')
+                                    .doc(apt['id'])
+                                    .update({'checkedIn': true});
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
@@ -1779,6 +2038,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                           setState(() {
                             apt['status'] = 'CONFIRMED';
                           });
+                          _updateBookingStatus(apt['id'], 'CONFIRMED');
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -1905,15 +2165,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               onTap: () {
                 Navigator.of(context).pop();
-                setState(() {
-                  _activeSession = {
-                    'clientName': apt['clientName'],
-                    'service': apt['service'],
-                    'secondsElapsed': 0,
-                  };
-                  _startSessionTimer();
-                  _appointments.remove(apt);
-                });
+                _startLiveSession(apt['id'] as String?);
+                _startSessionTimer();
               },
             ),
             ListTile(
@@ -1983,8 +2236,16 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             child: Text(l10n.languageCode == 'es' ? 'NO' : 'NO'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
+              final bookingId = apt['id'];
+              if (bookingId != null) {
+                await FirebaseFirestore.instance
+                    .collection('bookings')
+                    .doc(bookingId)
+                    .delete();
+              }
+              if (!mounted) return;
               setState(() {
                 _appointments.remove(apt);
               });
@@ -2184,9 +2445,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
             // Service Title
             Text(
-              l10n.languageCode == 'es'
-                  ? 'El Corte Distintivo'
-                  : 'The Signature Cut',
+              (appt['service'] as String?) ?? 'Premium Cut',
               style: GoogleFonts.playfairDisplay(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -2195,7 +2454,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
             const SizedBox(height: AppSpacing.sm),
 
-            // Service details tags (duration, price)
+            // Service details tags (time slot, price)
             Row(
               children: [
                 Row(
@@ -2207,7 +2466,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      l10n.languageCode == 'es' ? '45 Minutos' : '45 Minutes',
+                      (appt['time'] as String?) ?? '--:--',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 14,
@@ -2225,7 +2484,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '${config.currencySymbol}65.00',
+                      '${config.currencySymbol}${((appt['price'] as double?) ?? 50.0).toStringAsFixed(2)}',
                       style: AppTextStyles.bodyMd.copyWith(
                         color: AppColors.onSurfaceVariant,
                         fontSize: 14,
@@ -2238,73 +2497,97 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
             const SizedBox(height: AppSpacing.xl),
 
-            // Client Info Card
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: AppRadius.borderRadiusLg,
-                border: Border.all(
-                  color: AppColors.outlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Client avatar with star overlay
-                  Stack(
-                    children: [
-                      const CircleAvatar(
-                        radius: 36,
-                        backgroundImage: AssetImage(
-                          'assets/images/barber_julian_vance.png',
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.secondary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.star,
-                            color: AppColors.onSecondary,
-                            size: 10,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: AppSpacing.md),
+            // Client Info Card: status/visits looked up from this client's real booking history.
+            Builder(
+              builder: (context) {
+                final clientName = (appt['clientName'] as String?) ?? '';
+                final matchedClient = _clients.firstWhere(
+                  (c) =>
+                      (c['name'] as String).toLowerCase() ==
+                      clientName.toLowerCase(),
+                  orElse: () => <String, dynamic>{},
+                );
+                final clientStatus =
+                    (matchedClient['status'] as String?) ?? 'Regular Client';
+                final clientVisits =
+                    (matchedClient['visits'] as String?) ?? '1 Visit';
+                final isVip = clientStatus != 'Regular Client';
 
-                  // Client Details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          appt['clientName'],
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          l10n.languageCode == 'es'
-                              ? 'Miembro Leal • 12 Visitas'
-                              : 'Loyalty Member • 12 Visits',
-                          style: AppTextStyles.bodyMd.copyWith(
-                            color: AppColors.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+                return Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerLow,
+                    borderRadius: AppRadius.borderRadiusLg,
+                    border: Border.all(
+                      color: AppColors.outlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
+                  child: Row(
+                    children: [
+                      // Client avatar with VIP/Loyalty star overlay
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 36,
+                            backgroundColor: AppColors.secondary.withValues(
+                              alpha: 0.15,
+                            ),
+                            child: Text(
+                              clientName.isNotEmpty
+                                  ? clientName[0].toUpperCase()
+                                  : '?',
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                          ),
+                          if (isVip)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.secondary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.star,
+                                  color: AppColors.onSecondary,
+                                  size: 10,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+
+                      // Client Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              clientName,
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${_localizedClientStatus(clientStatus, l10n)} • $clientVisits',
+                              style: AppTextStyles.bodyMd.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                   // Phone and Mail Buttons
                   Row(
@@ -2334,8 +2617,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       }),
                     ],
                   ),
-                ],
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: AppSpacing.xl),
@@ -2421,6 +2706,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                             setState(() {
                               _isServiceStarted = true;
                             });
+                            _startLiveSession(appt['id'] as String?);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -2459,37 +2745,16 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
+                      _updateBookingStatus(appt['id'], 'COMPLETED');
                       setState(() {
+                        for (var a in _appointments) {
+                          if (a['id'] == appt['id']) {
+                            a['status'] = 'COMPLETED';
+                            break;
+                          }
+                        }
                         _selectedActiveAppointment = null;
                         _isServiceStarted = false;
-
-                        // Increment Stats
-                        _dailyEarnings += 80.00;
-                        _servicesEarnings += 65.00;
-                        _tipsEarnings += 15.00;
-                        _completedServices += 1;
-
-                        // Remove active appointment from schedule
-                        _appointments.removeWhere(
-                          (apt) => apt['clientName'] == appt['clientName'],
-                        );
-                        if (_activeSession != null &&
-                            _activeSession!['clientName'] ==
-                                appt['clientName']) {
-                          _activeSession = null;
-                        }
-
-                        // Insert to recent activity
-                        _recentActivity.insert(0, {
-                          'service': appt['service'],
-                          'client': appt['clientName'],
-                          'time': l10n.languageCode == 'es'
-                              ? 'Justo Ahora'
-                              : 'Just Now',
-                          'price': 65.00,
-                          'tip': 15.00,
-                          'icon': Icons.content_cut_rounded,
-                        });
                       });
 
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -2578,7 +2843,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 setState(() {
                   _pastVisitNotes.insert(0, {
                     'note': noteController.text,
-                    'date': 'Oct 27, 2026',
+                    'date': _formatNoteDate(DateTime.now()),
                   });
                 });
               }
@@ -2673,9 +2938,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
               child: Text(
-                l10n.languageCode == 'es'
-                    ? 'No se encontraron clientes que coincidan con la búsqueda.'
-                    : 'No clients found matching search.',
+                _clientSearchQuery.isEmpty
+                    ? (l10n.languageCode == 'es'
+                          ? 'Aún no tienes clientes con citas reservadas.'
+                          : 'No clients with booked appointments yet.')
+                    : (l10n.languageCode == 'es'
+                          ? 'No se encontraron clientes que coincidan con la búsqueda.'
+                          : 'No clients found matching search.'),
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
@@ -2698,7 +2967,18 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundImage: AssetImage(client['avatar']),
+                      backgroundColor: AppColors.secondary.withValues(
+                        alpha: 0.15,
+                      ),
+                      child: Text(
+                        (client['name'] as String).isNotEmpty
+                            ? (client['name'] as String)[0].toUpperCase()
+                            : '?',
+                        style: AppTextStyles.bodyLg.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondary,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
@@ -2748,19 +3028,35 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                             size: 16,
                           ),
                           onPressed: () {
-                            // Route to schedule detail simulation for this client
-                            setState(() {
-                              _selectedActiveAppointment = {
-                                'clientName': client['name'],
-                                'service': 'Signature Cut & Beard Grooming',
-                                'time': l10n.languageCode == 'es'
-                                    ? 'Perfil de Lealtad'
-                                    : 'Loyalty Profile',
-                                'status': 'CONFIRMED',
-                                'id': 'APPT-8821',
-                              };
-                              _currentTabIndex = 1;
-                            });
+                            // Open this client's most relevant real booking, if any.
+                            final clientName = client['name'] as String;
+                            Map<String, dynamic>? match;
+                            for (final apt in _appointments) {
+                              if ((apt['clientName'] as String).toLowerCase() ==
+                                  clientName.toLowerCase()) {
+                                match = apt;
+                                if (apt['status'] != 'COMPLETED' &&
+                                    apt['status'] != 'FINISHED') {
+                                  break;
+                                }
+                              }
+                            }
+                            if (match != null) {
+                              setState(() {
+                                _selectedActiveAppointment = match;
+                                _currentTabIndex = 1;
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    l10n.languageCode == 'es'
+                                        ? 'No hay citas registradas para ${client['name']}.'
+                                        : 'No bookings on record for ${client['name']}.',
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         ),
                       ],
@@ -2779,6 +3075,22 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     AppConfigState config,
     AppLocalizations l10n,
   ) {
+    final isWeekly = _earningsFilter == 'Weekly';
+    final displayedServicesEarnings = isWeekly
+        ? _weeklyServicesEarnings
+        : _servicesEarnings;
+    final displayedTipsEarnings = isWeekly ? _weeklyTipsEarnings : _tipsEarnings;
+    final displayedTotal = displayedServicesEarnings + displayedTipsEarnings;
+    final displayedCompleted = isWeekly
+        ? _weeklyCompletedServices
+        : _completedServices;
+    final displayedTotalServices = isWeekly
+        ? _weeklyTotalServices
+        : _totalServices;
+    // Daily targets scaled up to a weekly target when the "Weekly" filter is active.
+    final servicesTarget = isWeekly ? 500.0 * 7 : 500.0;
+    final tipsTarget = isWeekly ? 150.0 * 7 : 150.0;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.gutter),
       child: Column(
@@ -2825,7 +3137,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           const SizedBox(height: AppSpacing.lg),
 
           // Total Earnings Card
-          _buildTotalEarningsCard(config, l10n),
+          _buildTotalEarningsCard(config, l10n, displayedTotal, isWeekly),
 
           const SizedBox(height: AppSpacing.md),
 
@@ -2836,9 +3148,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 child: _buildBreakdownProgressCard(
                   title: l10n.languageCode == 'es' ? 'SERVICIOS' : 'SERVICES',
                   value:
-                      '${config.currencySymbol}${_servicesEarnings.toStringAsFixed(2)}',
-                  progressValue:
-                      _servicesEarnings / 500.0, // scale to $500 target
+                      '${config.currencySymbol}${displayedServicesEarnings.toStringAsFixed(2)}',
+                  progressValue: displayedServicesEarnings / servicesTarget,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -2846,8 +3157,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 child: _buildBreakdownProgressCard(
                   title: l10n.languageCode == 'es' ? 'PROPINAS' : 'TIPS',
                   value:
-                      '${config.currencySymbol}${_tipsEarnings.toStringAsFixed(2)}',
-                  progressValue: _tipsEarnings / 150.0, // scale to $150 target
+                      '${config.currencySymbol}${displayedTipsEarnings.toStringAsFixed(2)}',
+                  progressValue: displayedTipsEarnings / tipsTarget,
                 ),
               ),
             ],
@@ -2871,8 +3182,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               Text(
                 l10n.languageCode == 'es'
-                    ? '$_completedServices de $_totalServices Completadas'
-                    : '$_completedServices of $_totalServices Completed',
+                    ? '$displayedCompleted de $displayedTotalServices Completadas'
+                    : '$displayedCompleted of $displayedTotalServices Completed',
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 13,
@@ -2971,7 +3282,41 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildTotalEarningsCard(AppConfigState config, AppLocalizations l10n) {
+  Widget _buildTotalEarningsCard(
+    AppConfigState config,
+    AppLocalizations l10n,
+    double total,
+    bool isWeekly,
+  ) {
+    // Real day-over-day trend vs yesterday's completed earnings; the Weekly
+    // filter has no prior-period comparison available, so it's omitted there.
+    String? trendText;
+    IconData trendIcon = Icons.trending_flat_rounded;
+    Color trendColor = AppColors.onSurfaceVariant;
+    final isSpanish = l10n.languageCode == 'es';
+
+    if (!isWeekly) {
+      final yesterday = _yesterdayEarnings;
+      if (yesterday > 0) {
+        final percentChange = ((total - yesterday) / yesterday) * 100;
+        final isUp = percentChange >= 0;
+        trendIcon = isUp
+            ? Icons.trending_up_rounded
+            : Icons.trending_down_rounded;
+        trendColor = isUp ? Colors.greenAccent : Colors.redAccent;
+        final pctLabel = '${percentChange.abs().toStringAsFixed(0)}%';
+        trendText = isUp
+            ? (isSpanish ? '$pctLabel más que ayer' : '$pctLabel from yesterday')
+            : (isSpanish
+                  ? '$pctLabel menos que ayer'
+                  : '$pctLabel down from yesterday');
+      } else if (total > 0) {
+        trendIcon = Icons.trending_up_rounded;
+        trendColor = Colors.greenAccent;
+        trendText = isSpanish ? 'Sin ganancias ayer' : 'No earnings yesterday';
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -2987,9 +3332,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.languageCode == 'es'
-                    ? 'GANANCIAS TOTALES'
-                    : 'TOTAL EARNINGS',
+                isWeekly
+                    ? (isSpanish ? 'GANANCIAS SEMANALES' : 'WEEKLY EARNINGS')
+                    : (isSpanish ? 'GANANCIAS DE HOY' : 'TODAY\'S EARNINGS'),
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
                   letterSpacing: 1.5,
@@ -2999,34 +3344,30 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '${config.currencySymbol}${_dailyEarnings.toStringAsFixed(2)}',
+                '${config.currencySymbol}${total.toStringAsFixed(2)}',
                 style: GoogleFonts.playfairDisplay(
                   fontSize: 38,
                   fontWeight: FontWeight.bold,
                   color: AppColors.secondary,
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.trending_up_rounded,
-                    color: Colors.greenAccent,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? '12% más que ayer'
-                        : '12% from yesterday',
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: Colors.greenAccent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+              if (trendText != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Icon(trendIcon, color: trendColor, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      trendText,
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: trendColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
           Positioned(
@@ -3101,7 +3442,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   Widget _buildAppointmentsGraphCard() {
-    // Custom graphical grid representing scheduling load
+    // Buckets today's real bookings into 2-hour windows to show scheduling load.
+    const labels = ['9a', '11a', '1p', '3p', '5p', '7p'];
+    final bucketCounts = List<int>.filled(6, 0);
+    final today = DateTime.now();
+    for (final apt in _appointments) {
+      if (!_isOnDate(apt['date'], today)) continue;
+      final timeStr = apt['time'] as String?;
+      if (timeStr == null) continue;
+      final hour = _parseTime(timeStr).hour;
+      final bucketIndex = ((hour - 9) ~/ 2).clamp(0, 5);
+      bucketCounts[bucketIndex]++;
+    }
+    final maxCount = bucketCounts.reduce((a, b) => a > b ? a : b);
+    final highlightIndex = maxCount > 0 ? bucketCounts.indexOf(maxCount) : -1;
+    final heights = bucketCounts
+        .map((c) => maxCount > 0 ? (c / maxCount).clamp(0.1, 1.0) : 0.05)
+        .toList();
+
     return Container(
       height: 180,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -3118,27 +3476,19 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildGraphBar(0.4, false),
-                _buildGraphBar(0.8, true), // 11a highlighted
-                _buildGraphBar(0.5, false),
-                _buildGraphBar(0.3, false),
-                _buildGraphBar(0.6, false),
-                _buildGraphBar(0.2, false),
-              ],
+              children: List.generate(
+                6,
+                (i) => _buildGraphBar(heights[i], i == highlightIndex),
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildGraphLabel('9a', false),
-              _buildGraphLabel('11a', true), // Highlighted
-              _buildGraphLabel('1p', false),
-              _buildGraphLabel('3p', false),
-              _buildGraphLabel('5p', false),
-              _buildGraphLabel('7p', false),
-            ],
+            children: List.generate(
+              6,
+              (i) => _buildGraphLabel(labels[i], i == highlightIndex),
+            ),
           ),
         ],
       ),
@@ -3277,7 +3627,29 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
+  // Fixed weekly revenue target; there's no per-barber goal field in Firestore
+  // yet, so this constant is the basis for the real progress shown below.
+  static const double _weeklyGoalTarget = 2500.0;
+
   Widget _buildWeeklyGoalCard(AppConfigState config, AppLocalizations l10n) {
+    final weeklyTotal = _weeklyServicesEarnings + _weeklyTipsEarnings;
+    final remaining = _weeklyGoalTarget - weeklyTotal;
+    final avgServiceValue = _weeklyCompletedServices > 0
+        ? weeklyTotal / _weeklyCompletedServices
+        : 50.0;
+    final progress = (weeklyTotal / _weeklyGoalTarget).clamp(0.0, 1.0);
+    final isSpanish = l10n.languageCode == 'es';
+    final goalMessage = remaining <= 0
+        ? (isSpanish
+              ? '¡Meta semanal de ${config.currencySymbol}${_weeklyGoalTarget.toStringAsFixed(0)} alcanzada!'
+              : 'You\'ve reached your ${config.currencySymbol}${_weeklyGoalTarget.toStringAsFixed(0)} weekly goal!')
+        : (() {
+            final appointmentsAway = (remaining / avgServiceValue).ceil();
+            return isSpanish
+                ? 'Solo te faltan $appointmentsAway citas para alcanzar tu meta semanal de ${config.currencySymbol}${_weeklyGoalTarget.toStringAsFixed(0)}.'
+                : 'You\'re only $appointmentsAway appointments away from reaching your ${config.currencySymbol}${_weeklyGoalTarget.toStringAsFixed(0)} weekly target.';
+          })();
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -3304,9 +3676,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  l10n.languageCode == 'es'
-                      ? 'Solo te faltan 4 citas para alcanzar tu meta semanal de ${config.currencySymbol}2,500.'
-                      : 'You\'re only 4 appointments away from reaching your ${config.currencySymbol}2,500 weekly target.',
+                  goalMessage,
                   style: AppTextStyles.bodyMd.copyWith(
                     color: AppColors.onSurfaceVariant,
                     fontSize: 14,
@@ -3316,8 +3686,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 const SizedBox(height: AppSpacing.xl),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(2),
-                  child: const LinearProgressIndicator(
-                    value: 0.84,
+                  child: LinearProgressIndicator(
+                    value: progress,
                     backgroundColor: Colors.white12,
                     color: AppColors.secondary,
                     minHeight: 6,
@@ -3661,23 +4031,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
             child: Column(
               children: [
-                _buildAvailabilityRow(
-                  l10n.languageCode == 'es' ? 'Lun' : 'Mon',
-                  true,
-                  '09:00 AM - 06:00 PM',
-                ),
-                const Divider(height: 16),
-                _buildAvailabilityRow(
-                  l10n.languageCode == 'es' ? 'Mar' : 'Tue',
-                  true,
-                  '09:00 AM - 06:00 PM',
-                ),
-                const Divider(height: 16),
-                _buildAvailabilityRow(
-                  l10n.languageCode == 'es' ? 'Dom' : 'Sun',
-                  false,
-                  l10n.languageCode == 'es' ? 'Cerrado' : 'Closed',
-                ),
+                for (final day in _weekdayOrder) ...[
+                  _buildAvailabilityRow(day, l10n),
+                  if (day != _weekdayOrder.last) const Divider(height: 16),
+                ],
               ],
             ),
           ),
@@ -3813,23 +4170,45 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildAvailabilityRow(String day, bool active, String time) {
+  String _localizedDayAbbrev(String dayKey, AppLocalizations l10n) {
+    if (l10n.languageCode != 'es') return dayKey;
+    const spanish = {
+      'Mon': 'Lun',
+      'Tue': 'Mar',
+      'Wed': 'Mié',
+      'Thu': 'Jue',
+      'Fri': 'Vie',
+      'Sat': 'Sáb',
+      'Sun': 'Dom',
+    };
+    return spanish[dayKey] ?? dayKey;
+  }
+
+  Widget _buildAvailabilityRow(String dayKey, AppLocalizations l10n) {
+    final active = _availability[dayKey] ?? false;
+    final isSpanish = l10n.languageCode == 'es';
     return Row(
       children: [
         Checkbox(
           value: active,
           activeColor: AppColors.secondary,
           checkColor: AppColors.onSecondary,
-          onChanged: (val) {},
+          onChanged: (val) {
+            setState(() {
+              _availability[dayKey] = val ?? false;
+            });
+          },
         ),
         const SizedBox(width: AppSpacing.sm),
         Text(
-          day,
+          _localizedDayAbbrev(dayKey, l10n),
           style: AppTextStyles.bodyLg.copyWith(fontWeight: FontWeight.bold),
         ),
         const Spacer(),
         Text(
-          time,
+          active
+              ? '09:00 AM - 06:00 PM'
+              : (isSpanish ? 'Cerrado' : 'Closed'),
           style: AppTextStyles.bodyMd.copyWith(
             color: active
                 ? AppColors.onSurfaceVariant
