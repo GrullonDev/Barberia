@@ -66,12 +66,15 @@ def has_conflict(
 def is_within_working_hours(
     candidate: TimeRange,
     working_hours_for_weekday: list[int] | None,
-    business_tz_offset_hours: int = -6,
+    business_tz_offset_hours: int,
 ) -> bool:
     """True si `candidate` cabe entero dentro del horario del barbero.
 
     `working_hours_for_weekday` es [openHour, closeHour] en hora local del
-    negocio (Guatemala = UTC-6). `None` significa día cerrado.
+    negocio. `business_tz_offset_hours` viene de `config/barberia.timezoneOffsetHours`
+    (ver `_load_config` en main.py) — no hay default hardcodeado porque cada
+    negocio puede estar en un país distinto. `None` en working_hours significa
+    día cerrado.
     """
     if working_hours_for_weekday is None:
         return False
@@ -99,7 +102,7 @@ def generate_candidates(
     duration_minutes: int,
     slot_minutes: int,
     working_hours_for_weekday: list[int] | None,
-    business_tz_offset_hours: int = -6,
+    business_tz_offset_hours: int,
 ) -> list[TimeRange]:
     """Genera todos los TimeRange candidatos del día.
 
