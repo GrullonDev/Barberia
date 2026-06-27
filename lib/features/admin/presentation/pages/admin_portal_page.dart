@@ -1455,31 +1455,38 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? 'Nuestros Barberos'
-                        : 'Our Barbers',
-                    style: GoogleFonts.playfairDisplay(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.languageCode == 'es'
+                          ? 'Nuestros Barberos'
+                          : 'Our Barbers',
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? 'Gestión de Personal'
-                        : 'Staff Management',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 13,
-                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.languageCode == 'es'
+                          ? 'Gestión de Personal'
+                          : 'Staff Management',
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        color: AppColors.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () =>
                     _showAddEditBarberDialog(context, l10n, null, null),
@@ -1998,29 +2005,34 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                valueText,
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isActive ? AppColors.secondary : Colors.white60,
+                const SizedBox(height: 2),
+                Text(
+                  valueText,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? AppColors.secondary : Colors.white60,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Switch(
             value: isActive,
             activeThumbColor: AppColors.secondary,
