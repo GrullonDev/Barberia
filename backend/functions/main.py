@@ -152,7 +152,12 @@ def _load_service(db, service_id: str) -> dict[str, Any]:
 
 def _load_config(db) -> dict[str, Any]:
     snap = db.collection("config").document("barberia").get()
-    return snap.to_dict() or {"slotMinutes": 30, "maxNoShows": 3}
+    return snap.to_dict() or {
+        "slotMinutes": 30,
+        "maxNoShows": 3,
+        "timezoneOffsetHours": -6,
+        "name": "La Barbería",
+    }
 
 
 def _reputation_blocked(db, phone_normalized: str | None, max_no_shows: int) -> bool:
@@ -228,18 +233,20 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
     ) is not None else float(service.get("price") or 0)
     end_at = start_at + timedelta(minutes=duration)
 
+    config = _load_config(db)
+    tz_offset = int(config.get("timezoneOffsetHours", -6))
+
     # Python datetime.weekday() devuelve 0..6 (lunes=0); convertimos a ISO
     # (1..7) para coincidir con Dart/Barber model.
     wh = _load_barber_working_hours(db, barber_id, start_at.weekday() + 1)
     candidate = TimeRange(start=start_at, end=end_at)
-    if not is_within_working_hours(candidate, wh):
+    if not is_within_working_hours(candidate, wh, tz_offset):
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
             message="Horario fuera del turno del barbero.",
         )
 
     phone_normalized = normalize_phone(customer_phone)
-    config = _load_config(db)
     if _reputation_blocked(
         db, phone_normalized, int(config.get("maxNoShows", 3))
     ):
@@ -252,7 +259,11 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
     day_start = start_at.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
 
+    barber_snap = db.collection("users").document(barber_id).get()
+    barber_name = (barber_snap.to_dict() or {}).get("name", "Barbero") if barber_snap.exists else "Barbero"
+
     booking_ref = db.collection("bookings").document()
+    notification_ref = db.collection("notifications").document()
     transaction = db.transaction()
 
     @firestore.transactional
@@ -311,6 +322,27 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
             },
         )
 
+        # La notificación se crea server-side, en la misma transacción que el
+        # booking. El cliente ya no escribe en `notifications` (ver
+        # firestore.rules: create está denegado para el SDK de cliente).
+        tx.set(
+            notification_ref,
+            {
+                "title": "Nueva Cita Solicitada",
+                "message": (
+                    f"{customer_name} ha agendado {service.get('name', '')} "
+                    f"con {barber_name}."
+                ),
+                "barberId": barber_id,
+                "barberName": barber_name,
+                "clientName": customer_name,
+                "service": service.get("name", ""),
+                "bookingId": booking_ref.id,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+                "read": False,
+            },
+        )
+
     _txn(transaction)
 
     return {
@@ -348,6 +380,7 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
     duration = int(service.get("durationMinutes") or 30)
     config = _load_config(db)
     slot_minutes = int(config.get("slotMinutes") or 30)
+    tz_offset = int(config.get("timezoneOffsetHours", -6))
 
     wh = _load_barber_working_hours(db, barber_id, date_input.weekday() + 1)
 
@@ -356,6 +389,7 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
         duration_minutes=duration,
         slot_minutes=slot_minutes,
         working_hours_for_weekday=wh,
+        business_tz_offset_hours=tz_offset,
     )
 
     day_start = date_input.replace(hour=0, minute=0, second=0, microsecond=0)

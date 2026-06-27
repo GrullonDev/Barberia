@@ -67,22 +67,54 @@ service cloud.firestore {
     // ---------- bookings ------------------------------------------------------
     //
     // CREATE:
-    //   Solo staff puede escribir directo por SDK. Los clientes (anónimos
-    //   y registrados) reservan por la Cloud Function `reserveSlot`, que
-    //   corre con Admin SDK y bypasea estas reglas. Esto garantiza que
-    //   siempre se ejecute la transacción anti-colisión del motor de slots.
+    //   Denegado para client/barber. La puerta normal de escritura es la
+    //   Cloud Function `reserveSlot` (Admin SDK, bypasea estas reglas) que
+    //   ejecuta la transacción anti-colisión del motor de slots — un
+    //   cliente nunca puede crear un booking "a mano" saltándose esa
+    //   validación.
+    //   Excepción: isAdmin() SÍ puede crear directo, para el flujo de
+    //   "reserva manual / walk-in" del admin portal
+    //   (admin_portal_page.dart ~línea 3709). Es una concesión deliberada:
+    //   el admin es un rol de confianza y necesita poder registrar citas
+    //   tomadas por teléfono/en persona sin pasar por el picker de
+    //   disponibilidad. TODO: ese formulario hoy escribe campos legacy
+    //   (clientName/barberName/time) en vez del esquema v2
+    //   (userId/barberId/serviceId/startAt/endAt) — no colisiona con el
+    //   motor de slots de `reserveSlot` porque le faltan esos campos.
+    //   Migrar ese formulario a un schema v2 completo (o a su propia
+    //   Cloud Function) es un pendiente, no algo que romperá la demo.
     //
-    // READ / UPDATE:
-    //   El dueño del booking (userId) puede leerlo y actualizar ciertos
-    //   campos (ej. notes, cancelar). El barbero asignado y los admins/staff
-    //   también leen y editan. DELETE queda solo para admin.
+    // READ:
+    //   Solo el dueño autenticado (userId == auth.uid), el barbero asignado,
+    //   o staff. Un cliente NO puede listar/leer citas de otros clientes.
+    //   Nota: las reservas de invitados (`userId == 'guest'`) no son legibles
+    //   por el cliente vía SDK — eso es intencional; el cliente recibe el
+    //   `bookingId` como valor de retorno de `reserveSlot` y lo persiste
+    //   localmente (shared_preferences) si necesita re-mostrarlo.
+    //
+    // UPDATE:
+    //   El dueño puede actualizar SOLO para cancelar (ver `_isOwnerCancelOnly`
+    //   abajo) — no puede tocar precio, horario ni barbero asignado. El
+    //   barbero asignado y staff pueden actualizar status/notes libremente.
+    //   DELETE queda solo para admin.
     // ------------------------------------------------------------------------
+    function _isOwnerCancelOnly() {
+      return isOwnerOf(resource.data.userId)
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'cancelReason', 'updatedAt']);
+    }
+
     match /bookings/{bookingId} {
-      allow read, create: if true;
+      allow read: if isStaff()
+                  || isOwnerOf(resource.data.userId)
+                  || (isBarber() && resource.data.barberId == request.auth.uid);
+
+      allow create: if isAdmin();
 
       allow update: if isStaff()
-                    || isOwnerOf(resource.data.userId)
-                    || (isBarber() && resource.data.barberId == request.auth.uid);
+                    || (isBarber() && resource.data.barberId == request.auth.uid)
+                    || _isOwnerCancelOnly();
 
       allow delete: if isAdmin();
     }
@@ -120,8 +152,14 @@ service cloud.firestore {
     }
 
     // ---------- notifications -------------------------------------------------
+    //
+    // CREATE: denegado por SDK de cliente. `reserveSlot` crea la notificación
+    // de "nueva cita" en la misma transacción del booking (Admin SDK).
+    // READ/UPDATE: solo staff (el admin/barber portal marca `read: true`).
+    // ------------------------------------------------------------------------
     match /notifications/{notificationId} {
-      allow read, write: if true;
+      allow read, update: if isStaff();
+      allow create, delete: if false;
     }
 
     // ---------- default deny --------------------------------------------------

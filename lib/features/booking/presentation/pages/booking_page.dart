@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
+import 'package:barberia/features/booking/data/booking_repository.dart';
 import 'package:barberia/features/home/presentation/widgets/home_footer.dart';
 import 'package:barberia/features/home/presentation/widgets/home_nav_bar.dart';
 import 'package:barberia/core/providers/config_provider.dart';
@@ -26,12 +27,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   String? _selectedBarberId;
   Map<String, dynamic>? _selectedBarber;
 
-  String? _selectedService;
-  double _selectedServicePrice = 0.0;
-  String? _selectedServiceDuration;
+  // Servicio real de Firestore (id, name, price/priceCents, durationMinutes,
+  // description, isActive). Ya no hay catálogo hardcodeado: `reserveSlot`
+  // necesita un `serviceId` que exista de verdad en la colección `services`.
+  Map<String, dynamic>? _selectedServiceData;
+  List<Map<String, dynamic>> _services = [];
+  bool _isLoadingServices = true;
 
   DateTime? _selectedDate;
-  String? _selectedTimeSlot;
+
+  // Slot elegido, en UTC, calculado server-side por `getAvailability`. Ya no
+  // es un string fijo como "09:00 AM": viene de la disponibilidad real del
+  // barbero contra bookings y schedule_blocks existentes.
+  DateTime? _selectedSlotUtc;
+  List<DateTime> _availableSlots = [];
+  bool _isLoadingSlots = false;
 
   // Controllers for client info
   final _nameController = TextEditingController();
@@ -42,7 +52,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   bool _isLoadingBarbers = true;
   List<Map<String, dynamic>> _firestoreBarbers = [];
 
-  // Static barbers list as fallback
+  // Static barbers list as fallback (solo se usa si la colección `users`
+  // role==barber está vacía; no afecta la reserva real porque el id real se
+  // toma de Firestore en cuanto exista al menos un barbero).
   final List<Map<String, dynamic>> _fallbackBarbers = [
     {
       'id': 'julian',
@@ -73,51 +85,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     },
   ];
 
-  List<Map<String, dynamic>> _getLocalizedServices(AppLocalizations l10n) {
-    return [
-      {
-        'name': l10n.get('booking_service1_name'),
-        'price': 65.0,
-        'duration': '45 min',
-        'description': l10n.get('booking_service1_desc'),
-      },
-      {
-        'name': l10n.get('booking_service2_name'),
-        'price': 85.0,
-        'duration': '60 min',
-        'description': l10n.get('booking_service2_desc'),
-      },
-      {
-        'name': l10n.get('booking_service3_name'),
-        'price': 45.0,
-        'duration': '30 min',
-        'description': l10n.get('booking_service3_desc'),
-      },
-      {
-        'name': l10n.get('booking_service4_name'),
-        'price': 55.0,
-        'duration': '40 min',
-        'description': l10n.get('booking_service4_desc'),
-      },
-    ];
-  }
-
-  final List<String> _timeSlots = [
-    '09:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '12:00 PM',
-    '02:00 PM',
-    '03:00 PM',
-    '04:00 PM',
-    '05:00 PM',
-    '06:00 PM',
-  ];
-
   @override
   void initState() {
     super.initState();
     _fetchBarbers();
+    _fetchServices();
   }
 
   @override
@@ -165,6 +137,58 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     }
   }
 
+  Future<void> _fetchServices() async {
+    try {
+      final services = await ref.read(bookingRepositoryProvider).fetchActiveServices();
+      setState(() {
+        _services = services;
+        _isLoadingServices = false;
+      });
+    } catch (e) {
+      setState(() {
+        _services = [];
+        _isLoadingServices = false;
+      });
+    }
+  }
+
+  /// Pide a la Cloud Function `getAvailability` los slots libres reales
+  /// para el barbero/fecha/servicio elegidos. Se dispara en cuanto las tres
+  /// selecciones están completas; si cambia cualquiera, se reconsulta.
+  Future<void> _fetchAvailableSlots() async {
+    final barberId = _selectedBarber?['id'] ?? _selectedBarberId;
+    final serviceId = _selectedServiceData?['id'] as String?;
+    if (barberId == null || serviceId == null || _selectedDate == null) return;
+
+    setState(() {
+      _isLoadingSlots = true;
+      _availableSlots = [];
+      _selectedSlotUtc = null;
+    });
+
+    try {
+      final slots = await ref.read(bookingRepositoryProvider).fetchAvailability(
+            barberId: barberId,
+            date: _selectedDate!,
+            serviceId: serviceId,
+          );
+      setState(() {
+        _availableSlots = slots;
+        _isLoadingSlots = false;
+      });
+    } on BookingException catch (_) {
+      setState(() {
+        _availableSlots = [];
+        _isLoadingSlots = false;
+      });
+    } catch (_) {
+      setState(() {
+        _availableSlots = [];
+        _isLoadingSlots = false;
+      });
+    }
+  }
+
   List<DateTime> _getDates() {
     final today = DateTime.now();
     return List.generate(7, (index) => today.add(Duration(days: index)));
@@ -207,64 +231,98 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     }
   }
 
+  /// Hora local del negocio para un instante UTC, según
+  /// `config/barberia.timezoneOffsetHours` (ver config_provider.dart).
+  String _formatLocalTime(DateTime utc, int tzOffsetHours) {
+    final local = utc.add(Duration(hours: tzOffsetHours));
+    final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${hour12.toString().padLeft(2, '0')}:$minute $period';
+  }
+
+  String _formatDuration(AppLocalizations l10n) {
+    final minutes = (_selectedServiceData?['durationMinutes'] as num?)?.toInt() ?? 0;
+    return l10n.languageCode == 'es' ? '$minutes min' : '$minutes min';
+  }
+
+  double _selectedServicePrice() {
+    final data = _selectedServiceData;
+    if (data == null) return 0.0;
+    if (data['priceCents'] != null) {
+      return (data['priceCents'] as num).toDouble() / 100;
+    }
+    return (data['price'] as num?)?.toDouble() ?? 0.0;
+  }
+
   Future<void> _submitBooking(AppLocalizations l10n) async {
     if (_isSaving) return;
+    final barberId = _selectedBarber?['id'] ?? _selectedBarberId;
+    final serviceId = _selectedServiceData?['id'] as String?;
+    final slot = _selectedSlotUtc;
+    if (barberId == null || serviceId == null || slot == null) return;
+
     setState(() => _isSaving = true);
 
     try {
-      final bookingRef = await FirebaseFirestore.instance
-          .collection('bookings')
-          .add({
-            'clientName': _nameController.text.trim(),
-            'clientEmail': _emailController.text.trim(),
-            'clientPhone': _phoneController.text.trim(),
-            'service': _selectedService,
-            'price': _selectedServicePrice,
-            'time': _selectedTimeSlot,
-            'barberId': _selectedBarber?['id'] ?? _selectedBarberId,
-            'barberName': _selectedBarber?['name'] ?? 'Unassigned',
-            'status': 'PENDING',
-            'date': Timestamp.fromDate(_selectedDate ?? DateTime.now()),
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-
-      // Write notification
-      final isSpanish = l10n.languageCode == 'es';
-      final notificationTitle = isSpanish
-          ? 'Nueva Cita Solicitada'
-          : 'New Appointment Requested';
-      final notificationMessage = isSpanish
-          ? '${_nameController.text.trim()} ha agendado $_selectedService con ${_selectedBarber?['name']} para el ${_formatDate(_selectedDate!, l10n)} a las $_selectedTimeSlot.'
-          : '${_nameController.text.trim()} has scheduled $_selectedService with ${_selectedBarber?['name']} for ${_formatDate(_selectedDate!, l10n)} at $_selectedTimeSlot.';
-
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'title': notificationTitle,
-        'message': notificationMessage,
-        'barberId': _selectedBarber?['id'] ?? _selectedBarberId,
-        'barberName': _selectedBarber?['name'] ?? 'Unassigned',
-        'clientName': _nameController.text.trim(),
-        'service': _selectedService,
-        'time': _selectedTimeSlot,
-        'bookingId': bookingRef.id,
-        'createdAt': FieldValue.serverTimestamp(),
-        'read': false,
-      });
+      // Única puerta de escritura: la Cloud Function `reserveSlot` corre con
+      // Admin SDK, valida solapamientos/horario/reputación en una
+      // transacción, y crea el booking + la notificación al barbero. El
+      // cliente nunca escribe directo a `bookings`/`notifications`
+      // (firestore.rules deniega esos `create` desde el SDK de cliente).
+      await ref.read(bookingRepositoryProvider).reserveSlot(
+            barberId: barberId,
+            serviceId: serviceId,
+            startAt: slot,
+            customerName: _nameController.text.trim(),
+            customerEmail: _emailController.text.trim(),
+            customerPhone: _phoneController.text.trim(),
+          );
 
       setState(() {
         _isSaving = false;
         _currentStep = 3; // Go to Success
       });
+    } on BookingException catch (e) {
+      setState(() => _isSaving = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_mapBookingError(e, l10n))),
+      );
     } catch (e) {
       setState(() => _isSaving = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             l10n.languageCode == 'es'
-                ? 'Error al procesar reserva: $e'
-                : 'Error processing booking: $e',
+                ? 'Error al procesar reserva. Intenta de nuevo.'
+                : 'Error processing booking. Please try again.',
           ),
         ),
       );
+    }
+  }
+
+  String _mapBookingError(BookingException e, AppLocalizations l10n) {
+    final isSpanish = l10n.languageCode == 'es';
+    switch (e.code) {
+      case 'already-exists':
+        return isSpanish
+            ? 'Ese horario ya fue reservado por otro cliente. Elige otro.'
+            : 'That slot was just booked by someone else. Please pick another.';
+      case 'failed-precondition':
+        return isSpanish
+            ? 'El barbero ya no está disponible en ese horario.'
+            : 'The barber is no longer available at that time.';
+      case 'not-found':
+        return isSpanish
+            ? 'El barbero o servicio seleccionado ya no existe.'
+            : 'The selected barber or service no longer exists.';
+      default:
+        return isSpanish
+            ? 'No se pudo completar la reserva. Intenta de nuevo.'
+            : 'Could not complete the booking. Please try again.';
     }
   }
 
@@ -446,7 +504,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       case 2:
         return _buildSummarySection(l10n, config);
       case 3:
-        return _buildSuccessSection(l10n);
+        return _buildSuccessSection(l10n, config);
       default:
         return _buildBarberSelectionSection(l10n);
     }
@@ -710,7 +768,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     AppConfigState config,
   ) {
     final dates = _getDates();
-    final localizedServices = _getLocalizedServices(l10n);
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < Breakpoints.tablet;
@@ -742,103 +799,122 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Column(
-                      children: localizedServices.map((service) {
-                        final isSelected = _selectedService == service['name'];
-                        return Card(
-                          color: AppColors.surfaceContainerLow,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.zero,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? AppColors.secondary
-                                  : AppColors.outlineVariant.withValues(
-                                      alpha: 0.5,
-                                    ),
-                              width: isSelected ? 1.5 : 1,
-                            ),
+                    if (_isLoadingServices)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                        child: Center(
+                          child: CircularProgressIndicator(color: AppColors.secondary),
+                        ),
+                      )
+                    else if (_services.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        color: AppColors.surfaceContainerLow,
+                        child: Text(
+                          l10n.languageCode == 'es'
+                              ? 'No hay servicios disponibles por el momento. Contacta al negocio.'
+                              : 'No services available right now. Please contact the shop.',
+                          style: AppTextStyles.bodyMd.copyWith(
+                            color: AppColors.onSurfaceVariant,
                           ),
-                          margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedService = service['name'];
-                                _selectedServicePrice = service['price'];
-                                _selectedServiceDuration = service['duration'];
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppSpacing.lg),
-                              child: Row(
-                                children: [
-                                  Radio<String>(
-                                    value: service['name'],
-                                    groupValue: _selectedService,
-                                    activeColor: AppColors.secondary,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _selectedService = val;
-                                        _selectedServicePrice =
-                                            service['price'];
-                                        _selectedServiceDuration =
-                                            service['duration'];
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                        ),
+                      )
+                    else
+                      Column(
+                        children: _services.map((service) {
+                          final isSelected =
+                              _selectedServiceData?['id'] == service['id'];
+                          final priceValue = service['priceCents'] != null
+                              ? (service['priceCents'] as num).toDouble() / 100
+                              : (service['price'] as num?)?.toDouble() ?? 0.0;
+                          final durationMinutes =
+                              (service['durationMinutes'] as num?)?.toInt() ?? 0;
+                          return Card(
+                            color: AppColors.surfaceContainerLow,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero,
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.secondary
+                                    : AppColors.outlineVariant.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() => _selectedServiceData = service);
+                                _fetchAvailableSlots();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppSpacing.lg),
+                                child: Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: service['id'],
+                                      groupValue: _selectedServiceData?['id'],
+                                      activeColor: AppColors.secondary,
+                                      onChanged: (_) {
+                                        setState(() => _selectedServiceData = service);
+                                        _fetchAvailableSlots();
+                                      },
+                                    ),
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            service['name'] ?? '',
+                                            style: AppTextStyles.headlineSm
+                                                .copyWith(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            service['description'] ?? '',
+                                            style: AppTextStyles.bodyMd.copyWith(
+                                              fontSize: 13,
+                                              color: AppColors.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          service['name'],
-                                          style: AppTextStyles.headlineSm
-                                              .copyWith(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
+                                          '${config.currencySymbol}${priceValue.toStringAsFixed(0)}',
+                                          style: GoogleFonts.playfairDisplay(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.secondary,
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
                                         Text(
-                                          service['description'],
-                                          style: AppTextStyles.bodyMd.copyWith(
-                                            fontSize: 13,
+                                          '$durationMinutes min',
+                                          style: AppTextStyles.labelSm.copyWith(
+                                            fontSize: 11,
                                             color: AppColors.onSurfaceVariant,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: AppSpacing.md),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '${config.currencySymbol}${service['price'].toStringAsFixed(0)}',
-                                        style: GoogleFonts.playfairDisplay(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.secondary,
-                                        ),
-                                      ),
-                                      Text(
-                                        service['duration'],
-                                        style: AppTextStyles.labelSm.copyWith(
-                                          fontSize: 11,
-                                          color: AppColors.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                          );
+                        }).toList(),
+                      ),
                     const SizedBox(height: AppSpacing.xl),
 
                     // Date Selection
@@ -873,7 +949,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                               right: AppSpacing.md,
                             ),
                             child: InkWell(
-                              onTap: () => setState(() => _selectedDate = date),
+                              onTap: () {
+                                setState(() => _selectedDate = date);
+                                _fetchAvailableSlots();
+                              },
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 width: 70,
@@ -920,7 +999,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     ),
                     const SizedBox(height: AppSpacing.xl),
 
-                    // Time Slot Selection
+                    // Time Slot Selection — calculados server-side por
+                    // `getAvailability` contra bookings/schedule_blocks reales.
                     Text(
                       l10n.get('select_time'),
                       style: GoogleFonts.playfairDisplay(
@@ -930,48 +1010,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: isMobile ? 3 : 5,
-                        crossAxisSpacing: AppSpacing.md,
-                        mainAxisSpacing: AppSpacing.md,
-                        childAspectRatio: 2.2,
-                      ),
-                      itemCount: _timeSlots.length,
-                      itemBuilder: (context, index) {
-                        final slot = _timeSlots[index];
-                        final isSelected = _selectedTimeSlot == slot;
-                        return InkWell(
-                          onTap: () => setState(() => _selectedTimeSlot = slot),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppColors.secondary
-                                  : AppColors.surfaceContainerLow,
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppColors.secondary
-                                    : AppColors.outlineVariant,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                slot,
-                                style: AppTextStyles.labelSm.copyWith(
-                                  color: isSelected
-                                      ? AppColors.onSecondary
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    _buildTimeSlotGrid(l10n, config, isMobile),
                     const SizedBox(height: AppSpacing.xl),
 
                     // Client Information Form
@@ -1099,9 +1138,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            if (_selectedService == null ||
+                            if (_selectedServiceData == null ||
                                 _selectedDate == null ||
-                                _selectedTimeSlot == null) {
+                                _selectedSlotUtc == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -1134,6 +1173,82 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     ),
                     const SizedBox(height: AppSpacing.xxl + 24),
                   ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeSlotGrid(
+    AppLocalizations l10n,
+    AppConfigState config,
+    bool isMobile,
+  ) {
+    if (_selectedServiceData == null || _selectedDate == null) {
+      return Text(
+        l10n.languageCode == 'es'
+            ? 'Selecciona un servicio y una fecha para ver horarios.'
+            : 'Select a service and a date to see available times.',
+        style: AppTextStyles.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+      );
+    }
+    if (_isLoadingSlots) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.secondary),
+        ),
+      );
+    }
+    if (_availableSlots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        color: AppColors.surfaceContainerLow,
+        child: Text(
+          l10n.languageCode == 'es'
+              ? 'No hay horarios disponibles ese día. Elige otra fecha.'
+              : 'No available times that day. Try another date.',
+          style: AppTextStyles.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isMobile ? 3 : 5,
+        crossAxisSpacing: AppSpacing.md,
+        mainAxisSpacing: AppSpacing.md,
+        childAspectRatio: 2.2,
+      ),
+      itemCount: _availableSlots.length,
+      itemBuilder: (context, index) {
+        final slotUtc = _availableSlots[index];
+        final isSelected = _selectedSlotUtc == slotUtc;
+        return InkWell(
+          onTap: () => setState(() => _selectedSlotUtc = slotUtc),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.secondary
+                  : AppColors.surfaceContainerLow,
+              border: Border.all(
+                color: isSelected
+                    ? AppColors.secondary
+                    : AppColors.outlineVariant,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                _formatLocalTime(slotUtc, config.timezoneOffsetHours),
+                style: AppTextStyles.labelSm.copyWith(
+                  color: isSelected ? AppColors.onSecondary : Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -1204,15 +1319,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     const Divider(color: AppColors.outlineVariant, height: 24),
                     _buildSummaryRow(
                       '${l10n.get('service')}:',
-                      _selectedService ?? '',
+                      _selectedServiceData?['name'] ?? '',
                     ),
                     _buildSummaryRow(
                       '${l10n.get('duration')}:',
-                      _selectedServiceDuration ?? '',
+                      _formatDuration(l10n),
                     ),
                     _buildSummaryRow(
                       '${l10n.get('price')}:',
-                      '${config.currencySymbol}${_selectedServicePrice.toStringAsFixed(0)}',
+                      '${config.currencySymbol}${_selectedServicePrice().toStringAsFixed(0)}',
                     ),
                     const Divider(color: AppColors.outlineVariant, height: 24),
                     _buildSummaryRow(
@@ -1221,7 +1336,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     ),
                     _buildSummaryRow(
                       '${l10n.get('time')}:',
-                      _selectedTimeSlot ?? '',
+                      _selectedSlotUtc != null
+                          ? _formatLocalTime(_selectedSlotUtc!, config.timezoneOffsetHours)
+                          : '',
                     ),
                     const Divider(color: AppColors.outlineVariant, height: 24),
                     _buildSummaryRow(
@@ -1310,7 +1427,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   // ─── Step 4: Success State ──────────────────────────────────────────────────
-  Widget _buildSuccessSection(AppLocalizations l10n) {
+  Widget _buildSuccessSection(AppLocalizations l10n, AppConfigState config) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.gutter,
@@ -1369,11 +1486,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     ),
                     _buildSummaryRow(
                       '${l10n.get('time')}:',
-                      _selectedTimeSlot ?? '',
+                      _selectedSlotUtc != null
+                          ? _formatLocalTime(_selectedSlotUtc!, config.timezoneOffsetHours)
+                          : '',
                     ),
                     _buildSummaryRow(
                       '${l10n.get('service')}:',
-                      _selectedService ?? '',
+                      _selectedServiceData?['name'] ?? '',
                     ),
                   ],
                 ),
@@ -1385,9 +1504,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     _currentStep = 0;
                     _selectedBarberId = null;
                     _selectedBarber = null;
-                    _selectedService = null;
+                    _selectedServiceData = null;
                     _selectedDate = null;
-                    _selectedTimeSlot = null;
+                    _selectedSlotUtc = null;
+                    _availableSlots = [];
                     _nameController.clear();
                     _emailController.clear();
                     _phoneController.clear();

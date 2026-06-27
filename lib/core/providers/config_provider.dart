@@ -5,11 +5,23 @@ import 'package:barberia/core/l10n/app_localizations.dart';
 class AppConfigState {
   final String language; // 'es' or 'en'
   final String currencySymbol; // 'Q', '$', etc.
+  final int timezoneOffsetHours; // ej. -6 para Guatemala. Debe coincidir
+  // con `config/barberia.timezoneOffsetHours` leído por las Cloud Functions
+  // (ver backend/functions/main.py:_load_config) para que la disponibilidad
+  // mostrada en la app y la validada al reservar usen la misma hora local.
 
-  AppConfigState({required this.language, required this.currencySymbol});
+  AppConfigState({
+    required this.language,
+    required this.currencySymbol,
+    required this.timezoneOffsetHours,
+  });
 
   factory AppConfigState.defaultConfig() {
-    return AppConfigState(language: 'es', currencySymbol: 'Q');
+    return AppConfigState(
+      language: 'es',
+      currencySymbol: 'Q',
+      timezoneOffsetHours: -6,
+    );
   }
 }
 
@@ -26,6 +38,7 @@ final appConfigStreamProvider = StreamProvider<AppConfigState>((ref) {
         return AppConfigState(
           language: data['language'] ?? 'es',
           currencySymbol: data['currencySymbol'] ?? 'Q',
+          timezoneOffsetHours: (data['timezoneOffsetHours'] as num?)?.toInt() ?? -6,
         );
       });
 });
