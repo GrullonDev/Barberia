@@ -94,6 +94,17 @@ def _parse_iso_utc(value: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _format_time_12h_local(dt_utc: datetime, tz_offset_hours: int) -> str:
+    """Formatea un datetime UTC como hora local de 12h, ej. '10:00 AM'.
+
+    Replica el formato que el admin/barber portal (Flutter, esquema legacy)
+    espera en el campo `time` (ver admin_portal_page.dart / barber_portal_page.dart,
+    que hacen `time.split(' ')`).
+    """
+    local = dt_utc + timedelta(hours=tz_offset_hours)
+    return local.strftime("%I:%M %p").lstrip("0")
+
+
 def _require(data: dict[str, Any], keys: list[str]) -> None:
     missing = [k for k in keys if data.get(k) in (None, "")]
     if missing:
@@ -306,9 +317,15 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
                 "servicePrice": price,
                 "startAt": start_at,
                 "endAt": end_at,
-                # Retro-compat: campos viejos que Flutter todavía lee.
+                # Retro-compat: campos viejos que el admin/barber portal
+                # (Flutter, esquema legacy) todavía leen directamente.
                 "date": start_at,
                 "status": "pending",
+                "clientName": customer_name,
+                "service": service.get("name", ""),
+                "price": price,
+                "barberName": barber_name,
+                "time": _format_time_12h_local(start_at, tz_offset),
                 "customerName": customer_name,
                 "customerEmail": customer_email,
                 "customerPhone": customer_phone,

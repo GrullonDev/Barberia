@@ -54,8 +54,8 @@ service cloud.firestore {
       allow update: if isOwnerOf(userId)
                     && request.resource.data.role == resource.data.role;
 
-      // Admin puede todo (promover rol, asignar barbero, etc.)
-      allow update, delete: if isAdmin();
+      // Admin puede todo (crear barbero/staff, promover rol, asignar barbero, etc.)
+      allow create, update, delete: if isAdmin();
     }
 
     // ---------- services (catálogo público) -----------------------------------
@@ -122,10 +122,11 @@ service cloud.firestore {
     // ---------- schedule_blocks (comida, descanso, vacaciones) ----------------
     match /schedule_blocks/{blockId} {
       allow read: if isStaff();
-      allow create, update, delete: if isAdmin()
+      allow create, update: if isAdmin()
         || (isBarber() && request.resource.data.barberId == request.auth.uid);
+      allow delete: if isAdmin()
+        || (isBarber() && resource.data.barberId == request.auth.uid);
     }
-
     // ---------- walkins (cola sin cita) ---------------------------------------
     match /walkins/{walkinId} {
       allow read, write: if isStaff();
@@ -136,6 +137,12 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // ---------- clients (notas persistentes por cliente) ----------------------
+    // clients/{key} guarda notas de visita, keyed por email normalizado en
+    // minusculas o, si no hay email, por nombre en minusculas (_clientKeyFor).
+    match /clients/{clientKey} {
+      allow read, write: if isStaff();
+    }
     // ---------- config (horarios, dirección, parámetros globales) -------------
     match /config/{docId} {
       allow read: if true;           // público para mostrar horarios en la web

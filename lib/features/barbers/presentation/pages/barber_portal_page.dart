@@ -33,8 +33,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   String _specialtyFromDb = '';
 
   // Total services booked today; derived live from this barber's Firestore bookings.
-  int get _totalServices =>
-      _appointments.where((apt) => _isOnDate(apt['date'], DateTime.now())).length;
+  int get _totalServices => _appointments
+      .where((apt) => _isOnDate(apt['date'], DateTime.now()))
+      .length;
 
   // Yesterday's completed earnings, used to compute the real day-over-day trend.
   double get _yesterdayEarnings {
@@ -127,8 +128,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   // Appointments still pending/confirmed/in-progress; completed ones move to the revenue screen.
   List<Map<String, dynamic>> get _activeAppointments => _appointments
       .where(
-        (apt) =>
-            apt['status'] != 'COMPLETED' && apt['status'] != 'FINISHED',
+        (apt) => apt['status'] != 'COMPLETED' && apt['status'] != 'FINISHED',
       )
       .toList();
 
@@ -146,25 +146,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               apt['status'] != 'CANCELLED',
         )
         .toList();
-    list.sort(
-      (a, b) => (a['time'] as String).compareTo(b['time'] as String),
-    );
+    list.sort((a, b) => (a['time'] as String).compareTo(b['time'] as String));
     return list;
   }
-
-  // Past Visit Notes for client details
-  final List<Map<String, String>> _pastVisitNotes = [
-    {
-      'note':
-          'Prefers a low taper fade with 1.5 on sides. Uses light pomade for a matte finish. Avoid thinning shears on top.',
-      'date': 'Oct 14, 2023',
-    },
-    {
-      'note':
-          'Discussed switching to a classic side part next time. Trialed the sandalwood beard oil.',
-      'date': 'Sept 10, 2023',
-    },
-  ];
 
   // Recent Activity Transactions: derived from completed bookings in Firestore.
   List<Map<String, dynamic>> get _recentActivity => _appointments
@@ -185,6 +169,17 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       .reversed
       .toList();
 
+  // Firestore doc id under `clients/{key}` for a given client identity —
+  // mirrors the grouping key used by `_clients` so notes stay attached to
+  // the same client whether looked up by email or by name.
+  String _clientKeyFor({required String name, String? email}) {
+    final normalizedEmail = (email ?? '').trim().toLowerCase();
+    final key = normalizedEmail.isNotEmpty
+        ? normalizedEmail
+        : name.trim().toLowerCase();
+    return key.replaceAll('/', '_');
+  }
+
   // Client Registry List — derived live from this barber's actual bookings in Firestore,
   // grouped by client so repeat bookers show an accurate visit count and loyalty tier.
   List<Map<String, dynamic>> get _clients {
@@ -194,7 +189,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       if (name == null || name.isEmpty || name == 'No Name') continue;
       final email = (apt['clientEmail'] as String?) ?? '';
       final phone = (apt['clientPhone'] as String?) ?? '';
-      final key = email.isNotEmpty ? email.toLowerCase() : name.toLowerCase();
+      final key = _clientKeyFor(name: name, email: email);
 
       final existing = grouped[key];
       if (existing == null) {
@@ -495,11 +490,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   Future<void> _startLiveSession(String? bookingId) async {
     if (bookingId == null) return;
-    await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update({
-      'status': 'LIVE',
-      'checkedIn': true,
-      'serviceStartedAt': FieldValue.serverTimestamp(),
-    });
+    await FirebaseFirestore.instance
+        .collection('bookings')
+        .doc(bookingId)
+        .update({
+          'status': 'LIVE',
+          'checkedIn': true,
+          'serviceStartedAt': FieldValue.serverTimestamp(),
+        });
   }
 
   String _formatDuration(int totalSeconds) {
@@ -748,10 +746,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context, l10n),
       body: _buildBody(config, l10n),
-      floatingActionButton:
-          (_currentTabIndex == 1 && _selectedActiveAppointment == null)
-          ? _buildFAB(l10n)
-          : null,
       bottomNavigationBar: _buildBottomNavBar(l10n),
     );
   }
@@ -928,19 +922,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       default:
         return _buildDashboardTab(config, l10n);
     }
-  }
-
-  Widget _buildFAB(AppLocalizations l10n) {
-    return FloatingActionButton(
-      onPressed: () => _showAddBookingDialog(l10n: l10n),
-      backgroundColor: AppColors.secondary,
-      foregroundColor: AppColors.onSecondary,
-      elevation: 4,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusMd,
-      ),
-      child: const Icon(Icons.add, size: 28),
-    ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack);
   }
 
   // ─── Tab 0: Dashboard (Julian's Active Session + Queue) ─────────────────────
@@ -1475,25 +1456,38 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               onTap: () async {
                 Navigator.of(context).pop();
                 final bookingId = item['id'];
-                if (bookingId != null) {
-                  await FirebaseFirestore.instance
-                      .collection('bookings')
-                      .doc(bookingId)
-                      .delete();
-                }
-                if (!mounted) return;
-                setState(() {
-                  _appointments.removeWhere((a) => a['id'] == bookingId);
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      l10n.languageCode == 'es'
-                          ? 'Cita cancelada.'
-                          : 'Appointment canceled.',
+                try {
+                  if (bookingId != null) {
+                    await FirebaseFirestore.instance
+                        .collection('bookings')
+                        .doc(bookingId)
+                        .update({
+                          'status': 'CANCELLED',
+                          'updatedAt': FieldValue.serverTimestamp(),
+                        });
+                  }
+                  if (!mounted) return;
+                  setState(() {
+                    _appointments.removeWhere((a) => a['id'] == bookingId);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Cita cancelada.'
+                            : 'Appointment canceled.',
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.red.shade600,
+                      content: Text('Error: $e'),
+                    ),
+                  );
+                }
               },
             ),
           ],
@@ -1813,6 +1807,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     setState(() {
                       _selectedActiveAppointment = {
                         'clientName': apt['clientName'],
+                        'clientEmail': apt['clientEmail'],
+                        'clientPhone': apt['clientPhone'],
                         'service': apt['service'],
                         'time': apt['time'],
                         'status': apt['status'],
@@ -1824,13 +1820,451 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   child: _buildAppointmentCard(apt, l10n),
                 ),
               ),
-              _buildAvailableSlotCard('12:30', l10n),
             ],
           ),
+          const SizedBox(height: AppSpacing.xl),
+          _buildScheduleBlocksSection(l10n),
           const SizedBox(height: 80),
         ],
       ),
     );
+  }
+
+  Widget _buildScheduleBlocksSection(AppLocalizations l10n) {
+    final barberUid = FirebaseAuth.instance.currentUser?.uid;
+    final isSpanish = l10n.languageCode == 'es';
+
+    if (barberUid == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: AppRadius.borderRadiusLg,
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isSpanish ? 'BLOQUEOS DE HORARIO' : 'SCHEDULE BLOCKS',
+                  style: AppTextStyles.labelSm.copyWith(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: isSpanish ? 'Agregar bloqueo' : 'Add block',
+                onPressed: () => _showAddScheduleBlockDialog(l10n, barberUid),
+                icon: const Icon(
+                  Icons.add_circle_outline_rounded,
+                  color: AppColors.secondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('schedule_blocks')
+                .where('barberId', isEqualTo: barberUid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Text(
+                  isSpanish
+                      ? 'No se pudieron cargar los bloqueos.'
+                      : 'Could not load schedule blocks.',
+                  style: AppTextStyles.bodyMd.copyWith(color: AppColors.error),
+                );
+              }
+
+              final docs = [...(snapshot.data?.docs ?? const [])];
+              docs.sort((a, b) {
+                final aStart = a.data()['startTime'];
+                final bStart = b.data()['startTime'];
+                final aDate = aStart is Timestamp
+                    ? aStart.toDate()
+                    : DateTime.fromMillisecondsSinceEpoch(0);
+                final bDate = bStart is Timestamp
+                    ? bStart.toDate()
+                    : DateTime.fromMillisecondsSinceEpoch(0);
+                return aDate.compareTo(bDate);
+              });
+
+              if (docs.isEmpty) {
+                return Text(
+                  isSpanish
+                      ? 'No tienes bloqueos activos.'
+                      : 'You have no active blocks.',
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                );
+              }
+
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data();
+                  final type =
+                      (data['type'] as String?) ??
+                      (data['reason'] as String?) ??
+                      (isSpanish ? 'Bloqueo' : 'Block');
+                  final start = data['startTime'];
+                  final end = data['endTime'];
+                  final startDate = start is Timestamp ? start.toDate() : null;
+                  final endDate = end is Timestamp ? end.toDate() : null;
+
+                  return Container(
+                    margin: const EdgeInsets.only(top: AppSpacing.sm),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: AppColors.background.withValues(alpha: 0.45),
+                      borderRadius: AppRadius.borderRadiusMd,
+                      border: Border.all(
+                        color: AppColors.outlineVariant.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.12),
+                            borderRadius: AppRadius.borderRadiusMd,
+                          ),
+                          child: const Icon(
+                            Icons.event_busy_rounded,
+                            color: AppColors.secondary,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                type,
+                                style: AppTextStyles.bodyMd.copyWith(
+                                  color: AppColors.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                startDate != null && endDate != null
+                                    ? '${_formatScheduleBlockDate(startDate, l10n)}  ${_formatTime12h(startDate.hour, startDate.minute)} - ${_formatTime12h(endDate.hour, endDate.minute)}'
+                                    : (isSpanish
+                                          ? 'Horario sin fecha valida'
+                                          : 'Block time unavailable'),
+                                style: AppTextStyles.bodyMd.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: isSpanish ? 'Eliminar' : 'Delete',
+                          onPressed: () => _deleteScheduleBlock(doc.id, l10n),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatScheduleBlockDate(DateTime date, AppLocalizations l10n) {
+    const monthsEn = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const monthsEs = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
+    final months = l10n.languageCode == 'es' ? monthsEs : monthsEn;
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  Future<void> _showAddScheduleBlockDialog(
+    AppLocalizations l10n,
+    String barberUid,
+  ) async {
+    final isSpanish = l10n.languageCode == 'es';
+    final reasonController = TextEditingController(
+      text: isSpanish ? 'Almuerzo' : 'Lunch',
+    );
+    DateTime selectedDate = DateTime.now();
+    TimeOfDay startTime = const TimeOfDay(hour: 12, minute: 0);
+    TimeOfDay endTime = const TimeOfDay(hour: 13, minute: 0);
+    String? errorText;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setStateBuilder) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainerLow,
+          title: Text(isSpanish ? 'Agregar Bloqueo' : 'Add Schedule Block'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: reasonController,
+                  decoration: InputDecoration(
+                    labelText: isSpanish ? 'Tipo o razon' : 'Type or reason',
+                    hintText: isSpanish
+                        ? 'Almuerzo, descanso, vacaciones'
+                        : 'Lunch, break, vacation',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: AppColors.secondary,
+                  ),
+                  title: Text(
+                    _formatScheduleBlockDate(selectedDate, l10n),
+                    style: AppTextStyles.bodyMd,
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now().subtract(
+                        const Duration(days: 1),
+                      ),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setStateBuilder(() => selectedDate = picked);
+                    }
+                  },
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: dialogContext,
+                            initialTime: startTime,
+                          );
+                          if (picked != null) {
+                            setStateBuilder(() => startTime = picked);
+                          }
+                        },
+                        icon: const Icon(Icons.schedule_rounded, size: 16),
+                        label: Text(
+                          '${isSpanish ? 'Inicio' : 'Start'} ${_formatTime12h(startTime.hour, startTime.minute)}',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: dialogContext,
+                            initialTime: endTime,
+                          );
+                          if (picked != null) {
+                            setStateBuilder(() => endTime = picked);
+                          }
+                        },
+                        icon: const Icon(Icons.schedule_rounded, size: 16),
+                        label: Text(
+                          '${isSpanish ? 'Fin' : 'End'} ${_formatTime12h(endTime.hour, endTime.minute)}',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    errorText!,
+                    style: const TextStyle(color: AppColors.error),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(isSpanish ? 'CANCELAR' : 'CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final reason = reasonController.text.trim();
+                final start = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  startTime.hour,
+                  startTime.minute,
+                );
+                final end = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  endTime.hour,
+                  endTime.minute,
+                );
+
+                if (reason.isEmpty) {
+                  setStateBuilder(() {
+                    errorText = isSpanish
+                        ? 'Escribe un tipo de bloqueo.'
+                        : 'Enter a block type.';
+                  });
+                  return;
+                }
+                if (!end.isAfter(start)) {
+                  setStateBuilder(() {
+                    errorText = isSpanish
+                        ? 'La hora final debe ser despues del inicio.'
+                        : 'End time must be after the start time.';
+                  });
+                  return;
+                }
+
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('schedule_blocks')
+                      .add({
+                        'barberId': barberUid,
+                        'type': reason,
+                        'reason': reason,
+                        'startTime': Timestamp.fromDate(start),
+                        'endTime': Timestamp.fromDate(end),
+                        'createdAt': FieldValue.serverTimestamp(),
+                        'updatedAt': FieldValue.serverTimestamp(),
+                      });
+                  if (!dialogContext.mounted) return;
+                  Navigator.of(dialogContext).pop();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.green.shade600,
+                      content: Text(
+                        isSpanish
+                            ? 'Bloqueo creado.'
+                            : 'Schedule block created.',
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  setStateBuilder(() {
+                    errorText = 'Error: $e';
+                  });
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.red.shade600,
+                      content: Text('Error: $e'),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: AppColors.onSecondary,
+              ),
+              child: Text(isSpanish ? 'GUARDAR' : 'SAVE'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteScheduleBlock(
+    String blockId,
+    AppLocalizations l10n,
+  ) async {
+    final isSpanish = l10n.languageCode == 'es';
+    try {
+      await FirebaseFirestore.instance
+          .collection('schedule_blocks')
+          .doc(blockId)
+          .delete();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.green.shade600,
+          content: Text(
+            isSpanish ? 'Bloqueo eliminado.' : 'Schedule block deleted.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red.shade600,
+          content: Text('Error: $e'),
+        ),
+      );
+    }
   }
 
   void _selectCalendarDate(AppLocalizations l10n) async {
@@ -2096,51 +2530,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  Widget _buildAvailableSlotCard(String time, AppLocalizations l10n) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showAddBookingDialog(timeSlot: time, l10n: l10n),
-          borderRadius: AppRadius.borderRadiusLg,
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: AppRadius.borderRadiusLg,
-              border: Border.all(
-                color: AppColors.outlineVariant.withValues(alpha: 0.6),
-                width: 1.5,
-                style: BorderStyle.solid,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: AppColors.onSurfaceVariant,
-                  size: 24,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Text(
-                  l10n.languageCode == 'es'
-                      ? '$time - Turno Disponible'
-                      : '$time - Available Slot',
-                  style: AppTextStyles.bodyLg.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showAppointmentActionMenu(
     Map<String, dynamic> apt,
     AppLocalizations l10n,
@@ -2239,129 +2628,42 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             onPressed: () async {
               Navigator.of(context).pop();
               final bookingId = apt['id'];
-              if (bookingId != null) {
-                await FirebaseFirestore.instance
-                    .collection('bookings')
-                    .doc(bookingId)
-                    .delete();
-              }
-              if (!mounted) return;
-              setState(() {
-                _appointments.remove(apt);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    l10n.languageCode == 'es'
-                        ? 'Cita eliminada.'
-                        : 'Appointment removed.',
+              try {
+                if (bookingId != null) {
+                  await FirebaseFirestore.instance
+                      .collection('bookings')
+                      .doc(bookingId)
+                      .update({
+                        'status': 'CANCELLED',
+                        'updatedAt': FieldValue.serverTimestamp(),
+                      });
+                }
+                if (!mounted) return;
+                setState(() {
+                  _appointments.remove(apt);
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      l10n.languageCode == 'es'
+                          ? 'Cita cancelada.'
+                          : 'Appointment canceled.',
+                    ),
                   ),
-                ),
-              );
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.red.shade600,
+                    content: Text('Error: $e'),
+                  ),
+                );
+              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: Text(
               l10n.languageCode == 'es' ? 'SÍ, CANCELAR' : 'YES, CANCEL',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddBookingDialog({
-    required AppLocalizations l10n,
-    String? timeSlot,
-  }) {
-    final clientNameController = TextEditingController();
-    final serviceController = TextEditingController(
-      text: 'Signature Cut & Shave',
-    );
-    final timeController = TextEditingController(text: timeSlot ?? '12:30');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerLow,
-        title: Text(
-          l10n.languageCode == 'es'
-              ? 'RESERVAR NUEVO CLIENTE'
-              : 'BOOK NEW CLIENT',
-          style: GoogleFonts.playfairDisplay(
-            color: AppColors.secondary,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: clientNameController,
-              decoration: InputDecoration(
-                labelText: l10n.languageCode == 'es'
-                    ? 'Nombre del Cliente'
-                    : 'Client Name',
-                hintText: l10n.languageCode == 'es'
-                    ? 'ej. Liam Neeson'
-                    : 'e.g. Liam Neeson',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: serviceController,
-              decoration: InputDecoration(
-                labelText: l10n.languageCode == 'es'
-                    ? 'Nombre del Servicio'
-                    : 'Service Name',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: timeController,
-              decoration: InputDecoration(
-                labelText: l10n.languageCode == 'es' ? 'Horario' : 'Time Slot',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (clientNameController.text.isEmpty) return;
-              Navigator.of(context).pop();
-              setState(() {
-                _appointments.add({
-                  'id': DateTime.now().toString(),
-                  'clientName': clientNameController.text,
-                  'service': serviceController.text,
-                  'time': timeController.text,
-                  'status': 'CONFIRMED',
-                  'checkedIn': false,
-                  'icon': Icons.content_cut_rounded,
-                });
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    l10n.languageCode == 'es'
-                        ? 'Cliente reservado exitosamente.'
-                        : 'Client booked successfully.',
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.secondary,
-              foregroundColor: AppColors.onSecondary,
-            ),
-            child: Text(
-              l10n.languageCode == 'es' ? 'RESERVAR CITA' : 'BOOK APPOINTMENT',
             ),
           ),
         ],
@@ -2589,34 +2891,34 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         ),
                       ),
 
-                  // Phone and Mail Buttons
-                  Row(
-                    children: [
-                      _buildContactButton(Icons.phone_outlined, () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              l10n.languageCode == 'es'
-                                  ? 'Llamando a ${appt['clientName']}...'
-                                  : 'Calling ${appt['clientName']}...',
-                            ),
-                          ),
-                        );
-                      }),
-                      const SizedBox(width: 8),
-                      _buildContactButton(Icons.mail_outline_rounded, () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              l10n.languageCode == 'es'
-                                  ? 'Mensajeando a ${appt['clientName']}...'
-                                  : 'Messaging ${appt['clientName']}...',
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
+                      // Phone and Mail Buttons
+                      Row(
+                        children: [
+                          _buildContactButton(Icons.phone_outlined, () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  l10n.languageCode == 'es'
+                                      ? 'Llamando a ${appt['clientName']}...'
+                                      : 'Calling ${appt['clientName']}...',
+                                ),
+                              ),
+                            );
+                          }),
+                          const SizedBox(width: 8),
+                          _buildContactButton(Icons.mail_outline_rounded, () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  l10n.languageCode == 'es'
+                                      ? 'Mensajeando a ${appt['clientName']}...'
+                                      : 'Messaging ${appt['clientName']}...',
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
                     ],
                   ),
                 );
@@ -2625,72 +2927,126 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
             const SizedBox(height: AppSpacing.xl),
 
-            // Past Visit Notes Title & Clock Icon
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  l10n.languageCode == 'es'
-                      ? 'NOTAS DE VISITAS PASADAS'
-                      : 'PAST VISIT NOTES',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 12,
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.history,
-                    color: AppColors.onSurfaceVariant,
-                    size: 20,
-                  ),
-                  onPressed: () => _showAddNoteDialog(l10n),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-
-            // Notes list
-            Column(
-              children: _pastVisitNotes.map((noteMap) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                  padding: const EdgeInsets.only(
-                    left: AppSpacing.md,
-                    top: 4,
-                    bottom: 4,
-                  ),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: AppColors.secondary, width: 2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        '"${noteMap['note']}"',
-                        style: AppTextStyles.bodyMd.copyWith(
-                          fontSize: 14,
-                          fontStyle: FontStyle.italic,
-                          color: AppColors.onSurface,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        noteMap['date']!,
-                        style: AppTextStyles.labelSm.copyWith(
-                          fontSize: 11,
-                          color: AppColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+            // Past Visit Notes — persisted per-client in Firestore so they
+            // survive across sessions and devices.
+            Builder(
+              builder: (context) {
+                final clientName = (appt['clientName'] as String?) ?? '';
+                final clientEmail = (appt['clientEmail'] as String?) ?? '';
+                final clientPhone = (appt['clientPhone'] as String?) ?? '';
+                final clientKey = _clientKeyFor(
+                  name: clientName,
+                  email: clientEmail,
                 );
-              }).toList(),
+
+                return StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('clients')
+                      .doc(clientKey)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final data = snapshot.data?.data() as Map<String, dynamic>?;
+                    final notes =
+                        (data?['notes'] as List<dynamic>?)
+                            ?.cast<Map<String, dynamic>>() ??
+                        const [];
+                    final sortedNotes = notes.reversed.toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l10n.languageCode == 'es'
+                                  ? 'NOTAS DE VISITAS PASADAS'
+                                  : 'PAST VISIT NOTES',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12,
+                                color: AppColors.secondary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.history,
+                                color: AppColors.onSurfaceVariant,
+                                size: 20,
+                              ),
+                              onPressed: () => _showAddNoteDialog(
+                                l10n,
+                                clientKey: clientKey,
+                                clientName: clientName,
+                                clientEmail: clientEmail,
+                                clientPhone: clientPhone,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (sortedNotes.isEmpty)
+                          Text(
+                            l10n.languageCode == 'es'
+                                ? 'Aún no hay notas para este cliente.'
+                                : 'No notes for this client yet.',
+                            style: AppTextStyles.bodyMd.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                          )
+                        else
+                          Column(
+                            children: sortedNotes.map((noteMap) {
+                              return Container(
+                                margin: const EdgeInsets.only(
+                                  bottom: AppSpacing.md,
+                                ),
+                                padding: const EdgeInsets.only(
+                                  left: AppSpacing.md,
+                                  top: 4,
+                                  bottom: 4,
+                                ),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: AppColors.secondary,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      '"${noteMap['note']}"',
+                                      style: AppTextStyles.bodyMd.copyWith(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: AppColors.onSurface,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    Text(
+                                      (noteMap['date'] as String?) ?? '',
+                                      style: AppTextStyles.labelSm.copyWith(
+                                        fontSize: 11,
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
 
             const SizedBox(height: AppSpacing.xl * 1.5),
@@ -2811,8 +3167,15 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  void _showAddNoteDialog(AppLocalizations l10n) {
+  void _showAddNoteDialog(
+    AppLocalizations l10n, {
+    required String clientKey,
+    required String clientName,
+    required String clientEmail,
+    required String clientPhone,
+  }) {
     final noteController = TextEditingController();
+    final rootMessenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2838,16 +3201,43 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             child: Text(l10n.languageCode == 'es' ? 'CANCELAR' : 'CANCEL'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (noteController.text.isNotEmpty) {
-                setState(() {
-                  _pastVisitNotes.insert(0, {
-                    'note': noteController.text,
-                    'date': _formatNoteDate(DateTime.now()),
-                  });
-                });
+            onPressed: () async {
+              final note = noteController.text.trim();
+              if (note.isEmpty) return;
+
+              try {
+                await FirebaseFirestore.instance
+                    .collection('clients')
+                    .doc(clientKey)
+                    .set({
+                      'name': clientName,
+                      'email': clientEmail,
+                      'phone': clientPhone,
+                      'notes': FieldValue.arrayUnion([
+                        {'note': note, 'date': _formatNoteDate(DateTime.now())},
+                      ]),
+                    }, SetOptions(merge: true));
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  rootMessenger.showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.green.shade600,
+                      content: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Nota guardada.'
+                            : 'Note saved.',
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                rootMessenger.showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.red.shade600,
+                    content: Text('Error: $e'),
+                  ),
+                );
               }
-              Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondary,
@@ -2862,7 +3252,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     );
   }
 
-  // ─── TAB 2: Clients Registry List ──────────────────────────────────────────
+  // TAB 2: Clients Registry List ──────────────────────────────────────────
   String _localizedClientStatus(String status, AppLocalizations l10n) {
     if (l10n.languageCode != 'es') return status;
     switch (status) {
@@ -3079,7 +3469,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     final displayedServicesEarnings = isWeekly
         ? _weeklyServicesEarnings
         : _servicesEarnings;
-    final displayedTipsEarnings = isWeekly ? _weeklyTipsEarnings : _tipsEarnings;
+    final displayedTipsEarnings = isWeekly
+        ? _weeklyTipsEarnings
+        : _tipsEarnings;
     final displayedTotal = displayedServicesEarnings + displayedTipsEarnings;
     final displayedCompleted = isWeekly
         ? _weeklyCompletedServices
@@ -3306,7 +3698,9 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         trendColor = isUp ? Colors.greenAccent : Colors.redAccent;
         final pctLabel = '${percentChange.abs().toStringAsFixed(0)}%';
         trendText = isUp
-            ? (isSpanish ? '$pctLabel más que ayer' : '$pctLabel from yesterday')
+            ? (isSpanish
+                  ? '$pctLabel más que ayer'
+                  : '$pctLabel from yesterday')
             : (isSpanish
                   ? '$pctLabel menos que ayer'
                   : '$pctLabel down from yesterday');
@@ -4206,9 +4600,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         ),
         const Spacer(),
         Text(
-          active
-              ? '09:00 AM - 06:00 PM'
-              : (isSpanish ? 'Cerrado' : 'Closed'),
+          active ? '09:00 AM - 06:00 PM' : (isSpanish ? 'Cerrado' : 'Closed'),
           style: AppTextStyles.bodyMd.copyWith(
             color: active
                 ? AppColors.onSurfaceVariant

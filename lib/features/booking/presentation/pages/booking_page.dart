@@ -52,38 +52,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   bool _isLoadingBarbers = true;
   List<Map<String, dynamic>> _firestoreBarbers = [];
 
-  // Static barbers list as fallback (solo se usa si la colección `users`
-  // role==barber está vacía; no afecta la reserva real porque el id real se
-  // toma de Firestore en cuanto exista al menos un barbero).
-  final List<Map<String, dynamic>> _fallbackBarbers = [
-    {
-      'id': 'julian',
-      'name': 'Julian Vance',
-      'specialty': 'Especialista en Navaja',
-      'tag': 'MASTER',
-      'image': 'assets/images/barber_julian_vance.png',
-      'rating': '4.9',
-      'reviews': '124 reseñas',
-    },
-    {
-      'id': 'marcus',
-      'name': 'Marcus Reed',
-      'specialty': 'Cortes Clásicos',
-      'tag': 'SENIOR',
-      'image': 'assets/images/barber_marcus_reed.png',
-      'rating': '5.0',
-      'reviews': '98 reseñas',
-    },
-    {
-      'id': 'dorian',
-      'name': 'Dorian Grey',
-      'specialty': 'Barba y Cuidado Facial',
-      'tag': 'ELITE',
-      'image': 'assets/images/barber_dorian_grey.png',
-      'rating': '4.8',
-      'reviews': '215 reseñas',
-    },
-  ];
+  bool _barbersLoadFailed = false;
 
   @override
   void initState() {
@@ -125,21 +94,24 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         });
       } else {
         setState(() {
-          _firestoreBarbers = _fallbackBarbers;
+          _firestoreBarbers = [];
           _isLoadingBarbers = false;
         });
       }
     } catch (e) {
       setState(() {
-        _firestoreBarbers = _fallbackBarbers;
+        _firestoreBarbers = [];
         _isLoadingBarbers = false;
+        _barbersLoadFailed = true;
       });
     }
   }
 
   Future<void> _fetchServices() async {
     try {
-      final services = await ref.read(bookingRepositoryProvider).fetchActiveServices();
+      final services = await ref
+          .read(bookingRepositoryProvider)
+          .fetchActiveServices();
       setState(() {
         _services = services;
         _isLoadingServices = false;
@@ -167,7 +139,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     });
 
     try {
-      final slots = await ref.read(bookingRepositoryProvider).fetchAvailability(
+      final slots = await ref
+          .read(bookingRepositoryProvider)
+          .fetchAvailability(
             barberId: barberId,
             date: _selectedDate!,
             serviceId: serviceId,
@@ -242,7 +216,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   String _formatDuration(AppLocalizations l10n) {
-    final minutes = (_selectedServiceData?['durationMinutes'] as num?)?.toInt() ?? 0;
+    final minutes =
+        (_selectedServiceData?['durationMinutes'] as num?)?.toInt() ?? 0;
     return l10n.languageCode == 'es' ? '$minutes min' : '$minutes min';
   }
 
@@ -270,7 +245,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       // transacción, y crea el booking + la notificación al barbero. El
       // cliente nunca escribe directo a `bookings`/`notifications`
       // (firestore.rules deniega esos `create` desde el SDK de cliente).
-      await ref.read(bookingRepositoryProvider).reserveSlot(
+      await ref
+          .read(bookingRepositoryProvider)
+          .reserveSlot(
             barberId: barberId,
             serviceId: serviceId,
             startAt: slot,
@@ -286,9 +263,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     } on BookingException catch (e) {
       setState(() => _isSaving = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_mapBookingError(e, l10n))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_mapBookingError(e, l10n))));
     } catch (e) {
       setState(() => _isSaving = false);
       if (!mounted) return;
@@ -517,6 +494,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         height: 300,
         child: Center(
           child: CircularProgressIndicator(color: AppColors.secondary),
+        ),
+      );
+    }
+
+    if (_firestoreBarbers.isEmpty) {
+      return SizedBox(
+        height: 300,
+        child: Center(
+          child: Text(
+            _barbersLoadFailed
+                ? l10n.get('barbers_load_error')
+                : l10n.get('no_barbers_available'),
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMd.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
         ),
       );
     }
@@ -803,7 +797,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
                         child: Center(
-                          child: CircularProgressIndicator(color: AppColors.secondary),
+                          child: CircularProgressIndicator(
+                            color: AppColors.secondary,
+                          ),
                         ),
                       )
                     else if (_services.isEmpty)
@@ -820,100 +816,121 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         ),
                       )
                     else
-                      Column(
-                        children: _services.map((service) {
-                          final isSelected =
-                              _selectedServiceData?['id'] == service['id'];
-                          final priceValue = service['priceCents'] != null
-                              ? (service['priceCents'] as num).toDouble() / 100
-                              : (service['price'] as num?)?.toDouble() ?? 0.0;
-                          final durationMinutes =
-                              (service['durationMinutes'] as num?)?.toInt() ?? 0;
-                          return Card(
-                            color: AppColors.surfaceContainerLow,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.zero,
-                              side: BorderSide(
-                                color: isSelected
-                                    ? AppColors.secondary
-                                    : AppColors.outlineVariant.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                width: isSelected ? 1.5 : 1,
+                      RadioGroup<String>(
+                        groupValue: _selectedServiceData?['id'] as String?,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          final selectedService = _services.firstWhere(
+                            (service) => service['id'] == value,
+                            orElse: () => <String, dynamic>{},
+                          );
+                          if (selectedService.isEmpty) return;
+                          setState(
+                            () => _selectedServiceData = selectedService,
+                          );
+                          _fetchAvailableSlots();
+                        },
+                        child: Column(
+                          children: _services.map((service) {
+                            final isSelected =
+                                _selectedServiceData?['id'] == service['id'];
+                            final priceValue = service['priceCents'] != null
+                                ? (service['priceCents'] as num).toDouble() /
+                                      100
+                                : (service['price'] as num?)?.toDouble() ?? 0.0;
+                            final durationMinutes =
+                                (service['durationMinutes'] as num?)?.toInt() ??
+                                0;
+                            return Card(
+                              color: AppColors.surfaceContainerLow,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.zero,
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? AppColors.secondary
+                                      : AppColors.outlineVariant.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                  width: isSelected ? 1.5 : 1,
+                                ),
                               ),
-                            ),
-                            margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                            child: InkWell(
-                              onTap: () {
-                                setState(() => _selectedServiceData = service);
-                                _fetchAvailableSlots();
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                child: Row(
-                                  children: [
-                                    Radio<String>(
-                                      value: service['id'],
-                                      groupValue: _selectedServiceData?['id'],
-                                      activeColor: AppColors.secondary,
-                                      onChanged: (_) {
-                                        setState(() => _selectedServiceData = service);
-                                        _fetchAvailableSlots();
-                                      },
-                                    ),
-                                    const SizedBox(width: AppSpacing.sm),
-                                    Expanded(
-                                      child: Column(
+                              margin: const EdgeInsets.only(
+                                bottom: AppSpacing.md,
+                              ),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(
+                                    () => _selectedServiceData = service,
+                                  );
+                                  _fetchAvailableSlots();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.lg),
+                                  child: Row(
+                                    children: [
+                                      Radio<String>(
+                                        value: service['id'],
+                                        activeColor: AppColors.secondary,
+                                      ),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              service['name'] ?? '',
+                                              style: AppTextStyles.headlineSm
+                                                  .copyWith(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              service['description'] ?? '',
+                                              style: AppTextStyles.bodyMd
+                                                  .copyWith(
+                                                    fontSize: 13,
+                                                    color: AppColors
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.md),
+                                      Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            service['name'] ?? '',
-                                            style: AppTextStyles.headlineSm
-                                                .copyWith(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            service['description'] ?? '',
-                                            style: AppTextStyles.bodyMd.copyWith(
-                                              fontSize: 13,
-                                              color: AppColors.onSurfaceVariant,
+                                            '${config.currencySymbol}${priceValue.toStringAsFixed(0)}',
+                                            style: GoogleFonts.playfairDisplay(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.secondary,
                                             ),
+                                          ),
+                                          Text(
+                                            '$durationMinutes min',
+                                            style: AppTextStyles.labelSm
+                                                .copyWith(
+                                                  fontSize: 11,
+                                                  color: AppColors
+                                                      .onSurfaceVariant,
+                                                ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '${config.currencySymbol}${priceValue.toStringAsFixed(0)}',
-                                          style: GoogleFonts.playfairDisplay(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.secondary,
-                                          ),
-                                        ),
-                                        Text(
-                                          '$durationMinutes min',
-                                          style: AppTextStyles.labelSm.copyWith(
-                                            fontSize: 11,
-                                            color: AppColors.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     const SizedBox(height: AppSpacing.xl),
 
@@ -1211,7 +1228,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           l10n.languageCode == 'es'
               ? 'No hay horarios disponibles ese día. Elige otra fecha.'
               : 'No available times that day. Try another date.',
-          style: AppTextStyles.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+          style: AppTextStyles.bodyMd.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -1337,7 +1356,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     _buildSummaryRow(
                       '${l10n.get('time')}:',
                       _selectedSlotUtc != null
-                          ? _formatLocalTime(_selectedSlotUtc!, config.timezoneOffsetHours)
+                          ? _formatLocalTime(
+                              _selectedSlotUtc!,
+                              config.timezoneOffsetHours,
+                            )
                           : '',
                     ),
                     const Divider(color: AppColors.outlineVariant, height: 24),
@@ -1487,7 +1509,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     _buildSummaryRow(
                       '${l10n.get('time')}:',
                       _selectedSlotUtc != null
-                          ? _formatLocalTime(_selectedSlotUtc!, config.timezoneOffsetHours)
+                          ? _formatLocalTime(
+                              _selectedSlotUtc!,
+                              config.timezoneOffsetHours,
+                            )
                           : '',
                     ),
                     _buildSummaryRow(

@@ -9,11 +9,13 @@ class AppConfigState {
   // con `config/barberia.timezoneOffsetHours` leído por las Cloud Functions
   // (ver backend/functions/main.py:_load_config) para que la disponibilidad
   // mostrada en la app y la validada al reservar usen la misma hora local.
+  final double monthlyTarget; // meta de ingresos mensuales del admin dashboard
 
   AppConfigState({
     required this.language,
     required this.currencySymbol,
     required this.timezoneOffsetHours,
+    this.monthlyTarget = 0,
   });
 
   factory AppConfigState.defaultConfig() {
@@ -21,6 +23,7 @@ class AppConfigState {
       language: 'es',
       currencySymbol: 'Q',
       timezoneOffsetHours: -6,
+      monthlyTarget: 0,
     );
   }
 }
@@ -39,6 +42,7 @@ final appConfigStreamProvider = StreamProvider<AppConfigState>((ref) {
           language: data['language'] ?? 'es',
           currencySymbol: data['currencySymbol'] ?? 'Q',
           timezoneOffsetHours: (data['timezoneOffsetHours'] as num?)?.toInt() ?? -6,
+          monthlyTarget: (data['monthlyTarget'] as num?)?.toDouble() ?? 0,
         );
       });
 });

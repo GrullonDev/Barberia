@@ -315,10 +315,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       builder: (context, bookingsSnapshot) {
         final totalBookings = bookingsSnapshot.data?.docs ?? [];
 
-        // Compute earnings based on finished bookings today
-        double todayEarnings = 0.0;
+        // Compute earnings per calendar day from completed/finished bookings,
+        // so today's total, last week's same weekday, the monthly total and
+        // the 7-day trend chart all derive from the same real data.
         final now = DateTime.now();
         final startOfToday = DateTime(now.year, now.month, now.day);
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final earningsByDay = <DateTime, double>{};
 
         for (var doc in totalBookings) {
           final data = doc.data() as Map<String, dynamic>;
@@ -326,21 +329,32 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           final price = (data['price'] as num?)?.toDouble() ?? 0.0;
           final dateVal = data['date'];
 
-          if (status.toUpperCase() == 'COMPLETED' ||
-              status.toUpperCase() == 'FINISHED') {
-            if (dateVal is Timestamp) {
-              final date = dateVal.toDate();
-              if (date.isAfter(startOfToday)) {
-                todayEarnings += price;
-              }
-            }
+          if ((status.toUpperCase() == 'COMPLETED' ||
+                  status.toUpperCase() == 'FINISHED') &&
+              dateVal is Timestamp) {
+            final date = dateVal.toDate();
+            final day = DateTime(date.year, date.month, date.day);
+            earningsByDay[day] = (earningsByDay[day] ?? 0) + price;
           }
         }
 
-        // Fallback placeholder values if no bookings exist in Firestore yet
-        if (totalBookings.isEmpty) {
-          todayEarnings = 1240.0; // matching screenshot $1,240
-        }
+        final todayEarnings = earningsByDay[startOfToday] ?? 0.0;
+        final lastWeekSameDayEarnings =
+            earningsByDay[startOfToday.subtract(const Duration(days: 7))] ??
+            0.0;
+        final String earningsBadge = lastWeekSameDayEarnings > 0
+            ? '${todayEarnings >= lastWeekSameDayEarnings ? '+' : ''}${(((todayEarnings - lastWeekSameDayEarnings) / lastWeekSameDayEarnings) * 100).toStringAsFixed(0)}%'
+            : (todayEarnings > 0 ? '+100%' : '—');
+
+        double monthEarnings = 0.0;
+        earningsByDay.forEach((day, value) {
+          if (!day.isBefore(startOfMonth)) {
+            monthEarnings += value;
+          }
+        });
+        final monthlyProgress = config.monthlyTarget > 0
+            ? (monthEarnings / config.monthlyTarget).clamp(0.0, 1.0)
+            : 0.0;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -379,7 +393,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       label: l10n.get('today_earnings'),
                       value:
                           '${config.currencySymbol}${todayEarnings.toStringAsFixed(0)}',
-                      badge: '+12%',
+                      badge: earningsBadge,
                       badgeColor: const Color(
                         0xFFE9C349,
                       ).withValues(alpha: 0.15),
@@ -391,8 +405,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     child: _buildDashboardCard(
                       icon: Icons.track_changes_outlined,
                       label: l10n.get('monthly_target').toUpperCase(),
-                      value: '${config.currencySymbol}22.5k',
-                      badge: '84%',
+                      value: config.monthlyTarget > 0
+                          ? '${config.currencySymbol}${_formatCompactAmount(config.monthlyTarget)}'
+                          : '—',
+                      badge: config.monthlyTarget > 0
+                          ? '${(monthlyProgress * 100).toStringAsFixed(0)}%'
+                          : '—',
                       badgeColor: Colors.white.withValues(alpha: 0.08),
                       badgeTextColor: Colors.white70,
                     ),
@@ -402,7 +420,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               const SizedBox(height: AppSpacing.lg),
 
               // Sales Trend Chart Card
-              _buildSalesTrendCard(l10n),
+              _buildSalesTrendCard(earningsByDay, l10n),
               const SizedBox(height: AppSpacing.xl),
 
               // Next Appointment Section
@@ -525,7 +543,53 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildSalesTrendCard(AppLocalizations l10n) {
+  static const List<String> _weekdayAbbrevEs = [
+    'LUN',
+    'MAR',
+    'MIÉ',
+    'JUE',
+    'VIE',
+    'SÁB',
+    'DOM',
+  ];
+  static const List<String> _weekdayAbbrevEn = [
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN',
+  ];
+
+  String _formatCompactAmount(double value) {
+    if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return value.toStringAsFixed(0);
+  }
+
+  Widget _buildSalesTrendCard(
+    Map<DateTime, double> earningsByDay,
+    AppLocalizations l10n,
+  ) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final last7Days = List.generate(
+      7,
+      (i) => startOfToday.subtract(Duration(days: 6 - i)),
+    );
+    final dailyValues = last7Days
+        .map((day) => earningsByDay[day] ?? 0.0)
+        .toList();
+    final maxValue = dailyValues.fold<double>(
+      0,
+      (max, v) => v > max ? v : max,
+    );
+    final abbrevs = l10n.languageCode == 'es'
+        ? _weekdayAbbrevEs
+        : _weekdayAbbrevEn;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -556,8 +620,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   ),
                   Text(
                     l10n.languageCode == 'es'
-                        ? 'Últimos 7 Días Hábiles'
-                        : 'Last 7 Business Days',
+                        ? 'Últimos 7 Días'
+                        : 'Last 7 Days',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
@@ -579,15 +643,18 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildChartBar('MON', 0.25, false),
-                _buildChartBar('TUE', 0.45, false),
-                _buildChartBar('WED', 0.38, false),
-                _buildChartBar('THU', 0.60, false),
-                _buildChartBar('FRI', 0.52, true),
-                _buildChartBar('SAT', 0.42, false),
-                _buildChartBar('SUN', 0.75, true),
-              ],
+              children: List.generate(7, (i) {
+                final day = last7Days[i];
+                final weekdayLabel = abbrevs[day.weekday - 1];
+                final heightFactor = maxValue > 0
+                    ? (dailyValues[i] / maxValue).clamp(0.04, 1.0)
+                    : 0.04;
+                return _buildChartBar(
+                  weekdayLabel,
+                  heightFactor,
+                  day == startOfToday,
+                );
+              }),
             ),
           ),
         ],
@@ -638,7 +705,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     List<QueryDocumentSnapshot> bookings,
     AppLocalizations l10n,
   ) {
-    // Attempt to find the next booking in Firestore. If none exist, display a beautiful placeholder.
+    // Find the next confirmed/pending booking in Firestore.
     Map<String, dynamic>? nextBooking;
     for (var doc in bookings) {
       final data = doc.data() as Map<String, dynamic>;
@@ -650,18 +717,31 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       }
     }
 
-    final String time = nextBooking != null
-        ? (nextBooking['time'] as String? ?? '10:00 AM')
-        : '10:00 AM';
-    final String client = nextBooking != null
-        ? (nextBooking['clientName'] as String? ?? 'Julian Rossi')
-        : 'Julian Rossi';
-    final String service = nextBooking != null
-        ? (nextBooking['service'] as String? ?? 'Royal Shave & Hot Towel')
-        : 'Royal Shave & Hot Towel';
-    final String barberName = nextBooking != null
-        ? (nextBooking['barberName'] as String? ?? 'Marco V.')
-        : 'Marco V.';
+    if (nextBooking == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadius.borderRadiusLg,
+          border: Border.all(
+            color: AppColors.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Text(
+          l10n.get('no_upcoming_booking'),
+          style: GoogleFonts.hankenGrotesk(
+            color: AppColors.onSurfaceVariant,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    final String time = nextBooking['time'] as String? ?? '--:--';
+    final String client = nextBooking['clientName'] as String? ?? 'No Name';
+    final String service = nextBooking['service'] as String? ?? 'No Service';
+    final String barberName =
+        nextBooking['barberName'] as String? ?? 'Unassigned';
 
     return Container(
       decoration: BoxDecoration(
@@ -2151,6 +2231,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   ) {
     final String currentLanguage = configData['language'] ?? 'es';
     final String currentCurrency = configData['currencySymbol'] ?? 'Q';
+    final double currentMonthlyTarget =
+        (configData['monthlyTarget'] as num?)?.toDouble() ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2337,6 +2419,103 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                                     ),
                                   ),
                                   // duration: const Duration(seconds: 2),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            }
+                          },
+                          child: Text(l10n.get('save')),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.get('monthly_target').toUpperCase(),
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentMonthlyTarget > 0
+                        ? '$currentCurrency${currentMonthlyTarget.toStringAsFixed(0)}'
+                        : '—',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.secondary,
+                ),
+                onPressed: () {
+                  final targetController = TextEditingController(
+                    text: currentMonthlyTarget > 0
+                        ? currentMonthlyTarget.toStringAsFixed(0)
+                        : '',
+                  );
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(l10n.get('edit_monthly_target')),
+                      content: TextField(
+                        controller: targetController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText:
+                              '${l10n.get('monthly_target_label')} ($currentCurrency)',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(l10n.get('cancel')),
+                        ),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final target = double.tryParse(
+                              targetController.text.trim(),
+                            );
+                            if (target == null || target < 0) return;
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('config')
+                                  .doc('barberia')
+                                  .update({'monthlyTarget': target});
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      l10n.get('monthly_target_updated'),
+                                    ),
+                                  ),
                                 );
                               }
                             } catch (e) {
@@ -3282,6 +3461,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
     final emailController = TextEditingController(text: barber?['email'] ?? '');
     bool isAvailable = barber?['isAvailable'] ?? true;
+    String? errorText;
+    final rootMessenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -3356,6 +3537,24 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     ),
                   ],
                 ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.borderRadiusMd,
+                      border: Border.all(
+                        color: Colors.redAccent.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      errorText!,
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -3368,15 +3567,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               onPressed: () async {
                 if (nameController.text.isEmpty ||
                     (!isEdit && emailController.text.isEmpty)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        l10n.languageCode == 'es'
-                            ? 'Por favor completa los campos requeridos.'
-                            : 'Please fill required fields.',
-                      ),
-                    ),
-                  );
+                  setStateBuilder(() {
+                    errorText = l10n.languageCode == 'es'
+                        ? 'Por favor completa los campos requeridos.'
+                        : 'Please fill required fields.';
+                  });
                   return;
                 }
 
@@ -3416,8 +3611,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   }
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    rootMessenger.showSnackBar(
                       SnackBar(
+                        backgroundColor: Colors.green.shade600,
                         content: Text(
                           isEdit
                               ? (l10n.languageCode == 'es'
@@ -3431,9 +3627,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     );
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  setStateBuilder(() {
+                    errorText = l10n.languageCode == 'es'
+                        ? 'Error: no se pudo guardar el barbero. $e'
+                        : 'Error: could not save barber. $e';
+                  });
                 }
               },
               child: Text(l10n.get('save')),
