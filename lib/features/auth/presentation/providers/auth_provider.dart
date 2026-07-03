@@ -13,6 +13,7 @@ class AuthState {
   final UserRole? role;
   final String? email;
   final String? displayName;
+  final bool mustChangePassword;
 
   const AuthState({
     this.isLoading = false,
@@ -21,6 +22,7 @@ class AuthState {
     this.role,
     this.email,
     this.displayName,
+    this.mustChangePassword = false,
   });
 
   AuthState copyWith({
@@ -30,6 +32,7 @@ class AuthState {
     UserRole? role,
     String? email,
     String? displayName,
+    bool? mustChangePassword,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -38,6 +41,7 @@ class AuthState {
       role: role ?? this.role,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
     );
   }
 }
@@ -71,6 +75,7 @@ class AuthNotifier extends Notifier<AuthState> {
         displayName:
             user.displayName ??
             (doc.data()?['displayName'] ?? doc.data()?['name']) as String?,
+        mustChangePassword: doc.data()?['mustChangePassword'] == true,
       );
     } catch (_) {
       state = const AuthState();
@@ -112,6 +117,7 @@ class AuthNotifier extends Notifier<AuthState> {
         displayName:
             credential.user!.displayName ??
             (doc.data()?['displayName'] ?? doc.data()?['name']) as String?,
+        mustChangePassword: doc.data()?['mustChangePassword'] == true,
       );
       return true;
     } on FirebaseAuthException catch (e) {
@@ -127,6 +133,10 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       return false;
     }
+  }
+
+  Future<void> refreshCurrentUser() async {
+    await _onAuthChanged(FirebaseAuth.instance.currentUser);
   }
 
   Future<void> logout() async {

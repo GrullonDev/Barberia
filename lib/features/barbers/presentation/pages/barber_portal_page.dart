@@ -21,13 +21,13 @@ class BarberPortalPage extends ConsumerStatefulWidget {
 class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   int _currentTabIndex = 0;
 
-  // ─── Shared Interactive State ──────────────────────────────────────────────
+  // ─── Shared Interactive State ────────────────────────────────────────────── 2BsjI!V!DohN
   double _dailyEarnings = 482.50;
   double _servicesEarnings = 395.00;
   double _tipsEarnings = 87.50;
   int _completedServices = 8;
   String _selectedDay = 'FRI 27';
-  String _earningsFilter = 'Today'; // 'Today' or 'Weekly'
+  String _earningsFilter = 'Today';
   String _clientSearchQuery = '';
   String _barberNameFromDb = '';
   String _specialtyFromDb = '';
@@ -394,6 +394,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             final String docBarberName = data['barberName'] ?? '';
             final String docBarberId = data['barberId'] ?? '';
             if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
+                docBarberId == currentBarberUid ||
                 docBarberId == authState.email) {
               count++;
             }
@@ -420,6 +421,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           final String docBarberId = data['barberId'] ?? '';
 
           if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
+              docBarberId == currentBarberUid ||
               docBarberId == authState.email) {
             final createdAtVal = data['createdAt'];
             if (createdAtVal is Timestamp) {
@@ -796,15 +798,19 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            _barberNameFromDb.isNotEmpty
-                ? _barberNameFromDb.toUpperCase()
-                : 'PRO CUTS',
-            style: GoogleFonts.playfairDisplay(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2.0,
+          Expanded(
+            child: Text(
+              _barberNameFromDb.isNotEmpty
+                  ? _barberNameFromDb.toUpperCase()
+                  : 'PRO CUTS',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.playfairDisplay(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2.0,
+              ),
             ),
           ),
         ],
@@ -876,12 +882,10 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   // ─── Unifed Bottom Navigation: Dashboard, Schedule, Clients, Earnings ──────
   Widget _buildBottomNavBar(AppLocalizations l10n) {
     return BottomNavigationBar(
-      currentIndex: _currentTabIndex == 4
-          ? 1
-          : _currentTabIndex, // keep schedule/profile tabs mapped properly
+      currentIndex: _currentTabIndex == 4 ? 1 : _currentTabIndex,
       onTap: (index) {
         setState(() {
-          _selectedActiveAppointment = null; // Reset sub-screens
+          _selectedActiveAppointment = null;
           _currentTabIndex = index;
         });
       },
@@ -918,7 +922,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       case 3:
         return _buildEarningsPerformanceTab(config, l10n);
       case 4:
-        return _buildSettingsTab(l10n); // settings tab via avatar click
+        return _buildSettingsTab(l10n);
       default:
         return _buildDashboardTab(config, l10n);
     }
@@ -1195,7 +1199,6 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 flex: 2,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // Open the client details active view in Schedule tab
                     setState(() {
                       _selectedActiveAppointment = _activeSession;
                       _isServiceStarted = true;
@@ -4660,6 +4663,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   void _showNotificationsDialog(BuildContext context, AppLocalizations l10n) {
     final authState = ref.read(authProvider);
+    final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
     final barberName = authState.displayName ?? 'Julian Vance';
 
     showDialog(
@@ -4719,6 +4723,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       final String docBarberId = data['barberId'] ?? '';
                       return docBarberName.toLowerCase() ==
                               barberName.toLowerCase() ||
+                          docBarberId == currentBarberUid ||
                           docBarberId == authState.email;
                     }).toList();
 

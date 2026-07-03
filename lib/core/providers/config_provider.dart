@@ -41,7 +41,8 @@ final appConfigStreamProvider = StreamProvider<AppConfigState>((ref) {
         return AppConfigState(
           language: data['language'] ?? 'es',
           currencySymbol: data['currencySymbol'] ?? 'Q',
-          timezoneOffsetHours: (data['timezoneOffsetHours'] as num?)?.toInt() ?? -6,
+          timezoneOffsetHours:
+              (data['timezoneOffsetHours'] as num?)?.toInt() ?? -6,
           monthlyTarget: (data['monthlyTarget'] as num?)?.toDouble() ?? 0,
         );
       });

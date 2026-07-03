@@ -167,7 +167,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
             action: SnackBarAction(
               label: 'DISMISS',
               textColor: AppColors.onErrorContainer,
-              onPressed: () => ref.read(authProvider.notifier).clearError(),
+              onPressed: _clearAuthErrorIfMounted,
             ),
           ),
         );
@@ -590,3 +590,4 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
     );
   }
 }
+

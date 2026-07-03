@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barberia/core/theme/app_theme.dart';
@@ -47,6 +48,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+
+  static const List<Map<String, Object>> _countryDialCodes = [
+    {'code': 'GT', 'dialCode': '+502', 'digits': 8},
+    {'code': 'US', 'dialCode': '+1', 'digits': 10},
+    {'code': 'MX', 'dialCode': '+52', 'digits': 10},
+    {'code': 'SV', 'dialCode': '+503', 'digits': 8},
+    {'code': 'HN', 'dialCode': '+504', 'digits': 8},
+  ];
+  String _selectedCountryCode = 'GT';
 
   bool _isSaving = false;
   bool _isLoadingBarbers = true;
@@ -221,6 +231,20 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return l10n.languageCode == 'es' ? '$minutes min' : '$minutes min';
   }
 
+  Map<String, Object> get _selectedCountry => _countryDialCodes.firstWhere(
+    (country) => country['code'] == _selectedCountryCode,
+    orElse: () => _countryDialCodes.first,
+  );
+
+  int get _selectedPhoneDigits => _selectedCountry['digits'] as int;
+
+  String get _selectedDialCode => _selectedCountry['dialCode'] as String;
+
+  String get _formattedCustomerPhone {
+    final digits = _phoneController.text.trim();
+    return '$_selectedDialCode$digits';
+  }
+
   double _selectedServicePrice() {
     final data = _selectedServiceData;
     if (data == null) return 0.0;
@@ -253,7 +277,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             startAt: slot,
             customerName: _nameController.text.trim(),
             customerEmail: _emailController.text.trim(),
-            customerPhone: _phoneController.text.trim(),
+            customerPhone: _formattedCustomerPhone,
           );
 
       setState(() {
@@ -1102,30 +1126,103 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             },
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
-                            controller: _phoneController,
-                            style: const TextStyle(color: Colors.white),
-                            keyboardType: TextInputType.phone,
-                            decoration: InputDecoration(
-                              labelText: l10n.get('phone_whatsapp'),
-                              labelStyle: const TextStyle(
-                                color: Colors.white70,
-                              ),
-                              enabledBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: AppColors.outlineVariant,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 132,
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: _selectedCountryCode,
+                                  dropdownColor: AppColors.surfaceContainerLow,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    labelText: l10n.languageCode == 'es'
+                                        ? 'Pais'
+                                        : 'Country',
+                                    labelStyle: const TextStyle(
+                                      color: Colors.white70,
+                                    ),
+                                    enabledBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: AppColors.outlineVariant,
+                                      ),
+                                    ),
+                                    focusedBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: AppColors.secondary,
+                                      ),
+                                    ),
+                                  ),
+                                  items: _countryDialCodes.map((country) {
+                                    final code = country['code'] as String;
+                                    final dialCode =
+                                        country['dialCode'] as String;
+                                    return DropdownMenuItem<String>(
+                                      value: code,
+                                      child: Text('$code $dialCode'),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _selectedCountryCode = value;
+                                      final maxDigits = _selectedPhoneDigits;
+                                      if (_phoneController.text.length >
+                                          maxDigits) {
+                                        _phoneController.text = _phoneController
+                                            .text
+                                            .substring(0, maxDigits);
+                                      }
+                                    });
+                                  },
                                 ),
                               ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: AppColors.secondary,
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _phoneController,
+                                  style: const TextStyle(color: Colors.white),
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(
+                                      _selectedPhoneDigits,
+                                    ),
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: l10n.get('phone_whatsapp'),
+                                    hintText: _selectedPhoneDigits == 8
+                                        ? '12345678'
+                                        : null,
+                                    labelStyle: const TextStyle(
+                                      color: Colors.white70,
+                                    ),
+                                    enabledBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: AppColors.outlineVariant,
+                                      ),
+                                    ),
+                                    focusedBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: AppColors.secondary,
+                                      ),
+                                    ),
+                                  ),
+                                  validator: (val) {
+                                    final digits = val?.trim() ?? '';
+                                    if (digits.isEmpty) {
+                                      return l10n.get('enter_phone');
+                                    }
+                                    if (digits.length != _selectedPhoneDigits) {
+                                      return l10n.languageCode == 'es'
+                                          ? 'Ingresa $_selectedPhoneDigits numeros.'
+                                          : 'Enter $_selectedPhoneDigits digits.';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ),
-                            ),
-                            validator: (val) =>
-                                val == null || val.trim().isEmpty
-                                ? l10n.get('enter_phone')
-                                : null,
+                            ],
                           ),
                         ],
                       ),
@@ -1370,7 +1467,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     _buildSummaryRow('Email:', _emailController.text.trim()),
                     _buildSummaryRow(
                       l10n.languageCode == 'es' ? 'Teléfono:' : 'Phone:',
-                      _phoneController.text.trim(),
+                      _formattedCustomerPhone,
                     ),
                   ],
                 ),

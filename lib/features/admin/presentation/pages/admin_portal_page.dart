@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +23,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   int _currentTabIndex = 0;
   String _bookingFilter = 'All'; // 'All', 'Today', 'Pending'
 
+  StreamSubscription<QuerySnapshot>? _notificationCountSubscription;
   StreamSubscription<QuerySnapshot>? _notificationSubscription;
   int _unreadNotificationsCount = 0;
   final DateTime _pageOpenTime = DateTime.now();
@@ -33,13 +36,14 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
   @override
   void dispose() {
+    _notificationCountSubscription?.cancel();
     _notificationSubscription?.cancel();
     super.dispose();
   }
 
   void _listenToNotifications() {
     // Read initial unread notifications count
-    FirebaseFirestore.instance
+    _notificationCountSubscription = FirebaseFirestore.instance
         .collection('notifications')
         .where('read', isEqualTo: false)
         .snapshots()
@@ -49,7 +53,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               _unreadNotificationsCount = snapshot.docs.length;
             });
           }
-        });
+        }, onError: (_) {});
 
     // Listen to new notifications for in-app SnackBars (created after page opened)
     _notificationSubscription = FirebaseFirestore.instance
@@ -582,10 +586,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     final dailyValues = last7Days
         .map((day) => earningsByDay[day] ?? 0.0)
         .toList();
-    final maxValue = dailyValues.fold<double>(
-      0,
-      (max, v) => v > max ? v : max,
-    );
+    final maxValue = dailyValues.fold<double>(0, (max, v) => v > max ? v : max);
     final abbrevs = l10n.languageCode == 'es'
         ? _weekdayAbbrevEs
         : _weekdayAbbrevEn;
@@ -1932,7 +1933,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
     if (confirm == true) {
       try {
-        await FirebaseFirestore.instance.collection('users').doc(id).delete();
+        await FirebaseFunctions.instance.httpsCallable('removeBarber').call(
+          <String, dynamic>{'barberId': id},
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -3587,30 +3590,30 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                           'isAvailable': isAvailable,
                         });
                   } else {
-                    // Create direct barber user doc in Firestore (normally handles via Auth invitation,
-                    // here we create a dummy document in users collection)
-                    final String uid = FirebaseFirestore.instance
-                        .collection('users')
-                        .doc()
-                        .id;
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(uid)
-                        .set({
-                          'id': uid,
+                    final result = await FirebaseFunctions.instance
+                        .httpsCallable('inviteBarber')
+                        .call(<String, dynamic>{
                           'name': nameController.text.trim(),
                           'email': emailController.text.trim().toLowerCase(),
-                          'role': 'barber',
                           'specialty': specialtyController.text.trim(),
                           'bio': bioController.text.trim(),
                           'isAvailable': isAvailable,
-                          'createdAt': FieldValue.serverTimestamp(),
-                          'isAnonymous': false,
-                          'inviteStatus': 'accepted',
                         });
+                    final data = Map<String, dynamic>.from(result.data as Map);
+                    if (context.mounted) {
+                      _showTemporaryPasswordDialog(
+                        context,
+                        l10n,
+                        emailController.text.trim().toLowerCase(),
+                        data['temporaryPassword'] as String? ?? '',
+                        data['emailSent'] == true,
+                        data['reusedAuthUser'] == true,
+                      );
+                    }
                   }
                   if (context.mounted) {
                     Navigator.pop(context);
+                    if (!isEdit) return;
                     rootMessenger.showSnackBar(
                       SnackBar(
                         backgroundColor: Colors.green.shade600,
@@ -3620,7 +3623,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                                     ? 'Perfil actualizado.'
                                     : 'Profile updated.')
                               : (l10n.languageCode == 'es'
-                                    ? 'Barbero agregado exitosamente.'
+                                    ? 'Barbero invitado exitosamente. Revisa el correo o los logs de Functions si SendGrid no esta configurado.'
                                     : 'Barber added successfully.'),
                         ),
                       ),
@@ -3638,6 +3641,103 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showTemporaryPasswordDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+    String email,
+    String temporaryPassword,
+    bool emailSent,
+    bool reusedAuthUser,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          l10n.languageCode == 'es'
+              ? 'Credenciales temporales'
+              : 'Temporary credentials',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.languageCode == 'es'
+                  ? 'Comparte esta contrasena con el barbero. Al iniciar sesion se le pedira cambiarla.'
+                  : 'Share this password with the barber. They will be required to change it on first login.',
+            ),
+            const SizedBox(height: 12),
+            SelectableText('Correo: $email'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: AppRadius.borderRadiusMd,
+                border: Border.all(color: AppColors.secondary),
+              ),
+              child: SelectableText(
+                temporaryPassword,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.4,
+                  color: AppColors.secondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              emailSent
+                  ? (l10n.languageCode == 'es'
+                        ? 'Tambien se intento enviar por correo.'
+                        : 'An email invitation was also attempted.')
+                  : (l10n.languageCode == 'es'
+                        ? 'No se pudo enviar correo automaticamente. Usa el boton copiar.'
+                        : 'Automatic email was not sent. Use copy instead.'),
+              style: AppTextStyles.bodyMd.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+            if (reusedAuthUser) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.languageCode == 'es'
+                    ? 'Este correo ya existia; se genero una nueva contrasena temporal.'
+                    : 'This email already existed; a new temporary password was generated.',
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.secondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(
+                  text:
+                      'Correo: $email\nContrasena temporal: $temporaryPassword',
+                ),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Credenciales copiadas.')),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: Text(l10n.languageCode == 'es' ? 'COPIAR' : 'COPY'),
+          ),
+        ],
       ),
     );
   }
@@ -3955,3 +4055,5 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 }
+
+

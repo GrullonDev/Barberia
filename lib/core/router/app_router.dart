@@ -1,8 +1,8 @@
 import 'package:barberia/features/admin/presentation/pages/admin_portal_page.dart';
+import 'package:barberia/features/auth/presentation/pages/barber_password_change_page.dart';
 import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
 import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
 import 'package:barberia/features/barbers/presentation/pages/barber_portal_page.dart';
-import 'package:barberia/features/barbers/presentation/pages/barbers_page.dart';
 import 'package:barberia/features/booking/presentation/pages/booking_page.dart';
 import 'package:barberia/features/gallery/presentation/pages/gallery_page.dart';
 import 'package:barberia/features/home/presentation/pages/home_page.dart';
@@ -28,14 +28,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoginRoute = state.matchedLocation == '/login';
       final isBarberRoute = state.matchedLocation.startsWith('/barber');
       final isAdminRoute = state.matchedLocation.startsWith('/admin');
+      final isPasswordChangeRoute =
+          state.matchedLocation == '/barber/change-password';
       final isPortalRoute = isBarberRoute || isAdminRoute;
 
       // Unauthenticated user trying to reach a protected route
       if (!isAuthenticated && isPortalRoute) return '/login';
 
-      // Authenticated staff landing on /login → send to their portal
+      // Authenticated staff landing on /login -> send to their required next step
       if (isAuthenticated && isLoginRoute) {
+        if (auth.role == UserRole.barber && auth.mustChangePassword) {
+          return '/barber/change-password';
+        }
         return auth.role == UserRole.admin ? '/admin/portal' : '/barber/portal';
+      }
+
+      if (isAuthenticated &&
+          auth.role == UserRole.barber &&
+          auth.mustChangePassword &&
+          !isPasswordChangeRoute) {
+        return '/barber/change-password';
+      }
+
+      if (isAuthenticated &&
+          auth.role == UserRole.barber &&
+          !auth.mustChangePassword &&
+          isPasswordChangeRoute) {
+        return '/barber/portal';
       }
 
       // Role mismatch redirection
@@ -58,10 +77,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const CustomCutPersonalizerPage(),
       ),
       GoRoute(path: '/booking', builder: (_, __) => const BookingPage()),
-      GoRoute(path: '/barbers', builder: (_, __) => const BarbersPage()),
+      GoRoute(path: '/barbers', redirect: (_, __) => '/booking'),
       GoRoute(path: '/membership', builder: (_, __) => const MembershipPage()),
       GoRoute(path: '/services', builder: (_, __) => const ServicesPage()),
       GoRoute(path: '/login', builder: (_, __) => const StaffLoginPage()),
+      GoRoute(
+        path: '/barber/change-password',
+        builder: (_, __) => const BarberPasswordChangePage(),
+      ),
       GoRoute(
         path: '/barber/portal',
         builder: (_, __) => const BarberPortalPage(),

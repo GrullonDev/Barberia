@@ -94,6 +94,29 @@ def _parse_iso_utc(value: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _local_iso_weekday(dt_utc: datetime, tz_offset_hours: int) -> int:
+    local = dt_utc + timedelta(hours=tz_offset_hours)
+    return local.weekday() + 1
+
+
+def _local_day_window_utc(dt_utc: datetime, tz_offset_hours: int) -> tuple[datetime, datetime]:
+    local = dt_utc + timedelta(hours=tz_offset_hours)
+    local_midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_start = local_midnight - timedelta(hours=tz_offset_hours)
+    return utc_start, utc_start + timedelta(days=1)
+
+
+def _parse_local_date_to_utc(date_local: str, tz_offset_hours: int) -> datetime:
+    try:
+        y, m, d = [int(part) for part in date_local.split("-")]
+        local_midnight = datetime(y, m, d, 0, 0, 0, tzinfo=timezone.utc)
+        return local_midnight - timedelta(hours=tz_offset_hours)
+    except Exception as exc:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="Fecha local invalida.",
+        ) from exc
+
 def _format_time_12h_local(dt_utc: datetime, tz_offset_hours: int) -> str:
     """Formatea un datetime UTC como hora local de 12h, ej. '10:00 AM'.
 
@@ -142,7 +165,27 @@ def _load_barber_working_hours(
             message="Barbero no disponible.",
         )
     wh = (data.get("workingHours") or {}).get(str(iso_weekday))
-    return wh if isinstance(wh, list) else None
+    if isinstance(wh, list):
+        return wh
+
+    availability = data.get("availability") or {}
+    weekday_keys = {
+        1: "Mon",
+        2: "Tue",
+        3: "Wed",
+        4: "Thu",
+        5: "Fri",
+        6: "Sat",
+        7: "Sun",
+    }
+    availability_key = weekday_keys.get(iso_weekday)
+    if availability_key and availability.get(availability_key) is False:
+        return None
+
+    # Backfill para barberos creados antes de `workingHours`.
+    if not data.get("workingHours") and iso_weekday in (1, 2, 3, 4, 5, 6):
+        return [9, 19]
+    return None
 
 
 def _load_service(db, service_id: str) -> dict[str, Any]:
@@ -249,7 +292,9 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
 
     # Python datetime.weekday() devuelve 0..6 (lunes=0); convertimos a ISO
     # (1..7) para coincidir con Dart/Barber model.
-    wh = _load_barber_working_hours(db, barber_id, start_at.weekday() + 1)
+    wh = _load_barber_working_hours(
+        db, barber_id, _local_iso_weekday(start_at, tz_offset)
+    )
     candidate = TimeRange(start=start_at, end=end_at)
     if not is_within_working_hours(candidate, wh, tz_offset):
         raise https_fn.HttpsError(
@@ -266,9 +311,8 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
             message="Cliente bloqueado por historial de no-shows.",
         )
 
-    # Ventana de consulta de conflictos: +/- duración del día.
-    day_start = start_at.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end = day_start + timedelta(days=1)
+    # Ventana de consulta de conflictos: dia local del negocio convertido a UTC.
+    day_start, day_end = _local_day_window_utc(start_at, tz_offset)
 
     barber_snap = db.collection("users").document(barber_id).get()
     barber_name = (barber_snap.to_dict() or {}).get("name", "Barbero") if barber_snap.exists else "Barbero"
@@ -329,6 +373,8 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
                 "customerName": customer_name,
                 "customerEmail": customer_email,
                 "customerPhone": customer_phone,
+                "clientEmail": customer_email,
+                "clientPhone": customer_phone,
                 "phoneNormalized": phone_normalized,
                 "notes": notes,
                 "cancelReason": None,
@@ -355,6 +401,8 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
                 "clientName": customer_name,
                 "service": service.get("name", ""),
                 "bookingId": booking_ref.id,
+                "type": "new_booking",
+                "target": "staff",
                 "createdAt": firestore.SERVER_TIMESTAMP,
                 "read": False,
             },
@@ -389,7 +437,7 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
     _require(data, ["barberId", "dateIso", "serviceId"])
 
     barber_id: str = data["barberId"]
-    date_input: datetime = _parse_iso_utc(data["dateIso"])
+    date_input_raw: datetime = _parse_iso_utc(data["dateIso"])
     service_id: str = data["serviceId"]
 
     db = firestore.client()
@@ -399,7 +447,14 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
     slot_minutes = int(config.get("slotMinutes") or 30)
     tz_offset = int(config.get("timezoneOffsetHours", -6))
 
-    wh = _load_barber_working_hours(db, barber_id, date_input.weekday() + 1)
+    date_input = (
+        _parse_local_date_to_utc(data["dateLocal"], tz_offset)
+        if data.get("dateLocal")
+        else date_input_raw
+    )
+    wh = _load_barber_working_hours(
+        db, barber_id, _local_iso_weekday(date_input, tz_offset)
+    )
 
     candidates = generate_candidates(
         date=date_input,
@@ -409,8 +464,7 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
         business_tz_offset_hours=tz_offset,
     )
 
-    day_start = date_input.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end = day_start + timedelta(days=1)
+    day_start, day_end = _local_day_window_utc(date_input, tz_offset)
 
     bookings_q = (
         db.collection("bookings")
@@ -634,6 +688,8 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
     specialty = (data.get("specialty") or "").strip() or None
+    bio = (data.get("bio") or "").strip() or None
+    is_available = bool(data.get("isAvailable", True))
 
     if not name or not email:
         raise https_fn.HttpsError(
@@ -644,7 +700,8 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     # Generar contraseña temporal con la que el barbero hará su primer login.
     temp_password = _generate_temp_password()
 
-    # Crear cuenta de Firebase Auth con la contraseña generada.
+    # Crear cuenta Firebase Auth o re-invitar una cuenta existente con el mismo email.
+    reused_auth_user = False
     try:
         user_record = fb_auth.create_user(
             email=email,
@@ -653,10 +710,20 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             disabled=False,
         )
     except fb_auth.EmailAlreadyExistsError:
-        raise https_fn.HttpsError(
-            code=https_fn.FunctionsErrorCode.ALREADY_EXISTS,
-            message="Ya existe una cuenta con ese correo electrónico.",
-        )
+        try:
+            user_record = fb_auth.get_user_by_email(email)
+            fb_auth.update_user(
+                user_record.uid,
+                password=temp_password,
+                display_name=name,
+                disabled=False,
+            )
+            reused_auth_user = True
+        except Exception as e:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INTERNAL,
+                message=f"Error reactivando cuenta existente: {e}",
+            )
     except Exception as e:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
@@ -664,7 +731,6 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         )
 
     barber_id = user_record.uid
-
     # Nombre del negocio para el cuerpo del correo.
     config_snap = db.collection("config").document("barberia").get()
     shop_name = (
@@ -684,10 +750,12 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             "phoneNormalized": None,
             "photoUrl": None,
             "isAnonymous": False,
-            "inviteStatus": "pending",
+            "inviteStatus": "resent" if reused_auth_user else "pending",
+            "mustChangePassword": True,
             "createdAt": firestore.SERVER_TIMESTAMP,
             "specialty": specialty,
-            "isAvailable": True,
+            "bio": bio,
+            "isAvailable": is_available,
             # Horario por defecto: lunes–sábado 9–19, domingo cerrado.
             "workingHours": {str(d): [9, 19] for d in range(1, 7)},
         }
@@ -696,13 +764,20 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     # Enviar correo con credenciales vía SendGrid.
     # Si las variables de entorno no están configuradas se imprime la
     # contraseña en los logs para que el admin la entregue manualmente.
+    email_sent = True
     try:
         _send_invitation_email(email, name, shop_name, temp_password)
     except Exception as e:
+        email_sent = False
         print(f"[inviteBarber] Advertencia: no se pudo enviar correo a {email}: {e}")
         print(f"[inviteBarber] Contraseña temporal para {email}: {temp_password}")
 
-    return {"barberId": barber_id}
+    return {
+        "barberId": barber_id,
+        "reusedAuthUser": reused_auth_user,
+        "temporaryPassword": temp_password,
+        "emailSent": email_sent,
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -760,3 +835,5 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         print(f"[removeBarber] Advertencia al eliminar Auth user {barber_id}: {e}")
 
     return {"success": True}
+
+
