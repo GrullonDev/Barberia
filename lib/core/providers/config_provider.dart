@@ -1,12 +1,38 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:barberia/core/l10n/app_localizations.dart';
+import 'package:barberia/features/auth/presentation/providers/auth_provider.dart';
+
+// Shop de fallback para sesiones sin staff autenticado (la app pública de
+// reservas). Cada deploy de cliente se compila con su propio shopId:
+//   flutter build web --dart-define=SHOP_ID=nombre_del_shop
+// Si no se pasa nada, cae en "barberia" (el tenant actual/único hoy).
+const String _kFallbackShopId = String.fromEnvironment(
+  'SHOP_ID',
+  defaultValue: 'barberia',
+);
+
+/// Shop activo para esta sesión.
+///
+/// - Staff logueado (admin/barber): su propio `users/{uid}.shopId` — es la
+///   fuente de verdad real, nunca se confía en un valor compilado para
+///   staff, porque un mismo build podría en teoría autenticar contra
+///   cualquier cuenta.
+/// - Sin sesión de staff (cliente público de la app de reservas): el
+///   shopId fijado en tiempo de compilación para este deploy.
+final currentShopIdProvider = Provider<String>((ref) {
+  final auth = ref.watch(authProvider);
+  if (auth.isAuthenticated && auth.shopId != null) {
+    return auth.shopId!;
+  }
+  return _kFallbackShopId;
+});
 
 class AppConfigState {
   final String language; // 'es' or 'en'
   final String currencySymbol; // 'Q', '$', etc.
   final int timezoneOffsetHours; // ej. -6 para Guatemala. Debe coincidir
-  // con `config/barberia.timezoneOffsetHours` leído por las Cloud Functions
+  // con `shops/{shopId}.timezoneOffsetHours` leído por las Cloud Functions
   // (ver backend/functions/main.py:_load_config) para que la disponibilidad
   // mostrada en la app y la validada al reservar usen la misma hora local.
   final double monthlyTarget; // meta de ingresos mensuales del admin dashboard
@@ -29,9 +55,10 @@ class AppConfigState {
 }
 
 final appConfigStreamProvider = StreamProvider<AppConfigState>((ref) {
+  final shopId = ref.watch(currentShopIdProvider);
   return FirebaseFirestore.instance
-      .collection('config')
-      .doc('barberia')
+      .collection('shops')
+      .doc(shopId)
       .snapshots()
       .map((doc) {
         if (!doc.exists) {

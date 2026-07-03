@@ -1961,10 +1961,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
   // ─── TAB 3: SETTINGS ───────────────────────────────────────────────
   Widget _buildSettingsTab(AppConfigState config, AppLocalizations l10n) {
+    final shopId = ref.watch(currentShopIdProvider);
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('config')
-          .doc('barberia')
+          .collection('shops')
+          .doc(shopId)
           .snapshots(),
       builder: (context, configSnapshot) {
         final configData =
@@ -2139,8 +2140,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
     try {
       await FirebaseFirestore.instance
-          .collection('config')
-          .doc('barberia')
+          .collection('shops')
+          .doc(ref.read(currentShopIdProvider))
           .update({'openDays': newOpenDays});
       final String newStatus = newOpenDays[weekdayIndex]
           ? (l10n.languageCode == 'es' ? 'ABIERTO' : 'OPEN')
@@ -2316,8 +2317,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   if (newLang != null) {
                     try {
                       await FirebaseFirestore.instance
-                          .collection('config')
-                          .doc('barberia')
+                          .collection('shops')
+                          .doc(ref.read(currentShopIdProvider))
                           .update({'language': newLang});
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -2408,8 +2409,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                             if (symbol.isEmpty) return;
                             try {
                               await FirebaseFirestore.instance
-                                  .collection('config')
-                                  .doc('barberia')
+                                  .collection('shops')
+                                  .doc(ref.read(currentShopIdProvider))
                                   .update({'currencySymbol': symbol});
                               if (context.mounted) {
                                 Navigator.pop(context);
@@ -2508,8 +2509,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                             if (target == null || target < 0) return;
                             try {
                               await FirebaseFirestore.instance
-                                  .collection('config')
-                                  .doc('barberia')
+                                  .collection('shops')
+                                  .doc(ref.read(currentShopIdProvider))
                                   .update({'monthlyTarget': target});
                               if (context.mounted) {
                                 Navigator.pop(context);
@@ -3259,8 +3260,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             onPressed: () async {
               try {
                 await FirebaseFirestore.instance
-                    .collection('config')
-                    .doc('barberia')
+                    .collection('shops')
+                    .doc(ref.read(currentShopIdProvider))
                     .update({
                       'businessName': nameController.text.trim(),
                       'email': emailController.text.trim(),
@@ -3406,6 +3407,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 'extendedDescription': descController.text.trim(),
                 'isActive': true,
                 'category': 'hair',
+                'shopId': ref.read(currentShopIdProvider),
               };
 
               try {
@@ -3857,8 +3859,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               onPressed: () async {
                 try {
                   await FirebaseFirestore.instance
-                      .collection('config')
-                      .doc('barberia')
+                      .collection('shops')
+                      .doc(ref.read(currentShopIdProvider))
                       .update({
                         'openHour': localOpen,
                         'closeHour': localClose,
@@ -4055,5 +4057,3 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 }
-
-

@@ -14,6 +14,9 @@ class AuthState {
   final String? email;
   final String? displayName;
   final bool mustChangePassword;
+  // Solo poblado para role admin/barber (ver users/{uid}.shopId en
+  // Firestore) — un client no está atado a un shop fijo.
+  final String? shopId;
 
   const AuthState({
     this.isLoading = false,
@@ -23,6 +26,7 @@ class AuthState {
     this.email,
     this.displayName,
     this.mustChangePassword = false,
+    this.shopId,
   });
 
   AuthState copyWith({
@@ -33,6 +37,7 @@ class AuthState {
     String? email,
     String? displayName,
     bool? mustChangePassword,
+    String? shopId,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -42,6 +47,7 @@ class AuthState {
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
       mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      shopId: shopId ?? this.shopId,
     );
   }
 }
@@ -76,6 +82,7 @@ class AuthNotifier extends Notifier<AuthState> {
             user.displayName ??
             (doc.data()?['displayName'] ?? doc.data()?['name']) as String?,
         mustChangePassword: doc.data()?['mustChangePassword'] == true,
+        shopId: doc.data()?['shopId'] as String?,
       );
     } catch (_) {
       state = const AuthState();
@@ -118,6 +125,7 @@ class AuthNotifier extends Notifier<AuthState> {
             credential.user!.displayName ??
             (doc.data()?['displayName'] ?? doc.data()?['name']) as String?,
         mustChangePassword: doc.data()?['mustChangePassword'] == true,
+        shopId: doc.data()?['shopId'] as String?,
       );
       return true;
     } on FirebaseAuthException catch (e) {
