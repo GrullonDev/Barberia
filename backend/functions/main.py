@@ -204,8 +204,9 @@ def _load_service(db, service_id: str) -> dict[str, Any]:
     return data
 
 
-def _load_config(db) -> dict[str, Any]:
-    snap = db.collection("config").document("barberia").get()
+def _load_config(db, shop_id: str) -> dict[str, Any]:
+    """Lee shops/{shop_id} (reemplaza el antiguo config/barberia único)."""
+    snap = db.collection("shops").document(shop_id).get()
     return snap.to_dict() or {
         "slotMinutes": 30,
         "maxNoShows": 3,
@@ -279,15 +280,37 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
 
     db = firestore.client()
 
+    # El barbero se carga PRIMERO: es la única fuente de verdad del shopId
+    # de esta reserva. Nunca se acepta un shopId mandado por el cliente —
+    # eso permitiría que cualquiera reserve contra el negocio de otro
+    # tenant con solo cambiar un campo en el payload.
+    barber_snap = db.collection("users").document(barber_id).get()
+    if not barber_snap.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message=f"Barbero {barber_id} no existe.",
+        )
+    barber_data = barber_snap.to_dict() or {}
+    shop_id: str | None = barber_data.get("shopId")
+    barber_name = barber_data.get("name", "Barbero")
+
     # Lecturas previas a la transacción (seguras de cachear).
     service = _load_service(db, service_id)
+    if service.get("shopId") != shop_id:
+        # Guardia anti cross-tenant: un serviceId de otro negocio no puede
+        # reservarse contra un barbero de este, aunque el resto del
+        # payload sea válido.
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="El servicio no pertenece al negocio de este barbero.",
+        )
     duration = int(service.get("durationMinutes") or 30)
     price = float(service.get("priceCents", 0)) / 100 if service.get(
         "priceCents"
     ) is not None else float(service.get("price") or 0)
     end_at = start_at + timedelta(minutes=duration)
 
-    config = _load_config(db)
+    config = _load_config(db, shop_id)
     tz_offset = int(config.get("timezoneOffsetHours", -6))
 
     # Python datetime.weekday() devuelve 0..6 (lunes=0); convertimos a ISO
@@ -313,9 +336,6 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
 
     # Ventana de consulta de conflictos: dia local del negocio convertido a UTC.
     day_start, day_end = _local_day_window_utc(start_at, tz_offset)
-
-    barber_snap = db.collection("users").document(barber_id).get()
-    barber_name = (barber_snap.to_dict() or {}).get("name", "Barbero") if barber_snap.exists else "Barbero"
 
     booking_ref = db.collection("bookings").document()
     notification_ref = db.collection("notifications").document()
@@ -353,6 +373,7 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
         tx.set(
             booking_ref,
             {
+                "shopId": shop_id,
                 "userId": user_id,
                 "barberId": barber_id,
                 "serviceId": service_id,
@@ -391,6 +412,7 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
         tx.set(
             notification_ref,
             {
+                "shopId": shop_id,
                 "title": "Nueva Cita Solicitada",
                 "message": (
                     f"{customer_name} ha agendado {service.get('name', '')} "
@@ -441,9 +463,23 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
     service_id: str = data["serviceId"]
 
     db = firestore.client()
+
+    barber_snap = db.collection("users").document(barber_id).get()
+    if not barber_snap.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message=f"Barbero {barber_id} no existe.",
+        )
+    shop_id: str | None = (barber_snap.to_dict() or {}).get("shopId")
+
     service = _load_service(db, service_id)
+    if service.get("shopId") != shop_id:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="El servicio no pertenece al negocio de este barbero.",
+        )
     duration = int(service.get("durationMinutes") or 30)
-    config = _load_config(db)
+    config = _load_config(db, shop_id)
     slot_minutes = int(config.get("slotMinutes") or 30)
     tz_offset = int(config.get("timezoneOffsetHours", -6))
 
@@ -678,11 +714,16 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     db = firestore.client()
 
     caller = db.collection("users").document(req.auth.uid).get()
-    if not caller.exists or (caller.to_dict() or {}).get("role") != "admin":
+    caller_data = caller.to_dict() or {}
+    if not caller.exists or caller_data.get("role") != "admin":
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
             message="Solo administradores pueden invitar barberos.",
         )
+    # El barbero invitado hereda el shopId del admin que invita — nunca se
+    # acepta un shopId del payload, así un admin no puede sembrar staff en
+    # el negocio de otro tenant.
+    caller_shop_id = caller_data.get("shopId")
 
     data = req.data or {}
     name = (data.get("name") or "").strip()
@@ -731,11 +772,12 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         )
 
     barber_id = user_record.uid
-    # Nombre del negocio para el cuerpo del correo.
-    config_snap = db.collection("config").document("barberia").get()
+    # Nombre del negocio para el cuerpo del correo — del shop del admin que
+    # invita, no de un doc global (cada tenant tiene su propio nombre).
+    shop_snap = db.collection("shops").document(caller_shop_id).get() if caller_shop_id else None
     shop_name = (
-        (config_snap.to_dict() or {}).get("name", "La Barbería")
-        if config_snap.exists
+        (shop_snap.to_dict() or {}).get("name", "La Barbería")
+        if shop_snap is not None and shop_snap.exists
         else "La Barbería"
     )
 
@@ -746,6 +788,7 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             "name": name,
             "email": email,
             "role": "barber",
+            "shopId": caller_shop_id,
             "phone": None,
             "phoneNormalized": None,
             "photoUrl": None,
@@ -758,6 +801,19 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             "isAvailable": is_available,
             # Horario por defecto: lunes–sábado 9–19, domingo cerrado.
             "workingHours": {str(d): [9, 19] for d in range(1, 7)},
+        }
+    )
+
+    # Vista pública denormalizada (ver firestore.rules: users ya no es
+    # legible por anónimos) — solo los campos seguros para mostrar en el
+    # picker de barberos de la app de reservas.
+    db.collection("barber_directory").document(barber_id).set(
+        {
+            "name": name,
+            "photoUrl": None,
+            "specialty": specialty,
+            "isAvailable": is_available,
+            "shopId": caller_shop_id,
         }
     )
 
@@ -809,7 +865,8 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     db = firestore.client()
 
     caller = db.collection("users").document(req.auth.uid).get()
-    if not caller.exists or (caller.to_dict() or {}).get("role") != "admin":
+    caller_data = caller.to_dict() or {}
+    if not caller.exists or caller_data.get("role") != "admin":
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
             message="Solo administradores pueden eliminar barberos.",
@@ -822,8 +879,18 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             message="barberId es requerido.",
         )
 
-    # Borrar documento Firestore.
+    target_snap = db.collection("users").document(barber_id).get()
+    if target_snap.exists and target_snap.to_dict().get("shopId") != caller_data.get("shopId"):
+        # Un admin no puede eliminar staff de otro negocio, aunque conozca
+        # el uid (p.ej. probando IDs a mano).
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Ese barbero no pertenece a tu negocio.",
+        )
+
+    # Borrar documento Firestore y su entrada en el directorio público.
     db.collection("users").document(barber_id).delete()
+    db.collection("barber_directory").document(barber_id).delete()
 
     # Eliminar cuenta Firebase Auth (puede no existir para barberos creados
     # manualmente antes de este flujo).
