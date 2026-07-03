@@ -2621,6 +2621,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('services')
+                .where('shopId', isEqualTo: ref.watch(currentShopIdProvider))
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
