@@ -2,6 +2,7 @@ import 'package:barberia/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
 import 'package:barberia/core/providers/config_provider.dart';
@@ -90,9 +91,7 @@ class HomeFooter extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 child: _FooterLink(
                   label: l10n.get(key),
-                  onTap: key == 'staff_access'
-                      ? () => context.go('/login')
-                      : null,
+                  onTap: () => _handleFooterLink(context, key, l10n),
                 ),
               );
             }).toList(),
@@ -120,7 +119,7 @@ class HomeFooter extends ConsumerWidget {
           children: _linkKeys.map((key) {
             return _FooterLink(
               label: l10n.get(key),
-              onTap: key == 'staff_access' ? () => context.go('/login') : null,
+              onTap: () => _handleFooterLink(context, key, l10n),
             );
           }).toList(),
         ),
@@ -134,6 +133,85 @@ class HomeFooter extends ConsumerWidget {
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  Future<void> _handleFooterLink(
+    BuildContext context,
+    String key,
+    AppLocalizations l10n,
+  ) async {
+    switch (key) {
+      case 'staff_access':
+        context.go('/login');
+        return;
+      case 'contact':
+        final uri = Uri(
+          scheme: 'mailto',
+          path: 'hello@luxeandblade.com',
+          queryParameters: {
+            'subject': l10n.languageCode == 'es'
+                ? 'Consulta desde la web'
+                : 'Website inquiry',
+          },
+        );
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+          return;
+        }
+        if (!context.mounted) return;
+        _showFooterDialog(
+          context,
+          l10n.get('contact'),
+          l10n.languageCode == 'es'
+              ? 'Escribenos a hello@luxeandblade.com o reserva tu cita desde la web.'
+              : 'Email us at hello@luxeandblade.com or book your appointment online.',
+        );
+        return;
+      case 'privacy_policy':
+        _showFooterDialog(
+          context,
+          l10n.get('privacy_policy'),
+          l10n.languageCode == 'es'
+              ? 'Usamos tus datos solo para procesar reservas, confirmar citas y dar seguimiento al servicio. El acceso operativo queda limitado al personal autorizado.'
+              : 'We use your information only to process bookings, confirm appointments, and follow up on service. Operational access is limited to authorized staff.',
+        );
+        return;
+      case 'terms_of_service':
+        _showFooterDialog(
+          context,
+          l10n.get('terms_of_service'),
+          l10n.languageCode == 'es'
+              ? 'Las reservas dependen de disponibilidad real. El negocio puede confirmar, actualizar o cancelar una cita si existe conflicto operativo.'
+              : 'Bookings depend on real availability. The shop may confirm, update, or cancel an appointment if an operational conflict exists.',
+        );
+        return;
+      case 'careers':
+        _showFooterDialog(
+          context,
+          l10n.get('careers'),
+          l10n.languageCode == 'es'
+              ? 'Para oportunidades de trabajo, envia tu perfil a careers@luxeandblade.com.'
+              : 'For career opportunities, send your profile to careers@luxeandblade.com.',
+        );
+        return;
+    }
+  }
+
+  void _showFooterDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

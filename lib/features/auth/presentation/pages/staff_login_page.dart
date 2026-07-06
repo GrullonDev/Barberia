@@ -52,6 +52,12 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
     }
   }
 
+  void _clearAuthErrorIfMounted() {
+    if (mounted) {
+      ref.read(authProvider.notifier).clearError();
+    }
+  }
+
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -167,7 +173,7 @@ class _StaffLoginPageState extends ConsumerState<StaffLoginPage> {
             action: SnackBarAction(
               label: 'DISMISS',
               textColor: AppColors.onErrorContainer,
-              onPressed: () => ref.read(authProvider.notifier).clearError(),
+              onPressed: _clearAuthErrorIfMounted,
             ),
           ),
         );

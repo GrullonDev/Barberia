@@ -12,11 +12,10 @@ class HomeNavBar extends ConsumerWidget {
   final VoidCallback onMenuTap;
   final String? activePage;
 
-  static const navItems = ['Services', 'Gallery', 'Barbers', 'Membership'];
+  static const navItems = ['Services', 'Gallery', 'Membership'];
   static const navRoutes = <String, String>{
     'Services': '/services',
     'Gallery': '/gallery',
-    'Barbers': '/barbers',
     'Membership': '/membership',
   };
   static const double height = 72;

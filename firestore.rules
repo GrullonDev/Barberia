@@ -1,18 +1,31 @@
 rules_version = '2';
 
 // -----------------------------------------------------------------------------
-// Barbería — Reglas de seguridad Firestore
+// Barbería — Reglas de seguridad Firestore (multi-tenant)
 //
 // Modelo de roles:
-//   - client   → usuario final que reserva (web + móvil)
-//   - barber   → empleado; ve su agenda y citas asignadas
-//   - admin    → dueño; gestiona servicios, barberos, precios, config
+//   - client   → usuario final que reserva (web + móvil). NO tiene shopId
+//                fijo — el mismo client puede reservar en distintos shops.
+//   - barber   → empleado; ve su agenda y citas asignadas. shopId fijo.
+//   - admin    → dueño; gestiona servicios, barberos, precios, shop. shopId fijo.
+//
+// Aislamiento multi-tenant:
+//   Cada doc operativo (bookings, services, schedule_blocks, walkins,
+//   reputation, clients, notifications, admin_notifications) lleva un
+//   campo `shopId`. Staff solo puede leer/escribir docs de SU shop
+//   (helper sameShop()). El shopId de un booking se decide server-side
+//   en la Cloud Function `reserveSlot` a partir del shopId del barbero
+//   — nunca se confía en un shopId mandado por el cliente.
 //
 // Notas:
 //   - El rol NO se asigna por orden de registro. Se crea como 'client' por
 //     defecto. Admin/barber se promueven manualmente desde un admin existente.
-//   - Colecciones "futuras" (schedule_blocks, walkins, reputation, config)
-//     ya quedan definidas aquí para evitar re-deploys al activar cada fase.
+//   - `users` ya NO es legible públicamente por rol == 'barber': esa regla
+//     exponía el doc COMPLETO (email, teléfono, workingHours) de cualquier
+//     barbero de cualquier shop a cualquiera. La reemplaza
+//     `barber_directory`, una vista pública denormalizada con solo los
+//     campos seguros, escrita server-side (ver inviteBarber/removeBarber
+//     en backend/functions/main.py).
 //   - Cualquier cosa no contemplada se deniega explícitamente al final.
 // -----------------------------------------------------------------------------
 
@@ -42,26 +55,58 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // ---------- users ---------------------------------------------------------
-    match /users/{userId} {
-      allow read: if isOwnerOf(userId) || isStaff() || resource.data.role == 'barber';
+    // shopId del caller (null si no está logueado o es un client sin shop).
+    function callerShopId() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? userDoc().shopId
+        : null;
+    }
 
-      // Alta: el propio usuario y SOLO como 'client'
+    // True si el caller es staff Y pertenece al mismo shop que el recurso.
+    function sameShop(shopId) {
+      return isStaff() && callerShopId() == shopId;
+    }
+
+    // ---------- shops (reemplaza config/barberia) ------------------------------
+    match /shops/{shopId} {
+      allow read: if true;  // público: horarios/nombre/branding para la web de reservas
+      allow write: if sameShop(shopId) && isAdmin();
+    }
+
+    // ---------- barber_directory (vista pública denormalizada) -----------------
+    // Solo campos seguros (name, photoUrl, specialty, isAvailable, shopId).
+    // Escrito server-side por inviteBarber/removeBarber — el cliente nunca
+    // escribe aquí directo.
+    match /barber_directory/{barberId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---------- users -----------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isOwnerOf(userId) || sameShop(resource.data.shopId);
+
+      // Alta: el propio usuario y SOLO como 'client' (los clients no llevan
+      // shopId — ver nota arriba).
       allow create: if isOwnerOf(userId)
                     && request.resource.data.role == 'client';
 
-      // Update propio: no puede cambiarse el rol a sí mismo
+      // Update propio: no puede cambiarse el rol ni el shopId a sí mismo.
       allow update: if isOwnerOf(userId)
-                    && request.resource.data.role == resource.data.role;
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.shopId == resource.data.shopId;
 
-      // Admin puede todo (promover rol, asignar barbero, etc.)
-      allow update, delete: if isAdmin();
+      // Admin puede todo, pero solo dentro de su propio shop (crear
+      // barbero/staff, promover rol, etc.) — no puede tocar staff de otro
+      // tenant aunque conozca el uid.
+      allow create, update, delete: if isAdmin() && sameShop(request.resource.data.shopId);
     }
 
-    // ---------- services (catálogo público) -----------------------------------
+    // ---------- services (catálogo por shop) ------------------------------------
     match /services/{serviceId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read: if true;  // catálogo público
+      allow create, update: if isAdmin() && sameShop(request.resource.data.shopId);
+      allow delete: if isAdmin() && sameShop(resource.data.shopId);
     }
 
     // ---------- bookings ------------------------------------------------------
@@ -69,34 +114,24 @@ service cloud.firestore {
     // CREATE:
     //   Denegado para client/barber. La puerta normal de escritura es la
     //   Cloud Function `reserveSlot` (Admin SDK, bypasea estas reglas) que
-    //   ejecuta la transacción anti-colisión del motor de slots — un
-    //   cliente nunca puede crear un booking "a mano" saltándose esa
-    //   validación.
+    //   ejecuta la transacción anti-colisión del motor de slots Y decide el
+    //   shopId a partir del barbero — un cliente nunca puede crear un
+    //   booking "a mano" saltándose esa validación, ni inventarse un shopId.
     //   Excepción: isAdmin() SÍ puede crear directo, para el flujo de
-    //   "reserva manual / walk-in" del admin portal
-    //   (admin_portal_page.dart ~línea 3709). Es una concesión deliberada:
-    //   el admin es un rol de confianza y necesita poder registrar citas
-    //   tomadas por teléfono/en persona sin pasar por el picker de
-    //   disponibilidad. TODO: ese formulario hoy escribe campos legacy
-    //   (clientName/barberName/time) en vez del esquema v2
-    //   (userId/barberId/serviceId/startAt/endAt) — no colisiona con el
-    //   motor de slots de `reserveSlot` porque le faltan esos campos.
-    //   Migrar ese formulario a un schema v2 completo (o a su propia
-    //   Cloud Function) es un pendiente, no algo que romperá la demo.
+    //   "reserva manual / walk-in" del admin portal, siempre dentro de su
+    //   propio shop (sameShop en el shopId del payload).
     //
     // READ:
-    //   Solo el dueño autenticado (userId == auth.uid), el barbero asignado,
-    //   o staff. Un cliente NO puede listar/leer citas de otros clientes.
-    //   Nota: las reservas de invitados (`userId == 'guest'`) no son legibles
-    //   por el cliente vía SDK — eso es intencional; el cliente recibe el
-    //   `bookingId` como valor de retorno de `reserveSlot` y lo persiste
-    //   localmente (shared_preferences) si necesita re-mostrarlo.
+    //   Staff solo ve bookings de SU shop. El dueño autenticado
+    //   (userId == auth.uid) y el barbero asignado siempre pueden ver los
+    //   suyos, sin importar el shopId (ya están naturalmente acotados por
+    //   ser su propio uid).
     //
     // UPDATE:
     //   El dueño puede actualizar SOLO para cancelar (ver `_isOwnerCancelOnly`
-    //   abajo) — no puede tocar precio, horario ni barbero asignado. El
-    //   barbero asignado y staff pueden actualizar status/notes libremente.
-    //   DELETE queda solo para admin.
+    //   abajo). Staff de ese mismo shop, y el barbero asignado, pueden
+    //   actualizar status/notes libremente. DELETE queda solo para admin del
+    //   mismo shop.
     // ------------------------------------------------------------------------
     function _isOwnerCancelOnly() {
       return isOwnerOf(resource.data.userId)
@@ -106,59 +141,71 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow read: if isStaff()
+      allow read: if sameShop(resource.data.shopId)
                   || isOwnerOf(resource.data.userId)
                   || (isBarber() && resource.data.barberId == request.auth.uid);
 
-      allow create: if isAdmin();
+      allow create: if isAdmin() && sameShop(request.resource.data.shopId);
 
-      allow update: if isStaff()
+      allow update: if sameShop(resource.data.shopId)
                     || (isBarber() && resource.data.barberId == request.auth.uid)
                     || _isOwnerCancelOnly();
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && sameShop(resource.data.shopId);
     }
 
     // ---------- schedule_blocks (comida, descanso, vacaciones) ----------------
     match /schedule_blocks/{blockId} {
-      allow read: if isStaff();
-      allow create, update, delete: if isAdmin()
-        || (isBarber() && request.resource.data.barberId == request.auth.uid);
+      allow read: if sameShop(resource.data.shopId);
+      allow create, update: if sameShop(request.resource.data.shopId)
+        && (isAdmin() || (isBarber() && request.resource.data.barberId == request.auth.uid));
+      allow delete: if sameShop(resource.data.shopId)
+        && (isAdmin() || (isBarber() && resource.data.barberId == request.auth.uid));
     }
 
     // ---------- walkins (cola sin cita) ---------------------------------------
     match /walkins/{walkinId} {
-      allow read, write: if isStaff();
+      allow read, write: if sameShop(resource.data.shopId);
     }
 
     // ---------- reputation (anti no-show, key = teléfono normalizado) ---------
     match /reputation/{phone} {
-      allow read, write: if isStaff();
+      allow read, write: if sameShop(resource.data.shopId);
     }
 
-    // ---------- config (horarios, dirección, parámetros globales) -------------
-    match /config/{docId} {
-      allow read: if true;           // público para mostrar horarios en la web
-      allow write: if isAdmin();
+    // ---------- clients (notas persistentes por cliente) ----------------------
+    // clients/{key} guarda notas de visita, keyed por email normalizado en
+    // minusculas o, si no hay email, por nombre en minusculas (_clientKeyFor).
+    match /clients/{clientKey} {
+      allow read: if sameShop(resource.data.shopId);
+      // create: el doc todavía no existe (resource == null), así que solo
+      // se puede validar contra el shopId que trae el propio payload.
+      allow create: if sameShop(request.resource.data.shopId);
+      allow update: if sameShop(resource.data.shopId)
+                    && sameShop(request.resource.data.shopId);
+      allow delete: if sameShop(resource.data.shopId);
     }
 
     // ---------- admin_notifications ------------------------------------------
     match /admin_notifications/{notificationId} {
-      allow read, update, delete: if isAdmin();
+      allow read, update, delete: if sameShop(resource.data.shopId) && isAdmin();
       allow create: if isBarber()
                     && request.resource.data.type == 'barber_active'
                     && request.resource.data.barberId == request.auth.uid
+                    && request.resource.data.shopId == callerShopId()
                     && request.resource.data.read == false;
     }
 
     // ---------- notifications -------------------------------------------------
     //
     // CREATE: denegado por SDK de cliente. `reserveSlot` crea la notificación
-    // de "nueva cita" en la misma transacción del booking (Admin SDK).
-    // READ/UPDATE: solo staff (el admin/barber portal marca `read: true`).
+    // de "nueva cita" en la misma transacción del booking (Admin SDK), con
+    // el shopId ya resuelto del barbero.
+    // READ/UPDATE: solo staff del mismo shop (el admin/barber portal marca
+    // `read: true`).
     // ------------------------------------------------------------------------
     match /notifications/{notificationId} {
-      allow read, update: if isStaff();
+      allow read, update: if sameShop(resource.data.shopId);
       allow create, delete: if false;
     }
 

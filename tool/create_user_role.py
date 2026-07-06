@@ -9,7 +9,8 @@ def main():
     parser.add_argument("--email", default="luisgrullon369@gmail.com", help="Email address of the user")
     parser.add_argument("--name", default="Luis Grullón", help="Display name of the user")
     parser.add_argument("--role", default="barber", choices=["barber", "admin", "client"], help="Role to assign")
-    
+    parser.add_argument("--shop-id", default="barberia", help="shopId to assign (required for barber/admin under multi-tenant rules)")
+
     args = parser.parse_args()
     
     # Path to service account JSON
@@ -39,6 +40,14 @@ def main():
         "createdAt": firestore.SERVER_TIMESTAMP,
     }
     
+    if args.role in ("barber", "admin"):
+        # shopId es obligatorio para barber/admin bajo las reglas
+        # multi-tenant (ver firestore.rules `sameShop`) — sin él,
+        # getAvailability/reserveSlot rechazan cualquier fecha con
+        # "El servicio no pertenece al negocio de este barbero" porque
+        # el shopId del barbero (None) nunca matchea el del servicio.
+        user_data["shopId"] = args.shop_id
+
     if args.role == "barber":
         user_data.update({
             "inviteStatus": "accepted",
@@ -46,7 +55,7 @@ def main():
             "isAvailable": True,
             "workingHours": {str(d): [9, 19] for d in range(1, 7)}, # Mon-Sat 9-19
         })
-        
+
     print(f"Writing user document to Firestore collection 'users' for UID: {args.uid}...")
     try:
         user_ref.set(user_data, merge=True)

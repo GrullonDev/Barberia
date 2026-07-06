@@ -13,6 +13,11 @@ Funciones disponibles:
         la lista de horarios libres (ISO UTC) que el cliente puede pintar
         en el calendario.
 
+    - resetBarberPassword(data, context)
+        Callable. Admin-only. Genera una contraseña temporal nueva para un
+        barbero de su mismo shop y fuerza `mustChangePassword` — es el
+        mecanismo real detrás del enlace "Forgot?" del login de staff.
+
 Convenciones:
     - Todas las fechas se transportan en ISO 8601 UTC (sufijo "Z" o "+00:00").
     - El cliente manda `customerPhone` crudo; la función normaliza a E.164.
@@ -94,6 +99,40 @@ def _parse_iso_utc(value: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _local_iso_weekday(dt_utc: datetime, tz_offset_hours: int) -> int:
+    local = dt_utc + timedelta(hours=tz_offset_hours)
+    return local.weekday() + 1
+
+
+def _local_day_window_utc(dt_utc: datetime, tz_offset_hours: int) -> tuple[datetime, datetime]:
+    local = dt_utc + timedelta(hours=tz_offset_hours)
+    local_midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_start = local_midnight - timedelta(hours=tz_offset_hours)
+    return utc_start, utc_start + timedelta(days=1)
+
+
+def _parse_local_date_to_utc(date_local: str, tz_offset_hours: int) -> datetime:
+    try:
+        y, m, d = [int(part) for part in date_local.split("-")]
+        local_midnight = datetime(y, m, d, 0, 0, 0, tzinfo=timezone.utc)
+        return local_midnight - timedelta(hours=tz_offset_hours)
+    except Exception as exc:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="Fecha local invalida.",
+        ) from exc
+
+def _format_time_12h_local(dt_utc: datetime, tz_offset_hours: int) -> str:
+    """Formatea un datetime UTC como hora local de 12h, ej. '10:00 AM'.
+
+    Replica el formato que el admin/barber portal (Flutter, esquema legacy)
+    espera en el campo `time` (ver admin_portal_page.dart / barber_portal_page.dart,
+    que hacen `time.split(' ')`).
+    """
+    local = dt_utc + timedelta(hours=tz_offset_hours)
+    return local.strftime("%I:%M %p").lstrip("0")
+
+
 def _require(data: dict[str, Any], keys: list[str]) -> None:
     missing = [k for k in keys if data.get(k) in (None, "")]
     if missing:
@@ -104,7 +143,7 @@ def _require(data: dict[str, Any], keys: list[str]) -> None:
 
 
 def _load_barber_working_hours(
-    db, barber_id: str, iso_weekday: int
+    db, barber_id: str, iso_weekday: int, shop_config: dict[str, Any] | None = None
 ) -> list[int] | None:
     """Lee workingHours del barbero para el día de la semana dado.
 
@@ -131,7 +170,45 @@ def _load_barber_working_hours(
             message="Barbero no disponible.",
         )
     wh = (data.get("workingHours") or {}).get(str(iso_weekday))
-    return wh if isinstance(wh, list) else None
+    if isinstance(wh, list):
+        return wh
+
+    availability = data.get("availability") or {}
+    weekday_keys = {
+        1: "Mon",
+        2: "Tue",
+        3: "Wed",
+        4: "Thu",
+        5: "Fri",
+        6: "Sat",
+        7: "Sun",
+    }
+    availability_key = weekday_keys.get(iso_weekday)
+    if availability_key and availability.get(availability_key) is False:
+        return None
+
+    # Sin override propio del barbero: cae al horario general del negocio
+    # (shops/{shopId}.openHour/closeHour/openDays). Ese es el único horario
+    # que el admin puede editar hoy (diálogo "Horario de atención" en
+    # admin_portal_page.dart) — sin este fallback, cambiarlo no tenía
+    # ningún efecto sobre los slots reales que ve el cliente.
+    if shop_config:
+        open_days = shop_config.get("openDays")
+        if isinstance(open_days, list) and len(open_days) == 7:
+            if not open_days[iso_weekday - 1]:
+                return None
+            open_hour = shop_config.get("openHour")
+            close_hour = shop_config.get("closeHour")
+            if isinstance(open_hour, (int, float)) and isinstance(
+                close_hour, (int, float)
+            ):
+                return [int(open_hour), int(close_hour)]
+
+    # Backfill para barberos creados antes de `workingHours` y negocios sin
+    # `openDays`/`openHour`/`closeHour` configurados.
+    if not data.get("workingHours") and iso_weekday in (1, 2, 3, 4, 5, 6):
+        return [9, 19]
+    return None
 
 
 def _load_service(db, service_id: str) -> dict[str, Any]:
@@ -150,8 +227,9 @@ def _load_service(db, service_id: str) -> dict[str, Any]:
     return data
 
 
-def _load_config(db) -> dict[str, Any]:
-    snap = db.collection("config").document("barberia").get()
+def _load_config(db, shop_id: str) -> dict[str, Any]:
+    """Lee shops/{shop_id} (reemplaza el antiguo config/barberia único)."""
+    snap = db.collection("shops").document(shop_id).get()
     return snap.to_dict() or {
         "slotMinutes": 30,
         "maxNoShows": 3,
@@ -225,20 +303,44 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
 
     db = firestore.client()
 
+    # El barbero se carga PRIMERO: es la única fuente de verdad del shopId
+    # de esta reserva. Nunca se acepta un shopId mandado por el cliente —
+    # eso permitiría que cualquiera reserve contra el negocio de otro
+    # tenant con solo cambiar un campo en el payload.
+    barber_snap = db.collection("users").document(barber_id).get()
+    if not barber_snap.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message=f"Barbero {barber_id} no existe.",
+        )
+    barber_data = barber_snap.to_dict() or {}
+    shop_id: str | None = barber_data.get("shopId")
+    barber_name = barber_data.get("name", "Barbero")
+
     # Lecturas previas a la transacción (seguras de cachear).
     service = _load_service(db, service_id)
+    if service.get("shopId") != shop_id:
+        # Guardia anti cross-tenant: un serviceId de otro negocio no puede
+        # reservarse contra un barbero de este, aunque el resto del
+        # payload sea válido.
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="El servicio no pertenece al negocio de este barbero.",
+        )
     duration = int(service.get("durationMinutes") or 30)
     price = float(service.get("priceCents", 0)) / 100 if service.get(
         "priceCents"
     ) is not None else float(service.get("price") or 0)
     end_at = start_at + timedelta(minutes=duration)
 
-    config = _load_config(db)
+    config = _load_config(db, shop_id)
     tz_offset = int(config.get("timezoneOffsetHours", -6))
 
     # Python datetime.weekday() devuelve 0..6 (lunes=0); convertimos a ISO
     # (1..7) para coincidir con Dart/Barber model.
-    wh = _load_barber_working_hours(db, barber_id, start_at.weekday() + 1)
+    wh = _load_barber_working_hours(
+        db, barber_id, _local_iso_weekday(start_at, tz_offset), config
+    )
     candidate = TimeRange(start=start_at, end=end_at)
     if not is_within_working_hours(candidate, wh, tz_offset):
         raise https_fn.HttpsError(
@@ -255,12 +357,8 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
             message="Cliente bloqueado por historial de no-shows.",
         )
 
-    # Ventana de consulta de conflictos: +/- duración del día.
-    day_start = start_at.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end = day_start + timedelta(days=1)
-
-    barber_snap = db.collection("users").document(barber_id).get()
-    barber_name = (barber_snap.to_dict() or {}).get("name", "Barbero") if barber_snap.exists else "Barbero"
+    # Ventana de consulta de conflictos: dia local del negocio convertido a UTC.
+    day_start, day_end = _local_day_window_utc(start_at, tz_offset)
 
     booking_ref = db.collection("bookings").document()
     notification_ref = db.collection("notifications").document()
@@ -298,6 +396,7 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
         tx.set(
             booking_ref,
             {
+                "shopId": shop_id,
                 "userId": user_id,
                 "barberId": barber_id,
                 "serviceId": service_id,
@@ -306,12 +405,20 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
                 "servicePrice": price,
                 "startAt": start_at,
                 "endAt": end_at,
-                # Retro-compat: campos viejos que Flutter todavía lee.
+                # Retro-compat: campos viejos que el admin/barber portal
+                # (Flutter, esquema legacy) todavía leen directamente.
                 "date": start_at,
                 "status": "pending",
+                "clientName": customer_name,
+                "service": service.get("name", ""),
+                "price": price,
+                "barberName": barber_name,
+                "time": _format_time_12h_local(start_at, tz_offset),
                 "customerName": customer_name,
                 "customerEmail": customer_email,
                 "customerPhone": customer_phone,
+                "clientEmail": customer_email,
+                "clientPhone": customer_phone,
                 "phoneNormalized": phone_normalized,
                 "notes": notes,
                 "cancelReason": None,
@@ -328,6 +435,7 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
         tx.set(
             notification_ref,
             {
+                "shopId": shop_id,
                 "title": "Nueva Cita Solicitada",
                 "message": (
                     f"{customer_name} ha agendado {service.get('name', '')} "
@@ -338,6 +446,8 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
                 "clientName": customer_name,
                 "service": service.get("name", ""),
                 "bookingId": booking_ref.id,
+                "type": "new_booking",
+                "target": "staff",
                 "createdAt": firestore.SERVER_TIMESTAMP,
                 "read": False,
             },
@@ -372,17 +482,38 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
     _require(data, ["barberId", "dateIso", "serviceId"])
 
     barber_id: str = data["barberId"]
-    date_input: datetime = _parse_iso_utc(data["dateIso"])
+    date_input_raw: datetime = _parse_iso_utc(data["dateIso"])
     service_id: str = data["serviceId"]
 
     db = firestore.client()
+
+    barber_snap = db.collection("users").document(barber_id).get()
+    if not barber_snap.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message=f"Barbero {barber_id} no existe.",
+        )
+    shop_id: str | None = (barber_snap.to_dict() or {}).get("shopId")
+
     service = _load_service(db, service_id)
+    if service.get("shopId") != shop_id:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="El servicio no pertenece al negocio de este barbero.",
+        )
     duration = int(service.get("durationMinutes") or 30)
-    config = _load_config(db)
+    config = _load_config(db, shop_id)
     slot_minutes = int(config.get("slotMinutes") or 30)
     tz_offset = int(config.get("timezoneOffsetHours", -6))
 
-    wh = _load_barber_working_hours(db, barber_id, date_input.weekday() + 1)
+    date_input = (
+        _parse_local_date_to_utc(data["dateLocal"], tz_offset)
+        if data.get("dateLocal")
+        else date_input_raw
+    )
+    wh = _load_barber_working_hours(
+        db, barber_id, _local_iso_weekday(date_input, tz_offset), config
+    )
 
     candidates = generate_candidates(
         date=date_input,
@@ -392,8 +523,7 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
         business_tz_offset_hours=tz_offset,
     )
 
-    day_start = date_input.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end = day_start + timedelta(days=1)
+    day_start, day_end = _local_day_window_utc(date_input, tz_offset)
 
     bookings_q = (
         db.collection("bookings")
@@ -607,16 +737,23 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     db = firestore.client()
 
     caller = db.collection("users").document(req.auth.uid).get()
-    if not caller.exists or (caller.to_dict() or {}).get("role") != "admin":
+    caller_data = caller.to_dict() or {}
+    if not caller.exists or caller_data.get("role") != "admin":
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
             message="Solo administradores pueden invitar barberos.",
         )
+    # El barbero invitado hereda el shopId del admin que invita — nunca se
+    # acepta un shopId del payload, así un admin no puede sembrar staff en
+    # el negocio de otro tenant.
+    caller_shop_id = caller_data.get("shopId")
 
     data = req.data or {}
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
     specialty = (data.get("specialty") or "").strip() or None
+    bio = (data.get("bio") or "").strip() or None
+    is_available = bool(data.get("isAvailable", True))
 
     if not name or not email:
         raise https_fn.HttpsError(
@@ -627,7 +764,8 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     # Generar contraseña temporal con la que el barbero hará su primer login.
     temp_password = _generate_temp_password()
 
-    # Crear cuenta de Firebase Auth con la contraseña generada.
+    # Crear cuenta Firebase Auth o re-invitar una cuenta existente con el mismo email.
+    reused_auth_user = False
     try:
         user_record = fb_auth.create_user(
             email=email,
@@ -636,10 +774,20 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             disabled=False,
         )
     except fb_auth.EmailAlreadyExistsError:
-        raise https_fn.HttpsError(
-            code=https_fn.FunctionsErrorCode.ALREADY_EXISTS,
-            message="Ya existe una cuenta con ese correo electrónico.",
-        )
+        try:
+            user_record = fb_auth.get_user_by_email(email)
+            fb_auth.update_user(
+                user_record.uid,
+                password=temp_password,
+                display_name=name,
+                disabled=False,
+            )
+            reused_auth_user = True
+        except Exception as e:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INTERNAL,
+                message=f"Error reactivando cuenta existente: {e}",
+            )
     except Exception as e:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
@@ -647,12 +795,12 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         )
 
     barber_id = user_record.uid
-
-    # Nombre del negocio para el cuerpo del correo.
-    config_snap = db.collection("config").document("barberia").get()
+    # Nombre del negocio para el cuerpo del correo — del shop del admin que
+    # invita, no de un doc global (cada tenant tiene su propio nombre).
+    shop_snap = db.collection("shops").document(caller_shop_id).get() if caller_shop_id else None
     shop_name = (
-        (config_snap.to_dict() or {}).get("name", "La Barbería")
-        if config_snap.exists
+        (shop_snap.to_dict() or {}).get("name", "La Barbería")
+        if shop_snap is not None and shop_snap.exists
         else "La Barbería"
     )
 
@@ -663,29 +811,52 @@ def inviteBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             "name": name,
             "email": email,
             "role": "barber",
+            "shopId": caller_shop_id,
             "phone": None,
             "phoneNormalized": None,
             "photoUrl": None,
             "isAnonymous": False,
-            "inviteStatus": "pending",
+            "inviteStatus": "resent" if reused_auth_user else "pending",
+            "mustChangePassword": True,
             "createdAt": firestore.SERVER_TIMESTAMP,
             "specialty": specialty,
-            "isAvailable": True,
+            "bio": bio,
+            "isAvailable": is_available,
             # Horario por defecto: lunes–sábado 9–19, domingo cerrado.
             "workingHours": {str(d): [9, 19] for d in range(1, 7)},
+        }
+    )
+
+    # Vista pública denormalizada (ver firestore.rules: users ya no es
+    # legible por anónimos) — solo los campos seguros para mostrar en el
+    # picker de barberos de la app de reservas.
+    db.collection("barber_directory").document(barber_id).set(
+        {
+            "name": name,
+            "photoUrl": None,
+            "specialty": specialty,
+            "isAvailable": is_available,
+            "shopId": caller_shop_id,
         }
     )
 
     # Enviar correo con credenciales vía SendGrid.
     # Si las variables de entorno no están configuradas se imprime la
     # contraseña en los logs para que el admin la entregue manualmente.
+    email_sent = True
     try:
         _send_invitation_email(email, name, shop_name, temp_password)
     except Exception as e:
+        email_sent = False
         print(f"[inviteBarber] Advertencia: no se pudo enviar correo a {email}: {e}")
         print(f"[inviteBarber] Contraseña temporal para {email}: {temp_password}")
 
-    return {"barberId": barber_id}
+    return {
+        "barberId": barber_id,
+        "reusedAuthUser": reused_auth_user,
+        "temporaryPassword": temp_password,
+        "emailSent": email_sent,
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -717,7 +888,8 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
     db = firestore.client()
 
     caller = db.collection("users").document(req.auth.uid).get()
-    if not caller.exists or (caller.to_dict() or {}).get("role") != "admin":
+    caller_data = caller.to_dict() or {}
+    if not caller.exists or caller_data.get("role") != "admin":
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
             message="Solo administradores pueden eliminar barberos.",
@@ -730,8 +902,18 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
             message="barberId es requerido.",
         )
 
-    # Borrar documento Firestore.
+    target_snap = db.collection("users").document(barber_id).get()
+    if target_snap.exists and target_snap.to_dict().get("shopId") != caller_data.get("shopId"):
+        # Un admin no puede eliminar staff de otro negocio, aunque conozca
+        # el uid (p.ej. probando IDs a mano).
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Ese barbero no pertenece a tu negocio.",
+        )
+
+    # Borrar documento Firestore y su entrada en el directorio público.
     db.collection("users").document(barber_id).delete()
+    db.collection("barber_directory").document(barber_id).delete()
 
     # Eliminar cuenta Firebase Auth (puede no existir para barberos creados
     # manualmente antes de este flujo).
@@ -743,3 +925,208 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         print(f"[removeBarber] Advertencia al eliminar Auth user {barber_id}: {e}")
 
     return {"success": True}
+
+
+# -----------------------------------------------------------------------------
+# resetBarberPassword
+# -----------------------------------------------------------------------------
+
+
+def _send_password_reset_email(
+    to_email: str,
+    barber_name: str,
+    shop_name: str,
+    temp_password: str,
+) -> None:
+    """Envía correo con una contraseña temporal nueva vía SendGrid.
+
+    Mismas variables de entorno que `_send_invitation_email`.
+    """
+    import sendgrid as sg_module
+    from sendgrid.helpers.mail import Mail
+
+    api_key = os.environ.get("SENDGRID_API_KEY", "")
+    from_email = os.environ.get("SENDGRID_FROM_EMAIL", "")
+    from_name = os.environ.get("SENDGRID_FROM_NAME", shop_name)
+
+    if not api_key or not from_email:
+        raise ValueError(
+            "SENDGRID_API_KEY y SENDGRID_FROM_EMAIL son requeridos en las "
+            "variables de entorno."
+        )
+
+    plain = (
+        f"Hola {barber_name},\n\n"
+        f"Un administrador de {shop_name} restableció tu contraseña.\n\n"
+        f"Tu nueva contraseña temporal es:\n"
+        f"  {temp_password}\n\n"
+        f"Ingresa a la aplicación con esta contraseña; se te pedirá "
+        f"cambiarla en tu próximo inicio de sesión.\n\n"
+        f"Si no esperabas este cambio, contacta a tu administrador de inmediato."
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px">
+    <table width="480" cellpadding="0" cellspacing="0"
+           style="background:#fff;border-radius:12px;overflow:hidden;
+                  box-shadow:0 2px 8px rgba(0,0,0,.08)">
+      <tr><td style="background:#f59e0b;padding:28px 32px">
+        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700">
+          Contraseña restablecida
+        </h1>
+      </td></tr>
+      <tr><td style="padding:32px">
+        <p style="margin:0 0 16px;color:#111;font-size:15px">
+          Hola <strong>{barber_name}</strong>,
+        </p>
+        <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6">
+          Un administrador de <strong>{shop_name}</strong> restableció tu
+          contraseña. Esta es tu nueva contraseña temporal:
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0"
+               style="background:#fffbeb;border:1px solid #fde68a;
+                      border-radius:8px;margin-bottom:24px">
+          <tr><td style="padding:20px 24px">
+            <p style="margin:0;color:#111;font-size:15px">
+              <span style="color:#6b7280">Contraseña:</span>&nbsp;
+              <strong style="font-family:monospace;font-size:16px;
+                             letter-spacing:.08em">{temp_password}</strong>
+            </p>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.6">
+          Se te pedirá cambiarla en tu próximo inicio de sesión.
+          <br>
+          <span style="color:#6b7280">
+            Si no esperabas este cambio, contacta a tu administrador de inmediato.
+          </span>
+        </p>
+      </td></tr>
+      <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">
+        <p style="margin:0;color:#9ca3af;font-size:12px">
+          Este correo fue generado por una acción de un administrador de {shop_name}.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+    message = Mail(
+        from_email=(from_email, from_name),
+        to_emails=to_email,
+        subject=f"{shop_name} — Tu contraseña fue restablecida",
+        plain_text_content=plain,
+        html_content=html,
+    )
+
+    client = sg_module.SendGridAPIClient(api_key)
+    response = client.send(message)
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"SendGrid error {response.status_code}: {response.body}"
+        )
+
+
+@https_fn.on_call()
+def resetBarberPassword(req: https_fn.CallableRequest) -> dict[str, Any]:
+    """Restablece la contraseña de un barbero (rotación forzada por admin).
+
+    Por seguridad (barbero olvidó su contraseña, o rotación periódica), el
+    admin puede forzar una nueva contraseña temporal sin depender de un
+    flujo de "forgot password" por correo del propio barbero — hoy esa
+    pantalla solo muestra un mensaje pidiendo contactar al admin (ver
+    `staff_login_page.dart`), así que esta función ES ese mecanismo.
+
+    Input:
+        barberId: str
+
+    Output:
+        { temporaryPassword: str, emailSent: bool }
+
+    Errores:
+        unauthenticated   → el llamador no tiene sesión
+        permission-denied → el llamador no es admin, o el barbero no
+                             pertenece a su shop
+        not-found         → el barbero no existe
+        invalid-argument  → barberId vacío
+    """
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="Se requiere autenticación.",
+        )
+
+    db = firestore.client()
+
+    caller = db.collection("users").document(req.auth.uid).get()
+    caller_data = caller.to_dict() or {}
+    if not caller.exists or caller_data.get("role") != "admin":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Solo administradores pueden restablecer contraseñas.",
+        )
+
+    barber_id = (req.data or {}).get("barberId", "").strip()
+    if not barber_id:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="barberId es requerido.",
+        )
+
+    target_ref = db.collection("users").document(barber_id)
+    target_snap = target_ref.get()
+    if not target_snap.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message=f"Barbero {barber_id} no existe.",
+        )
+    target_data = target_snap.to_dict() or {}
+    if target_data.get("shopId") != caller_data.get("shopId"):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Ese barbero no pertenece a tu negocio.",
+        )
+    if target_data.get("role") != "barber":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Solo se puede restablecer la contraseña de barberos.",
+        )
+
+    temp_password = _generate_temp_password()
+    fb_auth.update_user(barber_id, password=temp_password)
+    target_ref.update({"mustChangePassword": True})
+
+    caller_shop_id = caller_data.get("shopId")
+    shop_snap = (
+        db.collection("shops").document(caller_shop_id).get()
+        if caller_shop_id
+        else None
+    )
+    shop_name = (
+        (shop_snap.to_dict() or {}).get("name", "La Barbería")
+        if shop_snap is not None and shop_snap.exists
+        else "La Barbería"
+    )
+
+    email = target_data.get("email")
+    email_sent = True
+    if email:
+        try:
+            _send_password_reset_email(
+                email, target_data.get("name", "Barbero"), shop_name, temp_password
+            )
+        except Exception as e:
+            email_sent = False
+            print(f"[resetBarberPassword] Advertencia: no se pudo enviar correo a {email}: {e}")
+            print(f"[resetBarberPassword] Contraseña temporal para {email}: {temp_password}")
+    else:
+        email_sent = False
+
+    return {"temporaryPassword": temp_password, "emailSent": email_sent}
+
+

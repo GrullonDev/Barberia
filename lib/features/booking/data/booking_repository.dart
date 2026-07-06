@@ -51,15 +51,20 @@ class BookingRepository {
   }) async {
     try {
       final callable = _functions.httpsCallable('getAvailability');
-      final result = await callable.call<Map<String, dynamic>>(<String, dynamic>{
-        'barberId': barberId,
-        'dateIso': date.toUtc().toIso8601String(),
-        'serviceId': serviceId,
-      });
+      final result = await callable
+          .call<Map<String, dynamic>>(<String, dynamic>{
+            'barberId': barberId,
+            'dateIso': date.toUtc().toIso8601String(),
+            'dateLocal': _formatDateOnly(date),
+            'serviceId': serviceId,
+          });
       final slots = (result.data['slots'] as List).cast<String>();
       return slots.map((s) => DateTime.parse(s)).toList();
     } on FirebaseFunctionsException catch (e) {
-      throw BookingException(e.code, e.message ?? 'No se pudo cargar la disponibilidad.');
+      throw BookingException(
+        e.code,
+        e.message ?? 'No se pudo cargar la disponibilidad.',
+      );
     }
   }
 
@@ -78,27 +83,42 @@ class BookingRepository {
   }) async {
     try {
       final callable = _functions.httpsCallable('reserveSlot');
-      final result = await callable.call<Map<String, dynamic>>(<String, dynamic>{
-        'barberId': barberId,
-        'serviceId': serviceId,
-        'startAtIso': startAt.toUtc().toIso8601String(),
-        'customerName': customerName,
-        if (customerPhone != null) 'customerPhone': customerPhone,
-        if (customerEmail != null) 'customerEmail': customerEmail,
-        if (notes != null) 'notes': notes,
-        if (userId != null) 'userId': userId,
-      });
+      final result = await callable
+          .call<Map<String, dynamic>>(<String, dynamic>{
+            'barberId': barberId,
+            'serviceId': serviceId,
+            'startAtIso': startAt.toUtc().toIso8601String(),
+            'customerName': customerName,
+            if (customerPhone != null) 'customerPhone': customerPhone,
+            if (customerEmail != null) 'customerEmail': customerEmail,
+            if (notes != null) 'notes': notes,
+            if (userId != null) 'userId': userId,
+          });
       final data = result.data;
       return ReservationResult(
         bookingId: data['bookingId'] as String,
         endAt: DateTime.parse(data['endAtIso'] as String),
       );
     } on FirebaseFunctionsException catch (e) {
-      throw BookingException(e.code, e.message ?? 'No se pudo completar la reserva.');
+      throw BookingException(
+        e.code,
+        e.message ?? 'No se pudo completar la reserva.',
+      );
     }
   }
 }
 
+String _formatDateOnly(DateTime date) {
+  final local = DateTime(date.year, date.month, date.day);
+  final y = local.year.toString().padLeft(4, '0');
+  final m = local.month.toString().padLeft(2, '0');
+  final d = local.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
+}
+
 final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
-  return BookingRepository(FirebaseFunctions.instance, FirebaseFirestore.instance);
+  return BookingRepository(
+    FirebaseFunctions.instance,
+    FirebaseFirestore.instance,
+  );
 });

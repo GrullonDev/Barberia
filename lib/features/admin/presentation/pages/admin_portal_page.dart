@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +23,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   int _currentTabIndex = 0;
   String _bookingFilter = 'All'; // 'All', 'Today', 'Pending'
 
+  StreamSubscription<QuerySnapshot>? _notificationCountSubscription;
   StreamSubscription<QuerySnapshot>? _notificationSubscription;
   int _unreadNotificationsCount = 0;
   final DateTime _pageOpenTime = DateTime.now();
@@ -33,14 +36,18 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
   @override
   void dispose() {
+    _notificationCountSubscription?.cancel();
     _notificationSubscription?.cancel();
     super.dispose();
   }
 
   void _listenToNotifications() {
+    final shopId = ref.read(currentShopIdProvider);
+
     // Read initial unread notifications count
-    FirebaseFirestore.instance
+    _notificationCountSubscription = FirebaseFirestore.instance
         .collection('notifications')
+        .where('shopId', isEqualTo: shopId)
         .where('read', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
@@ -49,11 +56,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               _unreadNotificationsCount = snapshot.docs.length;
             });
           }
-        });
+        }, onError: (_) {});
 
     // Listen to new notifications for in-app SnackBars (created after page opened)
     _notificationSubscription = FirebaseFirestore.instance
         .collection('notifications')
+        .where('shopId', isEqualTo: shopId)
         .orderBy('createdAt', descending: true)
         .limit(1)
         .snapshots()
@@ -310,15 +318,22 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     AppConfigState config,
     AppLocalizations l10n,
   ) {
+    final shopId = ref.watch(currentShopIdProvider);
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('bookings').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('bookings')
+          .where('shopId', isEqualTo: shopId)
+          .snapshots(),
       builder: (context, bookingsSnapshot) {
         final totalBookings = bookingsSnapshot.data?.docs ?? [];
 
-        // Compute earnings based on finished bookings today
-        double todayEarnings = 0.0;
+        // Compute earnings per calendar day from completed/finished bookings,
+        // so today's total, last week's same weekday, the monthly total and
+        // the 7-day trend chart all derive from the same real data.
         final now = DateTime.now();
         final startOfToday = DateTime(now.year, now.month, now.day);
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final earningsByDay = <DateTime, double>{};
 
         for (var doc in totalBookings) {
           final data = doc.data() as Map<String, dynamic>;
@@ -326,21 +341,32 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           final price = (data['price'] as num?)?.toDouble() ?? 0.0;
           final dateVal = data['date'];
 
-          if (status.toUpperCase() == 'COMPLETED' ||
-              status.toUpperCase() == 'FINISHED') {
-            if (dateVal is Timestamp) {
-              final date = dateVal.toDate();
-              if (date.isAfter(startOfToday)) {
-                todayEarnings += price;
-              }
-            }
+          if ((status.toUpperCase() == 'COMPLETED' ||
+                  status.toUpperCase() == 'FINISHED') &&
+              dateVal is Timestamp) {
+            final date = dateVal.toDate();
+            final day = DateTime(date.year, date.month, date.day);
+            earningsByDay[day] = (earningsByDay[day] ?? 0) + price;
           }
         }
 
-        // Fallback placeholder values if no bookings exist in Firestore yet
-        if (totalBookings.isEmpty) {
-          todayEarnings = 1240.0; // matching screenshot $1,240
-        }
+        final todayEarnings = earningsByDay[startOfToday] ?? 0.0;
+        final lastWeekSameDayEarnings =
+            earningsByDay[startOfToday.subtract(const Duration(days: 7))] ??
+            0.0;
+        final String earningsBadge = lastWeekSameDayEarnings > 0
+            ? '${todayEarnings >= lastWeekSameDayEarnings ? '+' : ''}${(((todayEarnings - lastWeekSameDayEarnings) / lastWeekSameDayEarnings) * 100).toStringAsFixed(0)}%'
+            : (todayEarnings > 0 ? '+100%' : '—');
+
+        double monthEarnings = 0.0;
+        earningsByDay.forEach((day, value) {
+          if (!day.isBefore(startOfMonth)) {
+            monthEarnings += value;
+          }
+        });
+        final monthlyProgress = config.monthlyTarget > 0
+            ? (monthEarnings / config.monthlyTarget).clamp(0.0, 1.0)
+            : 0.0;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -379,7 +405,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       label: l10n.get('today_earnings'),
                       value:
                           '${config.currencySymbol}${todayEarnings.toStringAsFixed(0)}',
-                      badge: '+12%',
+                      badge: earningsBadge,
                       badgeColor: const Color(
                         0xFFE9C349,
                       ).withValues(alpha: 0.15),
@@ -391,8 +417,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     child: _buildDashboardCard(
                       icon: Icons.track_changes_outlined,
                       label: l10n.get('monthly_target').toUpperCase(),
-                      value: '${config.currencySymbol}22.5k',
-                      badge: '84%',
+                      value: config.monthlyTarget > 0
+                          ? '${config.currencySymbol}${_formatCompactAmount(config.monthlyTarget)}'
+                          : '—',
+                      badge: config.monthlyTarget > 0
+                          ? '${(monthlyProgress * 100).toStringAsFixed(0)}%'
+                          : '—',
                       badgeColor: Colors.white.withValues(alpha: 0.08),
                       badgeTextColor: Colors.white70,
                     ),
@@ -402,7 +432,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               const SizedBox(height: AppSpacing.lg),
 
               // Sales Trend Chart Card
-              _buildSalesTrendCard(l10n),
+              _buildSalesTrendCard(earningsByDay, l10n),
               const SizedBox(height: AppSpacing.xl),
 
               // Next Appointment Section
@@ -525,7 +555,50 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  Widget _buildSalesTrendCard(AppLocalizations l10n) {
+  static const List<String> _weekdayAbbrevEs = [
+    'LUN',
+    'MAR',
+    'MIÉ',
+    'JUE',
+    'VIE',
+    'SÁB',
+    'DOM',
+  ];
+  static const List<String> _weekdayAbbrevEn = [
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN',
+  ];
+
+  String _formatCompactAmount(double value) {
+    if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return value.toStringAsFixed(0);
+  }
+
+  Widget _buildSalesTrendCard(
+    Map<DateTime, double> earningsByDay,
+    AppLocalizations l10n,
+  ) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final last7Days = List.generate(
+      7,
+      (i) => startOfToday.subtract(Duration(days: 6 - i)),
+    );
+    final dailyValues = last7Days
+        .map((day) => earningsByDay[day] ?? 0.0)
+        .toList();
+    final maxValue = dailyValues.fold<double>(0, (max, v) => v > max ? v : max);
+    final abbrevs = l10n.languageCode == 'es'
+        ? _weekdayAbbrevEs
+        : _weekdayAbbrevEn;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -556,8 +629,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   ),
                   Text(
                     l10n.languageCode == 'es'
-                        ? 'Últimos 7 Días Hábiles'
-                        : 'Last 7 Business Days',
+                        ? 'Últimos 7 Días'
+                        : 'Last 7 Days',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
@@ -579,15 +652,18 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildChartBar('MON', 0.25, false),
-                _buildChartBar('TUE', 0.45, false),
-                _buildChartBar('WED', 0.38, false),
-                _buildChartBar('THU', 0.60, false),
-                _buildChartBar('FRI', 0.52, true),
-                _buildChartBar('SAT', 0.42, false),
-                _buildChartBar('SUN', 0.75, true),
-              ],
+              children: List.generate(7, (i) {
+                final day = last7Days[i];
+                final weekdayLabel = abbrevs[day.weekday - 1];
+                final heightFactor = maxValue > 0
+                    ? (dailyValues[i] / maxValue).clamp(0.04, 1.0)
+                    : 0.04;
+                return _buildChartBar(
+                  weekdayLabel,
+                  heightFactor,
+                  day == startOfToday,
+                );
+              }),
             ),
           ),
         ],
@@ -638,7 +714,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     List<QueryDocumentSnapshot> bookings,
     AppLocalizations l10n,
   ) {
-    // Attempt to find the next booking in Firestore. If none exist, display a beautiful placeholder.
+    // Find the next confirmed/pending booking in Firestore.
     Map<String, dynamic>? nextBooking;
     for (var doc in bookings) {
       final data = doc.data() as Map<String, dynamic>;
@@ -650,18 +726,31 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       }
     }
 
-    final String time = nextBooking != null
-        ? (nextBooking['time'] as String? ?? '10:00 AM')
-        : '10:00 AM';
-    final String client = nextBooking != null
-        ? (nextBooking['clientName'] as String? ?? 'Julian Rossi')
-        : 'Julian Rossi';
-    final String service = nextBooking != null
-        ? (nextBooking['service'] as String? ?? 'Royal Shave & Hot Towel')
-        : 'Royal Shave & Hot Towel';
-    final String barberName = nextBooking != null
-        ? (nextBooking['barberName'] as String? ?? 'Marco V.')
-        : 'Marco V.';
+    if (nextBooking == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: AppRadius.borderRadiusLg,
+          border: Border.all(
+            color: AppColors.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Text(
+          l10n.get('no_upcoming_booking'),
+          style: GoogleFonts.hankenGrotesk(
+            color: AppColors.onSurfaceVariant,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    final String time = nextBooking['time'] as String? ?? '--:--';
+    final String client = nextBooking['clientName'] as String? ?? 'No Name';
+    final String service = nextBooking['service'] as String? ?? 'No Service';
+    final String barberName =
+        nextBooking['barberName'] as String? ?? 'Unassigned';
 
     return Container(
       decoration: BoxDecoration(
@@ -780,9 +869,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   Widget _buildOnDutyBarbersList(AppLocalizations l10n) {
+    final shopId = ref.watch(currentShopIdProvider);
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
+          .where('shopId', isEqualTo: shopId)
           .where('role', isEqualTo: 'barber')
           .snapshots(),
       builder: (context, snapshot) {
@@ -988,6 +1079,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('bookings')
+                .where('shopId', isEqualTo: ref.watch(currentShopIdProvider))
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1455,31 +1547,38 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? 'Nuestros Barberos'
-                        : 'Our Barbers',
-                    style: GoogleFonts.playfairDisplay(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.languageCode == 'es'
+                          ? 'Nuestros Barberos'
+                          : 'Our Barbers',
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.languageCode == 'es'
-                        ? 'Gestión de Personal'
-                        : 'Staff Management',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 13,
-                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.languageCode == 'es'
+                          ? 'Gestión de Personal'
+                          : 'Staff Management',
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        color: AppColors.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () =>
                     _showAddEditBarberDialog(context, l10n, null, null),
@@ -1503,6 +1602,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
+                .where('shopId', isEqualTo: ref.watch(currentShopIdProvider))
                 .where('role', isEqualTo: 'barber')
                 .snapshots(),
             builder: (context, snapshot) {
@@ -1845,7 +1945,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
     if (confirm == true) {
       try {
-        await FirebaseFirestore.instance.collection('users').doc(id).delete();
+        await FirebaseFunctions.instance.httpsCallable('removeBarber').call(
+          <String, dynamic>{'barberId': id},
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1871,10 +1973,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
   // ─── TAB 3: SETTINGS ───────────────────────────────────────────────
   Widget _buildSettingsTab(AppConfigState config, AppLocalizations l10n) {
+    final shopId = ref.watch(currentShopIdProvider);
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('config')
-          .doc('barberia')
+          .collection('shops')
+          .doc(shopId)
           .snapshots(),
       builder: (context, configSnapshot) {
         final configData =
@@ -1998,29 +2101,34 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                valueText,
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isActive ? AppColors.secondary : Colors.white60,
+                const SizedBox(height: 2),
+                Text(
+                  valueText,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? AppColors.secondary : Colors.white60,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Switch(
             value: isActive,
             activeThumbColor: AppColors.secondary,
@@ -2044,8 +2152,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
     try {
       await FirebaseFirestore.instance
-          .collection('config')
-          .doc('barberia')
+          .collection('shops')
+          .doc(ref.read(currentShopIdProvider))
           .update({'openDays': newOpenDays});
       final String newStatus = newOpenDays[weekdayIndex]
           ? (l10n.languageCode == 'es' ? 'ABIERTO' : 'OPEN')
@@ -2139,6 +2247,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   ) {
     final String currentLanguage = configData['language'] ?? 'es';
     final String currentCurrency = configData['currencySymbol'] ?? 'Q';
+    final double currentMonthlyTarget =
+        (configData['monthlyTarget'] as num?)?.toDouble() ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2219,8 +2329,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                   if (newLang != null) {
                     try {
                       await FirebaseFirestore.instance
-                          .collection('config')
-                          .doc('barberia')
+                          .collection('shops')
+                          .doc(ref.read(currentShopIdProvider))
                           .update({'language': newLang});
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -2311,8 +2421,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                             if (symbol.isEmpty) return;
                             try {
                               await FirebaseFirestore.instance
-                                  .collection('config')
-                                  .doc('barberia')
+                                  .collection('shops')
+                                  .doc(ref.read(currentShopIdProvider))
                                   .update({'currencySymbol': symbol});
                               if (context.mounted) {
                                 Navigator.pop(context);
@@ -2325,6 +2435,103 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                                     ),
                                   ),
                                   // duration: const Duration(seconds: 2),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            }
+                          },
+                          child: Text(l10n.get('save')),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.get('monthly_target').toUpperCase(),
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentMonthlyTarget > 0
+                        ? '$currentCurrency${currentMonthlyTarget.toStringAsFixed(0)}'
+                        : '—',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.secondary,
+                ),
+                onPressed: () {
+                  final targetController = TextEditingController(
+                    text: currentMonthlyTarget > 0
+                        ? currentMonthlyTarget.toStringAsFixed(0)
+                        : '',
+                  );
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(l10n.get('edit_monthly_target')),
+                      content: TextField(
+                        controller: targetController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText:
+                              '${l10n.get('monthly_target_label')} ($currentCurrency)',
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(l10n.get('cancel')),
+                        ),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final target = double.tryParse(
+                              targetController.text.trim(),
+                            );
+                            if (target == null || target < 0) return;
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('shops')
+                                  .doc(ref.read(currentShopIdProvider))
+                                  .update({'monthlyTarget': target});
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      l10n.get('monthly_target_updated'),
+                                    ),
+                                  ),
                                 );
                               }
                             } catch (e) {
@@ -2426,6 +2633,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('services')
+                .where('shopId', isEqualTo: ref.watch(currentShopIdProvider))
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -2804,6 +3012,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('notifications')
+                      .where(
+                        'shopId',
+                        isEqualTo: ref.read(currentShopIdProvider),
+                      )
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -2973,6 +3185,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       final batch = FirebaseFirestore.instance.batch();
                       final snapshot = await FirebaseFirestore.instance
                           .collection('notifications')
+                          .where(
+                            'shopId',
+                            isEqualTo: ref.read(currentShopIdProvider),
+                          )
                           .get();
                       for (var doc in snapshot.docs) {
                         batch.delete(doc.reference);
@@ -3065,8 +3281,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             onPressed: () async {
               try {
                 await FirebaseFirestore.instance
-                    .collection('config')
-                    .doc('barberia')
+                    .collection('shops')
+                    .doc(ref.read(currentShopIdProvider))
                     .update({
                       'businessName': nameController.text.trim(),
                       'email': emailController.text.trim(),
@@ -3212,6 +3428,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 'extendedDescription': descController.text.trim(),
                 'isActive': true,
                 'category': 'hair',
+                'shopId': ref.read(currentShopIdProvider),
               };
 
               try {
@@ -3270,6 +3487,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
     final emailController = TextEditingController(text: barber?['email'] ?? '');
     bool isAvailable = barber?['isAvailable'] ?? true;
+    String? errorText;
+    final rootMessenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -3344,6 +3563,64 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     ),
                   ],
                 ),
+                if (isEdit) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.lock_reset, size: 18),
+                      label: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Restablecer contraseña'
+                            : 'Reset password',
+                      ),
+                      onPressed: () async {
+                        try {
+                          final result = await FirebaseFunctions.instance
+                              .httpsCallable('resetBarberPassword')
+                              .call(<String, dynamic>{'barberId': barberId});
+                          final data = Map<String, dynamic>.from(
+                            result.data as Map,
+                          );
+                          if (context.mounted) {
+                            _showTemporaryPasswordDialog(
+                              context,
+                              l10n,
+                              emailController.text.trim().toLowerCase(),
+                              data['temporaryPassword'] as String? ?? '',
+                              data['emailSent'] == true,
+                              false,
+                            );
+                          }
+                        } catch (e) {
+                          setStateBuilder(() {
+                            errorText = l10n.languageCode == 'es'
+                                ? 'Error: no se pudo restablecer la contraseña. $e'
+                                : 'Error: could not reset password. $e';
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+                if (errorText != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.borderRadiusMd,
+                      border: Border.all(
+                        color: Colors.redAccent.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      errorText!,
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -3356,15 +3633,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               onPressed: () async {
                 if (nameController.text.isEmpty ||
                     (!isEdit && emailController.text.isEmpty)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        l10n.languageCode == 'es'
-                            ? 'Por favor completa los campos requeridos.'
-                            : 'Please fill required fields.',
-                      ),
-                    ),
-                  );
+                  setStateBuilder(() {
+                    errorText = l10n.languageCode == 'es'
+                        ? 'Por favor completa los campos requeridos.'
+                        : 'Please fill required fields.';
+                  });
                   return;
                 }
 
@@ -3380,54 +3653,154 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                           'isAvailable': isAvailable,
                         });
                   } else {
-                    // Create direct barber user doc in Firestore (normally handles via Auth invitation,
-                    // here we create a dummy document in users collection)
-                    final String uid = FirebaseFirestore.instance
-                        .collection('users')
-                        .doc()
-                        .id;
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(uid)
-                        .set({
-                          'id': uid,
+                    final result = await FirebaseFunctions.instance
+                        .httpsCallable('inviteBarber')
+                        .call(<String, dynamic>{
                           'name': nameController.text.trim(),
                           'email': emailController.text.trim().toLowerCase(),
-                          'role': 'barber',
                           'specialty': specialtyController.text.trim(),
                           'bio': bioController.text.trim(),
                           'isAvailable': isAvailable,
-                          'createdAt': FieldValue.serverTimestamp(),
-                          'isAnonymous': false,
-                          'inviteStatus': 'accepted',
                         });
+                    final data = Map<String, dynamic>.from(result.data as Map);
+                    if (context.mounted) {
+                      _showTemporaryPasswordDialog(
+                        context,
+                        l10n,
+                        emailController.text.trim().toLowerCase(),
+                        data['temporaryPassword'] as String? ?? '',
+                        data['emailSent'] == true,
+                        data['reusedAuthUser'] == true,
+                      );
+                    }
                   }
                   if (context.mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    if (!isEdit) return;
+                    rootMessenger.showSnackBar(
                       SnackBar(
+                        backgroundColor: Colors.green.shade600,
                         content: Text(
                           isEdit
                               ? (l10n.languageCode == 'es'
                                     ? 'Perfil actualizado.'
                                     : 'Profile updated.')
                               : (l10n.languageCode == 'es'
-                                    ? 'Barbero agregado exitosamente.'
+                                    ? 'Barbero invitado exitosamente. Revisa el correo o los logs de Functions si SendGrid no esta configurado.'
                                     : 'Barber added successfully.'),
                         ),
                       ),
                     );
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  setStateBuilder(() {
+                    errorText = l10n.languageCode == 'es'
+                        ? 'Error: no se pudo guardar el barbero. $e'
+                        : 'Error: could not save barber. $e';
+                  });
                 }
               },
               child: Text(l10n.get('save')),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showTemporaryPasswordDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+    String email,
+    String temporaryPassword,
+    bool emailSent,
+    bool reusedAuthUser,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          l10n.languageCode == 'es'
+              ? 'Credenciales temporales'
+              : 'Temporary credentials',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.languageCode == 'es'
+                  ? 'Comparte esta contrasena con el barbero. Al iniciar sesion se le pedira cambiarla.'
+                  : 'Share this password with the barber. They will be required to change it on first login.',
+            ),
+            const SizedBox(height: 12),
+            SelectableText('Correo: $email'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: AppRadius.borderRadiusMd,
+                border: Border.all(color: AppColors.secondary),
+              ),
+              child: SelectableText(
+                temporaryPassword,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.4,
+                  color: AppColors.secondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              emailSent
+                  ? (l10n.languageCode == 'es'
+                        ? 'Tambien se intento enviar por correo.'
+                        : 'An email invitation was also attempted.')
+                  : (l10n.languageCode == 'es'
+                        ? 'No se pudo enviar correo automaticamente. Usa el boton copiar.'
+                        : 'Automatic email was not sent. Use copy instead.'),
+              style: AppTextStyles.bodyMd.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+            if (reusedAuthUser) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.languageCode == 'es'
+                    ? 'Este correo ya existia; se genero una nueva contrasena temporal.'
+                    : 'This email already existed; a new temporary password was generated.',
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppColors.secondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(
+                  text:
+                      'Correo: $email\nContrasena temporal: $temporaryPassword',
+                ),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Credenciales copiadas.')),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: Text(l10n.languageCode == 'es' ? 'COPIAR' : 'COPY'),
+          ),
+        ],
       ),
     );
   }
@@ -3547,8 +3920,8 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               onPressed: () async {
                 try {
                   await FirebaseFirestore.instance
-                      .collection('config')
-                      .doc('barberia')
+                      .collection('shops')
+                      .doc(ref.read(currentShopIdProvider))
                       .update({
                         'openHour': localOpen,
                         'closeHour': localClose,
@@ -3599,6 +3972,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       builder: (context) => StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
+            .where('shopId', isEqualTo: ref.read(currentShopIdProvider))
             .where('role', isEqualTo: 'barber')
             .snapshots(),
         builder: (context, barberSnapshot) {
@@ -3709,6 +4083,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       await FirebaseFirestore.instance
                           .collection('bookings')
                           .add({
+                            'shopId': ref.read(currentShopIdProvider),
                             'clientName': clientController.text.trim(),
                             'service': serviceController.text.trim(),
                             'price': price,
