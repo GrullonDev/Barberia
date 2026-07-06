@@ -290,6 +290,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     final authState = ref.read(authProvider);
     final barberName = authState.displayName ?? 'Julian Vance';
     final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
+    final shopId = ref.read(currentShopIdProvider);
 
     // Listen to current barber user document for live settings details
     if (currentBarberUid != null) {
@@ -328,6 +329,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     // 1. Listen to bookings
     _bookingsSubscription = FirebaseFirestore.instance
         .collection('bookings')
+        .where('shopId', isEqualTo: shopId)
         .snapshots()
         .listen((snapshot) {
           final List<Map<String, dynamic>> firestoreBookings = [];
@@ -385,6 +387,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     // 2. Listen to notifications count
     FirebaseFirestore.instance
         .collection('notifications')
+        .where('shopId', isEqualTo: shopId)
         .where('read', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
@@ -409,6 +412,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     // 3. Listen to new notifications for in-app alert SnackBars
     _notificationsSubscription = FirebaseFirestore.instance
         .collection('notifications')
+        .where('shopId', isEqualTo: shopId)
         .orderBy('createdAt', descending: true)
         .limit(1)
         .snapshots()
@@ -1835,6 +1839,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   Widget _buildScheduleBlocksSection(AppLocalizations l10n) {
     final barberUid = FirebaseAuth.instance.currentUser?.uid;
+    final shopId = ref.read(currentShopIdProvider);
     final isSpanish = l10n.languageCode == 'es';
 
     if (barberUid == null) {
@@ -1879,6 +1884,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('schedule_blocks')
+                .where('shopId', isEqualTo: shopId)
                 .where('barberId', isEqualTo: barberUid)
                 .snapshots(),
             builder: (context, snapshot) {
@@ -2194,6 +2200,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   await FirebaseFirestore.instance
                       .collection('schedule_blocks')
                       .add({
+                        'shopId': ref.read(currentShopIdProvider),
                         'barberId': barberUid,
                         'type': reason,
                         'reason': reason,
@@ -3213,6 +3220,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     .collection('clients')
                     .doc(clientKey)
                     .set({
+                      'shopId': ref.read(currentShopIdProvider),
                       'name': clientName,
                       'email': clientEmail,
                       'phone': clientPhone,
@@ -4665,6 +4673,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     final authState = ref.read(authProvider);
     final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
     final barberName = authState.displayName ?? 'Julian Vance';
+    final shopId = ref.read(currentShopIdProvider);
 
     showDialog(
       context: context,
@@ -4705,6 +4714,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('notifications')
+                      .where('shopId', isEqualTo: shopId)
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {

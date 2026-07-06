@@ -177,7 +177,13 @@ service cloud.firestore {
     // clients/{key} guarda notas de visita, keyed por email normalizado en
     // minusculas o, si no hay email, por nombre en minusculas (_clientKeyFor).
     match /clients/{clientKey} {
-      allow read, write: if sameShop(resource.data.shopId);
+      allow read: if sameShop(resource.data.shopId);
+      // create: el doc todavía no existe (resource == null), así que solo
+      // se puede validar contra el shopId que trae el propio payload.
+      allow create: if sameShop(request.resource.data.shopId);
+      allow update: if sameShop(resource.data.shopId)
+                    && sameShop(request.resource.data.shopId);
+      allow delete: if sameShop(resource.data.shopId);
     }
 
     // ---------- admin_notifications ------------------------------------------

@@ -13,14 +13,35 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+// Rutas del flujo público de reservas (cliente). Es lo único que existe en
+// el bundle Web: el staff (admin/barber) jamás inicia sesión desde la web,
+// gestiona todo desde la app móvil. `currentShopIdProvider` resuelve el
+// shop activo a partir del SHOP_ID compilado ya que en Web `auth` nunca
+// está autenticado.
+final _clientRoutes = <RouteBase>[
+  GoRoute(path: '/', builder: (_, __) => const HomePage()),
+  GoRoute(path: '/gallery', builder: (_, __) => const GalleryPage()),
+  GoRoute(
+    path: '/personalizer',
+    builder: (_, __) => const CustomCutPersonalizerPage(),
+  ),
+  GoRoute(path: '/booking', builder: (_, __) => const BookingPage()),
+  GoRoute(path: '/barbers', redirect: (_, __) => '/booking'),
+  GoRoute(path: '/membership', builder: (_, __) => const MembershipPage()),
+  GoRoute(path: '/services', builder: (_, __) => const ServicesPage()),
+];
+
 final appRouterProvider = Provider<GoRouter>((ref) {
+  if (kIsWeb) {
+    return GoRouter(initialLocation: '/', routes: _clientRoutes);
+  }
+
   final auth = ref.watch(authProvider);
 
   return GoRouter(
     initialLocation:
-        (!kIsWeb &&
-            (defaultTargetPlatform == TargetPlatform.iOS ||
-                defaultTargetPlatform == TargetPlatform.android))
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android)
         ? '/login'
         : '/',
     redirect: (context, state) {
@@ -70,16 +91,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (_, __) => const HomePage()),
-      GoRoute(path: '/gallery', builder: (_, __) => const GalleryPage()),
-      GoRoute(
-        path: '/personalizer',
-        builder: (_, __) => const CustomCutPersonalizerPage(),
-      ),
-      GoRoute(path: '/booking', builder: (_, __) => const BookingPage()),
-      GoRoute(path: '/barbers', redirect: (_, __) => '/booking'),
-      GoRoute(path: '/membership', builder: (_, __) => const MembershipPage()),
-      GoRoute(path: '/services', builder: (_, __) => const ServicesPage()),
+      ..._clientRoutes,
       GoRoute(path: '/login', builder: (_, __) => const StaffLoginPage()),
       GoRoute(
         path: '/barber/change-password',

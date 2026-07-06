@@ -81,9 +81,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   Future<void> _fetchBarbers() async {
     try {
+      // Clientes públicos (sin sesión de staff) no pueden leer `users`
+      // (ver firestore.rules) — se usa `barber_directory`, la vista
+      // denormalizada de solo campos seguros que escribe inviteBarber.
       final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('role', isEqualTo: 'barber')
+          .collection('barber_directory')
+          .where('shopId', isEqualTo: ref.read(currentShopIdProvider))
           .get();
 
       if (snapshot.docs.isNotEmpty) {
@@ -95,7 +98,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               'name': data['name'] ?? 'Barber',
               'specialty': data['specialty'] ?? 'Estilo & Corte',
               'tag': data['isAvailable'] == false ? 'IN SESSION' : 'ELITE',
-              'image': data['image'] ?? 'assets/images/barber_julian_vance.png',
+              'image':
+                  data['photoUrl'] ?? 'assets/images/barber_julian_vance.png',
               'rating': '4.9',
               'reviews': '100+ reseñas',
             };

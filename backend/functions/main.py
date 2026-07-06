@@ -13,6 +13,11 @@ Funciones disponibles:
         la lista de horarios libres (ISO UTC) que el cliente puede pintar
         en el calendario.
 
+    - resetBarberPassword(data, context)
+        Callable. Admin-only. Genera una contraseña temporal nueva para un
+        barbero de su mismo shop y fuerza `mustChangePassword` — es el
+        mecanismo real detrás del enlace "Forgot?" del login de staff.
+
 Convenciones:
     - Todas las fechas se transportan en ISO 8601 UTC (sufijo "Z" o "+00:00").
     - El cliente manda `customerPhone` crudo; la función normaliza a E.164.
@@ -138,7 +143,7 @@ def _require(data: dict[str, Any], keys: list[str]) -> None:
 
 
 def _load_barber_working_hours(
-    db, barber_id: str, iso_weekday: int
+    db, barber_id: str, iso_weekday: int, shop_config: dict[str, Any] | None = None
 ) -> list[int] | None:
     """Lee workingHours del barbero para el día de la semana dado.
 
@@ -182,7 +187,25 @@ def _load_barber_working_hours(
     if availability_key and availability.get(availability_key) is False:
         return None
 
-    # Backfill para barberos creados antes de `workingHours`.
+    # Sin override propio del barbero: cae al horario general del negocio
+    # (shops/{shopId}.openHour/closeHour/openDays). Ese es el único horario
+    # que el admin puede editar hoy (diálogo "Horario de atención" en
+    # admin_portal_page.dart) — sin este fallback, cambiarlo no tenía
+    # ningún efecto sobre los slots reales que ve el cliente.
+    if shop_config:
+        open_days = shop_config.get("openDays")
+        if isinstance(open_days, list) and len(open_days) == 7:
+            if not open_days[iso_weekday - 1]:
+                return None
+            open_hour = shop_config.get("openHour")
+            close_hour = shop_config.get("closeHour")
+            if isinstance(open_hour, (int, float)) and isinstance(
+                close_hour, (int, float)
+            ):
+                return [int(open_hour), int(close_hour)]
+
+    # Backfill para barberos creados antes de `workingHours` y negocios sin
+    # `openDays`/`openHour`/`closeHour` configurados.
     if not data.get("workingHours") and iso_weekday in (1, 2, 3, 4, 5, 6):
         return [9, 19]
     return None
@@ -316,7 +339,7 @@ def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
     # Python datetime.weekday() devuelve 0..6 (lunes=0); convertimos a ISO
     # (1..7) para coincidir con Dart/Barber model.
     wh = _load_barber_working_hours(
-        db, barber_id, _local_iso_weekday(start_at, tz_offset)
+        db, barber_id, _local_iso_weekday(start_at, tz_offset), config
     )
     candidate = TimeRange(start=start_at, end=end_at)
     if not is_within_working_hours(candidate, wh, tz_offset):
@@ -489,7 +512,7 @@ def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
         else date_input_raw
     )
     wh = _load_barber_working_hours(
-        db, barber_id, _local_iso_weekday(date_input, tz_offset)
+        db, barber_id, _local_iso_weekday(date_input, tz_offset), config
     )
 
     candidates = generate_candidates(
@@ -902,5 +925,208 @@ def removeBarber(req: https_fn.CallableRequest) -> dict[str, Any]:
         print(f"[removeBarber] Advertencia al eliminar Auth user {barber_id}: {e}")
 
     return {"success": True}
+
+
+# -----------------------------------------------------------------------------
+# resetBarberPassword
+# -----------------------------------------------------------------------------
+
+
+def _send_password_reset_email(
+    to_email: str,
+    barber_name: str,
+    shop_name: str,
+    temp_password: str,
+) -> None:
+    """Envía correo con una contraseña temporal nueva vía SendGrid.
+
+    Mismas variables de entorno que `_send_invitation_email`.
+    """
+    import sendgrid as sg_module
+    from sendgrid.helpers.mail import Mail
+
+    api_key = os.environ.get("SENDGRID_API_KEY", "")
+    from_email = os.environ.get("SENDGRID_FROM_EMAIL", "")
+    from_name = os.environ.get("SENDGRID_FROM_NAME", shop_name)
+
+    if not api_key or not from_email:
+        raise ValueError(
+            "SENDGRID_API_KEY y SENDGRID_FROM_EMAIL son requeridos en las "
+            "variables de entorno."
+        )
+
+    plain = (
+        f"Hola {barber_name},\n\n"
+        f"Un administrador de {shop_name} restableció tu contraseña.\n\n"
+        f"Tu nueva contraseña temporal es:\n"
+        f"  {temp_password}\n\n"
+        f"Ingresa a la aplicación con esta contraseña; se te pedirá "
+        f"cambiarla en tu próximo inicio de sesión.\n\n"
+        f"Si no esperabas este cambio, contacta a tu administrador de inmediato."
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px">
+    <table width="480" cellpadding="0" cellspacing="0"
+           style="background:#fff;border-radius:12px;overflow:hidden;
+                  box-shadow:0 2px 8px rgba(0,0,0,.08)">
+      <tr><td style="background:#f59e0b;padding:28px 32px">
+        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700">
+          Contraseña restablecida
+        </h1>
+      </td></tr>
+      <tr><td style="padding:32px">
+        <p style="margin:0 0 16px;color:#111;font-size:15px">
+          Hola <strong>{barber_name}</strong>,
+        </p>
+        <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6">
+          Un administrador de <strong>{shop_name}</strong> restableció tu
+          contraseña. Esta es tu nueva contraseña temporal:
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0"
+               style="background:#fffbeb;border:1px solid #fde68a;
+                      border-radius:8px;margin-bottom:24px">
+          <tr><td style="padding:20px 24px">
+            <p style="margin:0;color:#111;font-size:15px">
+              <span style="color:#6b7280">Contraseña:</span>&nbsp;
+              <strong style="font-family:monospace;font-size:16px;
+                             letter-spacing:.08em">{temp_password}</strong>
+            </p>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.6">
+          Se te pedirá cambiarla en tu próximo inicio de sesión.
+          <br>
+          <span style="color:#6b7280">
+            Si no esperabas este cambio, contacta a tu administrador de inmediato.
+          </span>
+        </p>
+      </td></tr>
+      <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">
+        <p style="margin:0;color:#9ca3af;font-size:12px">
+          Este correo fue generado por una acción de un administrador de {shop_name}.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+    message = Mail(
+        from_email=(from_email, from_name),
+        to_emails=to_email,
+        subject=f"{shop_name} — Tu contraseña fue restablecida",
+        plain_text_content=plain,
+        html_content=html,
+    )
+
+    client = sg_module.SendGridAPIClient(api_key)
+    response = client.send(message)
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"SendGrid error {response.status_code}: {response.body}"
+        )
+
+
+@https_fn.on_call()
+def resetBarberPassword(req: https_fn.CallableRequest) -> dict[str, Any]:
+    """Restablece la contraseña de un barbero (rotación forzada por admin).
+
+    Por seguridad (barbero olvidó su contraseña, o rotación periódica), el
+    admin puede forzar una nueva contraseña temporal sin depender de un
+    flujo de "forgot password" por correo del propio barbero — hoy esa
+    pantalla solo muestra un mensaje pidiendo contactar al admin (ver
+    `staff_login_page.dart`), así que esta función ES ese mecanismo.
+
+    Input:
+        barberId: str
+
+    Output:
+        { temporaryPassword: str, emailSent: bool }
+
+    Errores:
+        unauthenticated   → el llamador no tiene sesión
+        permission-denied → el llamador no es admin, o el barbero no
+                             pertenece a su shop
+        not-found         → el barbero no existe
+        invalid-argument  → barberId vacío
+    """
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="Se requiere autenticación.",
+        )
+
+    db = firestore.client()
+
+    caller = db.collection("users").document(req.auth.uid).get()
+    caller_data = caller.to_dict() or {}
+    if not caller.exists or caller_data.get("role") != "admin":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Solo administradores pueden restablecer contraseñas.",
+        )
+
+    barber_id = (req.data or {}).get("barberId", "").strip()
+    if not barber_id:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="barberId es requerido.",
+        )
+
+    target_ref = db.collection("users").document(barber_id)
+    target_snap = target_ref.get()
+    if not target_snap.exists:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message=f"Barbero {barber_id} no existe.",
+        )
+    target_data = target_snap.to_dict() or {}
+    if target_data.get("shopId") != caller_data.get("shopId"):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Ese barbero no pertenece a tu negocio.",
+        )
+    if target_data.get("role") != "barber":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Solo se puede restablecer la contraseña de barberos.",
+        )
+
+    temp_password = _generate_temp_password()
+    fb_auth.update_user(barber_id, password=temp_password)
+    target_ref.update({"mustChangePassword": True})
+
+    caller_shop_id = caller_data.get("shopId")
+    shop_snap = (
+        db.collection("shops").document(caller_shop_id).get()
+        if caller_shop_id
+        else None
+    )
+    shop_name = (
+        (shop_snap.to_dict() or {}).get("name", "La Barbería")
+        if shop_snap is not None and shop_snap.exists
+        else "La Barbería"
+    )
+
+    email = target_data.get("email")
+    email_sent = True
+    if email:
+        try:
+            _send_password_reset_email(
+                email, target_data.get("name", "Barbero"), shop_name, temp_password
+            )
+        except Exception as e:
+            email_sent = False
+            print(f"[resetBarberPassword] Advertencia: no se pudo enviar correo a {email}: {e}")
+            print(f"[resetBarberPassword] Contraseña temporal para {email}: {temp_password}")
+    else:
+        email_sent = False
+
+    return {"temporaryPassword": temp_password, "emailSent": email_sent}
 
 

@@ -42,9 +42,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   void _listenToNotifications() {
+    final shopId = ref.read(currentShopIdProvider);
+
     // Read initial unread notifications count
     _notificationCountSubscription = FirebaseFirestore.instance
         .collection('notifications')
+        .where('shopId', isEqualTo: shopId)
         .where('read', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
@@ -58,6 +61,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     // Listen to new notifications for in-app SnackBars (created after page opened)
     _notificationSubscription = FirebaseFirestore.instance
         .collection('notifications')
+        .where('shopId', isEqualTo: shopId)
         .orderBy('createdAt', descending: true)
         .limit(1)
         .snapshots()
@@ -314,8 +318,12 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     AppConfigState config,
     AppLocalizations l10n,
   ) {
+    final shopId = ref.watch(currentShopIdProvider);
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('bookings').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('bookings')
+          .where('shopId', isEqualTo: shopId)
+          .snapshots(),
       builder: (context, bookingsSnapshot) {
         final totalBookings = bookingsSnapshot.data?.docs ?? [];
 
@@ -861,9 +869,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   }
 
   Widget _buildOnDutyBarbersList(AppLocalizations l10n) {
+    final shopId = ref.watch(currentShopIdProvider);
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
+          .where('shopId', isEqualTo: shopId)
           .where('role', isEqualTo: 'barber')
           .snapshots(),
       builder: (context, snapshot) {
@@ -1069,6 +1079,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('bookings')
+                .where('shopId', isEqualTo: ref.watch(currentShopIdProvider))
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1591,6 +1602,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
+                .where('shopId', isEqualTo: ref.watch(currentShopIdProvider))
                 .where('role', isEqualTo: 'barber')
                 .snapshots(),
             builder: (context, snapshot) {
@@ -3000,6 +3012,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('notifications')
+                      .where(
+                        'shopId',
+                        isEqualTo: ref.read(currentShopIdProvider),
+                      )
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -3169,6 +3185,10 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       final batch = FirebaseFirestore.instance.batch();
                       final snapshot = await FirebaseFirestore.instance
                           .collection('notifications')
+                          .where(
+                            'shopId',
+                            isEqualTo: ref.read(currentShopIdProvider),
+                          )
                           .get();
                       for (var doc in snapshot.docs) {
                         batch.delete(doc.reference);
@@ -3543,6 +3563,46 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                     ),
                   ],
                 ),
+                if (isEdit) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.lock_reset, size: 18),
+                      label: Text(
+                        l10n.languageCode == 'es'
+                            ? 'Restablecer contraseña'
+                            : 'Reset password',
+                      ),
+                      onPressed: () async {
+                        try {
+                          final result = await FirebaseFunctions.instance
+                              .httpsCallable('resetBarberPassword')
+                              .call(<String, dynamic>{'barberId': barberId});
+                          final data = Map<String, dynamic>.from(
+                            result.data as Map,
+                          );
+                          if (context.mounted) {
+                            _showTemporaryPasswordDialog(
+                              context,
+                              l10n,
+                              emailController.text.trim().toLowerCase(),
+                              data['temporaryPassword'] as String? ?? '',
+                              data['emailSent'] == true,
+                              false,
+                            );
+                          }
+                        } catch (e) {
+                          setStateBuilder(() {
+                            errorText = l10n.languageCode == 'es'
+                                ? 'Error: no se pudo restablecer la contraseña. $e'
+                                : 'Error: could not reset password. $e';
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
                 if (errorText != null) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -3912,6 +3972,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       builder: (context) => StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
+            .where('shopId', isEqualTo: ref.read(currentShopIdProvider))
             .where('role', isEqualTo: 'barber')
             .snapshots(),
         builder: (context, barberSnapshot) {
@@ -4022,6 +4083,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       await FirebaseFirestore.instance
                           .collection('bookings')
                           .add({
+                            'shopId': ref.read(currentShopIdProvider),
                             'clientName': clientController.text.trim(),
                             'service': serviceController.text.trim(),
                             'price': price,
