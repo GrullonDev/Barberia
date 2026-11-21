@@ -11,6 +11,7 @@ class PlatformCapabilities {
   const PlatformCapabilities({
     required this.staffPortalsEnabled,
     required this.initialLocation,
+    required this.crashReportingSupported,
   });
 
   /// Resolves capabilities for the running platform.
@@ -26,6 +27,8 @@ class PlatformCapabilities {
       return PlatformCapabilities(
         staffPortalsEnabled: webStaffPortals,
         initialLocation: '/',
+        // Crashlytics has no web SDK.
+        crashReportingSupported: false,
       );
     }
     final isMobile =
@@ -34,6 +37,9 @@ class PlatformCapabilities {
       staffPortalsEnabled: true,
       // On phones the app is the staff tool, so it opens on staff login.
       initialLocation: isMobile ? '/login' : '/',
+      // Crashlytics only ships for Android/iOS (no Windows/Linux, and macOS
+      // is not a target we release).
+      crashReportingSupported: isMobile,
     );
   }
 
@@ -47,4 +53,7 @@ class PlatformCapabilities {
 
   /// First route shown when the app starts.
   final String initialLocation;
+
+  /// Whether Firebase Crashlytics is available and should be initialised.
+  final bool crashReportingSupported;
 }

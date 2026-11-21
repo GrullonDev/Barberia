@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:barberia/core/observability/crash_reporting.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,6 +67,7 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> _onAuthChanged(User? user) async {
     if (user == null) {
       state = const AuthState();
+      await CrashReporting.setUser(uid: null);
       return;
     }
     state = state.copyWith(isLoading: true);
@@ -84,7 +86,19 @@ class AuthNotifier extends Notifier<AuthState> {
         mustChangePassword: doc.data()?['mustChangePassword'] == true,
         shopId: doc.data()?['shopId'] as String?,
       );
-    } catch (_) {
+      await CrashReporting.setUser(
+        uid: user.uid,
+        role: state.role?.name,
+        shopId: state.shopId,
+      );
+    } catch (e, st) {
+      // Failing to load the profile signs the staff member out of the UI;
+      // report it so we can tell real outages from wrong credentials.
+      await CrashReporting.recordNonFatal(
+        e,
+        st,
+        reason: 'auth: failed to load users/{uid} profile',
+      );
       state = const AuthState();
     }
   }
@@ -134,7 +148,12 @@ class AuthNotifier extends Notifier<AuthState> {
         errorMessage: _errorMessage(e.code),
       );
       return false;
-    } catch (e) {
+    } catch (e, st) {
+      await CrashReporting.recordNonFatal(
+        e,
+        st,
+        reason: 'auth: unexpected login error',
+      );
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'An unexpected error occurred: ${e.toString()}',

@@ -121,6 +121,15 @@ El backend en `backend/functions` expone:
 
 Las reglas de Firestore estan en `firestore.rules`. El modelo de seguridad distingue clientes, barberos y administradores. Nota importante: actualmente las reglas permiten lectura/escritura abierta en `bookings` y `notifications`; conviene cerrarlas antes de produccion si la app publica queda expuesta.
 
+## Reporte de Errores (Crashlytics)
+
+En Android/iOS los errores no capturados (framework y async) se envian a Firebase Crashlytics. En web/desktop el modulo es un no-op.
+
+- En builds debug la recoleccion esta apagada. Para probarla: `flutter run --dart-define=CRASHLYTICS_IN_DEBUG=true`.
+- Errores manejados relevantes se reportan con `CrashReporting.recordNonFatal(...)`.
+- Solo se adjuntan `uid`, `role` y `shopId` del staff; nunca email, telefono ni nombres.
+- iOS: para stack traces legibles hay que subir los dSYM (ejecutar `flutterfire configure` en macOS, que agrega la fase de build).
+
 ## Requisitos
 
 - Flutter estable compatible con Dart `^3.11.5`.

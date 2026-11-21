@@ -74,8 +74,13 @@ desarrollador pueda clonar, compilar y probar.
 - [x] Tests Flutter base (capacidades por plataforma, utilidades).
 - [x] Centralizar capacidades por plataforma (`PlatformCapabilities`).
 - [x] CI en GitHub Actions: `flutter analyze`, `flutter test`, `pytest`.
-- [ ] Captura global de errores (`FlutterError.onError` /
-      `PlatformDispatcher.onError`) + Firebase Crashlytics en móvil.
+- [x] Captura global de errores (`FlutterError.onError` /
+      `PlatformDispatcher.onError`) + Firebase Crashlytics en móvil
+      (`lib/core/observability/crash_reporting.dart`).
+- [ ] Crashlytics iOS: agregar la fase de build que sube los dSYM
+      (`flutterfire configure` en macOS) para ver stack traces simbolizados.
+- [ ] Activar Crashlytics en la consola de Firebase y verificar un crash de prueba
+      en Android e iOS.
 - [ ] Firma de release Android con keystore propio (fuera del repo).
 - [ ] Extraer de los portales los repositorios de datos (bookings, barberos,
       servicios, notificaciones) a `features/*/data/` con providers Riverpod

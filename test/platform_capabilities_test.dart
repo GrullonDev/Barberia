@@ -12,6 +12,7 @@ void main() {
       );
       expect(caps.staffPortalsEnabled, isFalse);
       expect(caps.initialLocation, '/');
+      expect(caps.crashReportingSupported, isFalse);
     });
 
     test('web staff portals can be enabled for a pilot build', () {
@@ -32,6 +33,7 @@ void main() {
         );
         expect(caps.staffPortalsEnabled, isTrue);
         expect(caps.initialLocation, '/login');
+        expect(caps.crashReportingSupported, isTrue);
       });
     }
 
@@ -42,6 +44,7 @@ void main() {
       );
       expect(caps.staffPortalsEnabled, isTrue);
       expect(caps.initialLocation, '/');
+      expect(caps.crashReportingSupported, isFalse);
     });
   });
 }
