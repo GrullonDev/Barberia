@@ -2,6 +2,12 @@
 
 Aplicacion Flutter multiplataforma para una barberia premium. El proyecto combina un sitio publico de marca, flujo de reserva de citas, autenticacion para personal y portales operativos para administradores y barberos.
 
+## Direccion del Producto
+
+El producto evoluciona hacia un **sistema web** como plataforma principal (mayor estabilidad: un solo despliegue, rollback inmediato, sin tiendas ni fragmentacion de dispositivos). **La app movil se mantiene** y, por ahora, **la prioridad es estabilizarla**, ya que hoy es el canal del staff. Ver la hoja de ruta completa en [`docs/ESTRATEGIA_PLATAFORMAS.md`](docs/ESTRATEGIA_PLATAFORMAS.md).
+
+Que puede hacer cada plataforma se define en un solo lugar: `lib/core/platform/platform_capabilities.dart`. Para un build piloto de web con portales de staff: `flutter build web --dart-define=WEB_STAFF_PORTALS=true`.
+
 ## Funcionalidades Principales
 
 - Sitio publico con Home, Servicios, Galeria, Barberos, Membresias y Personalizador de corte.
@@ -141,9 +147,10 @@ Analisis y pruebas:
 ```bash
 fvm flutter analyze
 fvm flutter test
+cd backend/functions && python -m pytest tests
 ```
 
-La carpeta `test/` no contiene pruebas relevantes actualmente.
+La CI (`.github/workflows/ci.yml`) ejecuta estos mismos pasos en cada push y PR.
 
 ## Firebase Local
 
@@ -201,18 +208,14 @@ Revisar cada script antes de ejecutarlo, especialmente los de migracion o escrit
 ## Estado y Riesgos Detectados
 
 - El README anterior describia una version mas antigua del proyecto; esta version documenta la estructura actual.
-- Hay dos entradas de app (`lib/app_first.dart` y `lib/app/app.dart`), pero `main.dart` usa `app_first.dart`.
-- Tambien hay dos routers (`lib/core/router/app_router.dart` y `lib/app/router.dart`); el router activo es `core/router/app_router.dart`.
-- La UI de reserva actual crea reservas directamente en Firestore, mientras el backend ya ofrece `reserveSlot` para evitar colisiones. Un siguiente paso tecnico seria conectar la UI a esa function.
 - Varios textos del codigo muestran mojibake en comentarios/strings leidos desde archivos; revisar codificacion UTF-8 si se normaliza contenido.
-- `.env` contiene configuracion de Firebase y ubicacion; no agregar secretos privados reales al repositorio.
+- `.env` ya no se empaqueta como asset (no se usaba y rompia el build en un clon limpio); no agregar secretos al repositorio.
 
 ## Proximos Pasos Recomendados
 
-- Conectar `BookingPage` a `getAvailability` y `reserveSlot`.
 - Endurecer reglas de `bookings` y `notifications`.
 - Consolidar routers y entrada de app para evitar confusion.
-- Agregar pruebas unitarias para `slot_engine.py` y pruebas Flutter para auth/routing/reserva.
+- Agregar pruebas Flutter para auth/routing/reserva (`slot_engine.py` ya tiene tests).
 - Documentar esquema definitivo de Firestore con ejemplos de documentos.
 - Revisar configuracion de Hosting para publicar `build/web`.
 

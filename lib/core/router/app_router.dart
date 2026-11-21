@@ -9,15 +9,15 @@ import 'package:barberia/features/home/presentation/pages/home_page.dart';
 import 'package:barberia/features/membership/presentation/pages/membership_page.dart';
 import 'package:barberia/features/personalizer/presentation/pages/custom_cut_personalizer_page.dart';
 import 'package:barberia/features/services/presentation/pages/services_page.dart';
-import 'package:flutter/foundation.dart';
+import 'package:barberia/core/platform/platform_capabilities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// Rutas del flujo público de reservas (cliente). Es lo único que existe en
-// el bundle Web: el staff (admin/barber) jamás inicia sesión desde la web,
-// gestiona todo desde la app móvil. `currentShopIdProvider` resuelve el
-// shop activo a partir del SHOP_ID compilado ya que en Web `auth` nunca
-// está autenticado.
+// Rutas del flujo público de reservas (cliente). Mientras los portales de
+// staff no estén habilitados en web (ver PlatformCapabilities y
+// docs/ESTRATEGIA_PLATAFORMAS.md), es lo único que existe en el bundle Web.
+// `currentShopIdProvider` resuelve el shop activo a partir del SHOP_ID
+// compilado cuando no hay staff autenticado.
 final _clientRoutes = <RouteBase>[
   GoRoute(path: '/', builder: (_, __) => const HomePage()),
   GoRoute(path: '/gallery', builder: (_, __) => const GalleryPage()),
@@ -31,19 +31,23 @@ final _clientRoutes = <RouteBase>[
   GoRoute(path: '/services', builder: (_, __) => const ServicesPage()),
 ];
 
+final platformCapabilitiesProvider = Provider<PlatformCapabilities>(
+  (_) => PlatformCapabilities.current,
+);
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  if (kIsWeb) {
-    return GoRouter(initialLocation: '/', routes: _clientRoutes);
+  final capabilities = ref.watch(platformCapabilitiesProvider);
+  if (!capabilities.staffPortalsEnabled) {
+    return GoRouter(
+      initialLocation: capabilities.initialLocation,
+      routes: _clientRoutes,
+    );
   }
 
   final auth = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation:
-        (defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.android)
-        ? '/login'
-        : '/',
+    initialLocation: capabilities.initialLocation,
     redirect: (context, state) {
       final isAuthenticated = auth.isAuthenticated;
       final isLoginRoute = state.matchedLocation == '/login';

@@ -84,3 +84,11 @@ analyzer:
     avoid_classes_with_only_static_members: ignore
     use_build_context_synchronously: ignore
     always_put_control_body_on_new_line: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
