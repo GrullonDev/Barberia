@@ -1,4 +1,5 @@
 import 'package:barberia/core/providers/staff_booking.dart';
+import 'package:barberia/features/booking/data/booking_repository.dart';
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,7 +28,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   double _servicesEarnings = 395.00;
   double _tipsEarnings = 87.50;
   int _completedServices = 8;
-  String _selectedDay = 'FRI 27';
+  // Business-local calendar day shown in the schedule (null = today).
+  DateTime? _selectedScheduleDay;
   String _earningsFilter = 'Today';
   String _clientSearchQuery = '';
   String _barberNameFromDb = '';
@@ -228,14 +230,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     'Sun',
   ];
 
-  final List<String> _days = [
-    'MON 23',
-    'TUE 24',
-    'WED 25',
-    'THU 26',
-    'FRI 27',
-    'SAT 28',
-  ];
+  int get _shopOffsetHours => ref.read(appConfigProvider).timezoneOffsetHours;
+
+  /// The next seven business-local days, starting today.
+  List<DateTime> get _days {
+    final today = bookingCalendarDay(DateTime.now(), _shopOffsetHours);
+    return List.generate(7, (i) => today.add(Duration(days: i)));
+  }
+
+  DateTime get _scheduleDay => _selectedScheduleDay ?? _days.first;
+
+  /// Active appointments on the selected business-local day.
+  List<Map<String, dynamic>> get _scheduleAppointments =>
+      staffAppointmentsOnDay(_activeAppointments, _scheduleDay, _shopOffsetHours);
+
+  static const _weekdayLabels = {
+    'es': ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'],
+    'en': ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+  };
 
   StreamSubscription<DocumentSnapshot>? _profileSubscription;
   StreamSubscription<QuerySnapshot>? _unreadSubscription;
@@ -1644,16 +1656,16 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               scrollDirection: Axis.horizontal,
               itemCount: _days.length,
               itemBuilder: (context, index) {
-                final dayStr = _days[index];
-                final parts = dayStr.split(' ');
-                final weekday = parts[0];
-                final dateNum = parts[1];
-                final isSelected = _selectedDay == dayStr;
+                final day = _days[index];
+                final weekday = (_weekdayLabels[l10n.languageCode] ??
+                    _weekdayLabels['en']!)[day.weekday - 1];
+                final dateNum = day.day.toString();
+                final isSelected = _scheduleDay == day;
 
                 return GestureDetector(
                   onTap: () {
                     setState(() {
-                      _selectedDay = dayStr;
+                      _selectedScheduleDay = day;
                     });
                   },
                   child: Container(
@@ -1707,8 +1719,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             children: [
               Text(
                 l10n.languageCode == 'es'
-                    ? 'CITAS (${_activeAppointments.length + 1})'
-                    : 'APPOINTMENTS (${_activeAppointments.length + 1})',
+                    ? 'CITAS (${_scheduleAppointments.length})'
+                    : 'APPOINTMENTS (${_scheduleAppointments.length})',
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w800,
@@ -1743,7 +1755,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
           // Appointments list
           Column(
             children: [
-              ..._activeAppointments.map(
+              ..._scheduleAppointments.map(
                 (apt) => GestureDetector(
                   onTap: () {
                     setState(() {

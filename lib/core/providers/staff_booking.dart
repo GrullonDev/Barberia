@@ -1,3 +1,4 @@
+import 'package:barberia/features/booking/data/booking_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Canonical upper-case status used by the staff portals.
@@ -52,6 +53,21 @@ String _clock(DateTime local) {
   final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
   final minute = local.minute.toString().padLeft(2, '0');
   return '$hour:$minute ${local.hour < 12 ? 'AM' : 'PM'}';
+}
+
+/// Appointments whose `date` falls on the business-local calendar [day]
+/// (as produced by [bookingCalendarDay]). Rows without a timestamp are
+/// excluded rather than shown on every day.
+List<Map<String, dynamic>> staffAppointmentsOnDay(
+  Iterable<Map<String, dynamic>> appointments,
+  DateTime day,
+  int offsetHours,
+) {
+  return appointments.where((apt) {
+    final date = apt['date'];
+    return date is Timestamp &&
+        bookingCalendarDay(date.toDate(), offsetHours) == day;
+  }).toList();
 }
 
 String staffStatusLabel(String status, String language) {

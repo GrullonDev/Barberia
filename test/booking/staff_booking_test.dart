@@ -109,4 +109,22 @@ void main() {
     expect(staffStatusLabel('NOSHOW', 'en'), 'NO-SHOW');
     expect(staffStatusLabel('CONFIRMED', 'en'), 'CONFIRMED');
   });
+
+  test('schedule shows only appointments on the selected shop-local day', () {
+    Map<String, dynamic> at(DateTime utc) => {'date': Timestamp.fromDate(utc)};
+    final appointments = [
+      at(DateTime.utc(2026, 1, 5, 15)), // Jan 5, 09:00 GT
+      at(DateTime.utc(2026, 1, 6, 5, 30)), // Jan 5, 23:30 GT (UTC is Jan 6)
+      at(DateTime.utc(2026, 1, 6, 15)), // Jan 6
+      {'date': null},
+    ];
+    expect(
+      staffAppointmentsOnDay(appointments, DateTime.utc(2026, 1, 5), -6),
+      hasLength(2),
+    );
+    expect(
+      staffAppointmentsOnDay(appointments, DateTime.utc(2026, 1, 6), -6),
+      hasLength(1),
+    );
+  });
 }
