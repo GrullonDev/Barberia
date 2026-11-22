@@ -21,7 +21,16 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test --platform chrome
+      # FIREBASE_ENV is compile-time: check staging selection and that an
+      # unknown value fails closed instead of falling back to production.
+      - run: flutter test test/firebase_environment_test.dart --dart-define=FIREBASE_ENV=staging
+      - run: flutter test test/firebase_environment_test.dart --dart-define=FIREBASE_ENV=bogus
       - run: flutter build web --release
+      - name: Staging web build contains no production config
+        run: |
+          flutter build web --release --dart-define=FIREBASE_ENV=staging --dart-define=SHOP_ID=barberia-staging
+          grep -q '"barberia-staging"' build/web/main.dart.js
+          ! grep -E 'barbershop-ee9c0|956317826330' build/web/main.dart.js
 
   android:
     name: Android debug build
