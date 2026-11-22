@@ -2,6 +2,7 @@ import 'package:barberia/core/providers/staff_booking.dart';
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1456,7 +1457,11 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       await FirebaseFirestore.instance
           .collection('bookings')
           .doc(bookingId)
-          .update({'status': newStatus.toLowerCase(), 'updatedAt': FieldValue.serverTimestamp()});
+          .update({
+            'status': newStatus.toLowerCase(),
+            'statusChangedBy': FirebaseAuth.instance.currentUser?.uid,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

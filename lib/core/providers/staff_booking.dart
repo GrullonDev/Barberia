@@ -32,14 +32,17 @@ const staffTerminalStatuses = {'COMPLETED', 'CANCELLED', 'NOSHOW'};
 /// (`offsetHours`, from `shops/{shopId}.timezoneOffsetHours`), never in the
 /// device's zone.
 Map<String, dynamic> staffBooking(Map<String, dynamic> data, int offsetHours) {
-  final start = data['startAt'];
-  final local = start is Timestamp
-      ? start.toDate().toUtc().add(Duration(hours: offsetHours))
-      : null;
+  final start = data['startAt'] is Timestamp
+      ? data['startAt'] as Timestamp
+      : legacyAppointmentStart(data, offsetHours);
+  final local = start?.toDate().toUtc().add(Duration(hours: offsetHours));
   return {
     ...data,
     'status': staffStatus(data['status']),
+    // Appointment instant (canonical startAt, or derived for legacy rows).
     'date': start ?? data['date'],
+    // Legacy manual rows stored the creation time in `date`; keep it apart.
+    'createdAt': data['createdAt'] ?? (start == null ? null : data['date']),
     'time': local == null ? data['time'] ?? '—' : _clock(local),
     'clientName': data['customerName'] ?? data['clientName'] ?? '—',
     'clientEmail': data['customerEmail'] ?? data['clientEmail'] ?? '',
@@ -47,6 +50,30 @@ Map<String, dynamic> staffBooking(Map<String, dynamic> data, int offsetHours) {
     'service': data['serviceName'] ?? data['service'] ?? '—',
     'price': data['servicePrice'] ?? data['price'],
   };
+}
+
+final _legacyTime = RegExp(r'^\s*(\d{1,2}):(\d{2})\s*([AaPp][Mm])?\s*$');
+
+/// Appointment start for legacy rows without `startAt`: the shop-local day of
+/// `date` at the clock time in `time` ("10:00 AM", "14:30"). Mirrors
+/// `slot_engine.bookings_to_ranges` so staff see what availability enforces.
+/// Returns null when `time` is missing or unparseable.
+Timestamp? legacyAppointmentStart(Map<String, dynamic> data, int offsetHours) {
+  final date = data['date'];
+  final match = _legacyTime.firstMatch(data['time'] as String? ?? '');
+  if (date is! Timestamp || match == null) return null;
+  var hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final meridiem = match.group(3)?.toLowerCase();
+  if (minute > 59) return null;
+  if (meridiem != null) {
+    if (hour < 1 || hour > 12) return null;
+    hour = hour % 12 + (meridiem == 'pm' ? 12 : 0);
+  } else if (hour > 23) {
+    return null;
+  }
+  final day = bookingCalendarDay(date.toDate(), offsetHours);
+  return Timestamp.fromDate(shopLocalInstant(day, hour, minute, offsetHours));
 }
 
 String _clock(DateTime local) {
@@ -68,6 +95,18 @@ List<Map<String, dynamic>> staffAppointmentsOnDay(
     return date is Timestamp &&
         bookingCalendarDay(date.toDate(), offsetHours) == day;
   }).toList();
+}
+
+/// The instant at [hour]:[minute] shop-local time on the calendar date of
+/// [day] (only its year/month/day are used), for a shop at UTC+[offsetHours].
+DateTime shopLocalInstant(DateTime day, int hour, int minute, int offsetHours) {
+  return DateTime.utc(
+    day.year,
+    day.month,
+    day.day,
+    hour,
+    minute,
+  ).subtract(Duration(hours: offsetHours));
 }
 
 String staffStatusLabel(String status, String language) {

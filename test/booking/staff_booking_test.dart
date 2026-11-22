@@ -89,7 +89,12 @@ void main() {
         'price': 50,
       }, -6);
       expect(view['time'], '10:00 AM');
-      expect(view['date'], created);
+      // Appointment = created day (Jan 5 local) at 10:00 shop time.
+      expect(
+        (view['date'] as Timestamp).toDate().toUtc(),
+        DateTime.utc(2026, 1, 5, 16),
+      );
+      expect(view['createdAt'], created);
       expect(view['clientName'], 'Luis');
       expect(view['service'], 'Corte');
       expect(view['price'], 50);
@@ -125,6 +130,51 @@ void main() {
     expect(
       staffAppointmentsOnDay(appointments, DateTime.utc(2026, 1, 6), -6),
       hasLength(1),
+    );
+  });
+
+  group('legacy manual bookings', () {
+    test('appointment differs from a late-night creation timestamp', () {
+      // Created Jan 5 at 23:30 GT (Jan 6 05:30 UTC) for 9:00 AM that day.
+      final created = Timestamp.fromDate(DateTime.utc(2026, 1, 6, 5, 30));
+      final start = legacyAppointmentStart({
+        'date': created,
+        'time': '09:00 AM',
+      }, -6);
+      expect(start!.toDate().toUtc(), DateTime.utc(2026, 1, 5, 15));
+    });
+
+    test('unparseable or missing time keeps the stored date', () {
+      final created = Timestamp.fromDate(DateTime.utc(2026, 1, 5, 14));
+      for (final time in [null, 'noon', '13:00 PM', '25:00']) {
+        expect(
+          legacyAppointmentStart({'date': created, 'time': time}, -6),
+          isNull,
+          reason: '$time',
+        );
+        expect(
+          staffBooking({'date': created, 'time': time}, -6)['date'],
+          created,
+        );
+      }
+    });
+
+    test('canonical startAt always wins', () {
+      final startAt = Timestamp.fromDate(DateTime.utc(2026, 2, 1, 18));
+      final view = staffBooking({
+        'startAt': startAt,
+        'date': Timestamp.fromDate(DateTime.utc(2026, 1, 1)),
+        'time': '09:00 AM',
+      }, -6);
+      expect(view['date'], startAt);
+      expect(view['time'], '12:00 PM');
+    });
+  });
+
+  test('shopLocalInstant ignores the device timezone', () {
+    expect(
+      shopLocalInstant(DateTime(2026, 1, 5), 9, 30, -6),
+      DateTime.utc(2026, 1, 5, 15, 30),
     );
   });
 }

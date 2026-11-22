@@ -471,6 +471,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         .doc(bookingId)
         .update({
           'status': 'live',
+          'statusChangedBy': FirebaseAuth.instance.currentUser?.uid,
                       'updatedAt': FieldValue.serverTimestamp(),
           'checkedIn': true,
           'serviceStartedAt': FieldValue.serverTimestamp(),
@@ -612,7 +613,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
       await FirebaseFirestore.instance
           .collection('bookings')
           .doc(bookingId)
-          .update({'status': newStatus.toLowerCase(), 'updatedAt': FieldValue.serverTimestamp()});
+          .update({
+            'status': newStatus.toLowerCase(),
+            'statusChangedBy': FirebaseAuth.instance.currentUser?.uid,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
       return true;
     } catch (e) {
       if (mounted) {
@@ -1236,6 +1241,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     .doc(bookingId)
                     .update({
                       'status': 'confirmed',
+          'statusChangedBy': FirebaseAuth.instance.currentUser?.uid,
                       'updatedAt': FieldValue.serverTimestamp(),
                       'serviceStartedAt': FieldValue.delete(),
                     });
@@ -1417,6 +1423,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         .doc(bookingId)
                         .update({
                           'status': 'cancelled',
+          'statusChangedBy': FirebaseAuth.instance.currentUser?.uid,
                           'updatedAt': FieldValue.serverTimestamp(),
                         });
                   }
@@ -2111,19 +2118,19 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ElevatedButton(
               onPressed: () async {
                 final reason = reasonController.text.trim();
-                final start = DateTime(
-                  selectedDate.year,
-                  selectedDate.month,
-                  selectedDate.day,
+                // Wall-clock times are the shop's, not the device's.
+                final offset = ref.read(appConfigProvider).timezoneOffsetHours;
+                final start = shopLocalInstant(
+                  selectedDate,
                   startTime.hour,
                   startTime.minute,
+                  offset,
                 );
-                final end = DateTime(
-                  selectedDate.year,
-                  selectedDate.month,
-                  selectedDate.day,
+                final end = shopLocalInstant(
+                  selectedDate,
                   endTime.hour,
                   endTime.minute,
+                  offset,
                 );
 
                 if (reason.isEmpty) {
@@ -2144,18 +2151,16 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 }
 
                 try {
-                  await FirebaseFirestore.instance
-                      .collection('schedule_blocks')
-                      .add({
-                        'shopId': ref.read(currentShopIdProvider),
-                        'barberId': barberUid,
-                        'type': reason,
-                        'reason': reason,
-                        'startTime': Timestamp.fromDate(start),
-                        'endTime': Timestamp.fromDate(end),
-                        'createdAt': FieldValue.serverTimestamp(),
-                        'updatedAt': FieldValue.serverTimestamp(),
-                      });
+                  // Server-side so the block and concurrent reservations
+                  // serialize on the same per-day guard (createScheduleBlock).
+                  await ref
+                      .read(bookingRepositoryProvider)
+                      .createScheduleBlock(
+                        barberId: barberUid,
+                        start: start,
+                        end: end,
+                        reason: reason,
+                      );
                   if (!dialogContext.mounted) return;
                   Navigator.of(dialogContext).pop();
                   if (!mounted) return;
@@ -2169,6 +2174,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       ),
                     ),
                   );
+                } on BookingException catch (e) {
+                  setStateBuilder(() {
+                    errorText = e.code == 'failed-precondition'
+                        ? (isSpanish
+                              ? 'Hay citas activas en ese horario. Cancélalas primero.'
+                              : 'There are active appointments in that range. Cancel them first.')
+                        : e.message;
+                  });
                 } catch (e) {
                   setStateBuilder(() {
                     errorText = 'Error: $e';
@@ -2589,6 +2602,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       .doc(bookingId)
                       .update({
                         'status': 'cancelled',
+          'statusChangedBy': FirebaseAuth.instance.currentUser?.uid,
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
                 }

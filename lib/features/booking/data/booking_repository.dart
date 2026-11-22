@@ -168,6 +168,30 @@ class BookingRepository {
     );
   }
 
+  /// Blocks [start, end) on a barber's agenda via `createScheduleBlock`.
+  /// Fails with `failed-precondition` if an active booking overlaps it.
+  Future<String> createScheduleBlock({
+    required String barberId,
+    required DateTime start,
+    required DateTime end,
+    required String reason,
+  }) async {
+    final data = await _guard(
+      () => _backend.call('createScheduleBlock', <String, dynamic>{
+        'barberId': barberId,
+        'startIso': start.toUtc().toIso8601String(),
+        'endIso': end.toUtc().toIso8601String(),
+        'reason': reason,
+      }),
+      'No se pudo crear el bloqueo.',
+    );
+    final blockId = data['blockId'];
+    if (blockId is! String) {
+      throw BookingException('internal', 'Respuesta de bloqueo inválida.');
+    }
+    return blockId;
+  }
+
   Future<T> _guard<T>(Future<T> Function() run, String fallback) async {
     try {
       return await run();

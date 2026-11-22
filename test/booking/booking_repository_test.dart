@@ -179,6 +179,48 @@ void main() {
     });
   });
 
+  group('createScheduleBlock', () {
+    test('sends UTC instants and returns the block id', () async {
+      backend.handlers['createScheduleBlock'] = (_) => {'blockId': 'blk1'};
+      final id = await repository.createScheduleBlock(
+        barberId: 'b1',
+        start: DateTime.utc(2026, 1, 5, 18),
+        end: DateTime.utc(2026, 1, 5, 19),
+        reason: 'Almuerzo',
+      );
+      expect(id, 'blk1');
+      expect(backend.calls.single.$2, {
+        'barberId': 'b1',
+        'startIso': '2026-01-05T18:00:00.000Z',
+        'endIso': '2026-01-05T19:00:00.000Z',
+        'reason': 'Almuerzo',
+      });
+    });
+
+    test('an overlapping booking surfaces as failed-precondition', () {
+      backend.handlers['createScheduleBlock'] = (_) =>
+          throw FirebaseFunctionsException(
+            message: 'busy',
+            code: 'failed-precondition',
+          );
+      expect(
+        repository.createScheduleBlock(
+          barberId: 'b1',
+          start: DateTime.utc(2026, 1, 5, 18),
+          end: DateTime.utc(2026, 1, 5, 19),
+          reason: 'x',
+        ),
+        throwsA(
+          isA<BookingException>().having(
+            (e) => e.code,
+            'code',
+            'failed-precondition',
+          ),
+        ),
+      );
+    });
+  });
+
   group('helpers', () {
     test('bookingCalendarDay uses the business offset, not the device', () {
       // 03:00 UTC on Jan 6 is still Jan 5 in Guatemala (UTC-6).
