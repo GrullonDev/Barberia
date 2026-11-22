@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "barbershop-ee9c0"
+    "default": "barbershop-ee9c0",
+    "staging": "barberia-staging"
   }
 }
