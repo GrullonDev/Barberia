@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:barberia/core/theme/app_theme.dart';
 import 'package:barberia/core/utils/responsive.dart';
 import 'package:barberia/core/providers/config_provider.dart';
+import 'package:barberia/core/router/app_router.dart';
 
 class HomeFooter extends ConsumerWidget {
   const HomeFooter({super.key});
@@ -21,6 +22,15 @@ class HomeFooter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = ref.watch(l10nProvider);
+    // /login only exists when this build ships the staff portals (public web
+    // builds do not), so the link would otherwise lead to "Page Not Found".
+    final staffPortals = ref
+        .watch(platformCapabilitiesProvider)
+        .staffPortalsEnabled;
+    final links = [
+      for (final key in _linkKeys)
+        if (key != 'staff_access' || staffPortals) key,
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -44,8 +54,8 @@ class HomeFooter extends ConsumerWidget {
                 maxWidth: AppSpacing.containerMax,
               ),
               child: isMobile
-                  ? _buildMobile(context, l10n)
-                  : _buildDesktop(context, l10n),
+                  ? _buildMobile(context, l10n, links)
+                  : _buildDesktop(context, l10n, links),
             ),
           ),
         );
@@ -53,7 +63,11 @@ class HomeFooter extends ConsumerWidget {
     );
   }
 
-  Widget _buildDesktop(BuildContext context, AppLocalizations l10n) {
+  Widget _buildDesktop(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<String> links,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -86,7 +100,7 @@ class HomeFooter extends ConsumerWidget {
         Flexible(
           child: Wrap(
             alignment: WrapAlignment.end,
-            children: _linkKeys.map((key) {
+            children: links.map((key) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 child: _FooterLink(
@@ -101,7 +115,11 @@ class HomeFooter extends ConsumerWidget {
     );
   }
 
-  Widget _buildMobile(BuildContext context, AppLocalizations l10n) {
+  Widget _buildMobile(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<String> links,
+  ) {
     return Column(
       children: [
         Text(
@@ -116,7 +134,7 @@ class HomeFooter extends ConsumerWidget {
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.xs,
           alignment: WrapAlignment.center,
-          children: _linkKeys.map((key) {
+          children: links.map((key) {
             return _FooterLink(
               label: l10n.get(key),
               onTap: () => _handleFooterLink(context, key, l10n),
