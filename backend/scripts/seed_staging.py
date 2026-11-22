@@ -16,12 +16,14 @@ Usage (repo root):
     FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 \\
       SEED_ADMIN_PASSWORD=... SEED_BARBER_PASSWORD=... \\
       python backend/scripts/seed_staging.py --project demo-barberia
-    # A real (staging) project requires --confirm-project with the same id:
-    python backend/scripts/seed_staging.py --project <id> --confirm-project <id>
+    # The staging project (the only real one allowed) requires --confirm-project:
+    python backend/scripts/seed_staging.py --project barberia-staging \\
+      --confirm-project barberia-staging
 
-Safety: production project ids (PRODUCTION_PROJECTS) are always refused, as is
-a half-configured emulator environment (only one of the two *_EMULATOR_HOST
-variables set), which would write Firestore and Auth to different backends.
+Safety: production project ids (PRODUCTION_PROJECTS) are always refused, real
+projects must be listed in STAGING_PROJECTS, and a half-configured emulator
+environment (only one of the two *_EMULATOR_HOST variables set) is refused
+because it would write Firestore and Auth to different backends.
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ from datetime import datetime, timedelta, timezone
 DEFAULT_SHOP = "barberia-staging"
 # Never seed these, with or without --confirm-project.
 PRODUCTION_PROJECTS = frozenset({"barbershop-ee9c0"})
+# The only real (non-emulator) projects this script may write to.
+STAGING_PROJECTS = frozenset({"barberia-staging"})
 TEST_SHOP_PREFIXES = ("barberia-staging", "test-", "staging-")
 GT = timezone(timedelta(hours=-6))
 
@@ -116,6 +120,9 @@ def check_target(project, confirm_project, shop, env):
     emulated = firestore_emu and auth_emu
     if project in PRODUCTION_PROJECTS:
         raise ValueError(f"Refusing to seed production project {project!r}.")
+    if not emulated and project not in STAGING_PROJECTS:
+        raise ValueError(f"Refusing to seed {project!r}: real projects must be one of "
+                         f"{sorted(STAGING_PROJECTS)}.")
     if not emulated and confirm_project != project:
         raise ValueError("Refusing to seed a real project without --confirm-project <same id>.")
     if not shop.startswith(TEST_SHOP_PREFIXES):
@@ -124,6 +131,24 @@ def check_target(project, confirm_project, shop, env):
     if not all(passwords) or min(map(len, passwords)) < 10:
         raise ValueError("Set SEED_ADMIN_PASSWORD and SEED_BARBER_PASSWORD (10+ characters).")
     return emulated
+
+
+def _real_credential(project):
+    """Application Default Credentials, or a short-lived OAuth access token
+    from GOOGLE_OAUTH_ACCESS_TOKEN (e.g. `firebase` CLI login without gcloud).
+    The token is billed/quota-checked against the target project itself."""
+    from firebase_admin import credentials
+
+    token = os.environ.get("GOOGLE_OAUTH_ACCESS_TOKEN")
+    if not token:
+        return credentials.ApplicationDefault()
+    import google.oauth2.credentials
+
+    class _AccessToken(credentials.Base):
+        def get_credential(self):
+            return google.oauth2.credentials.Credentials(token).with_quota_project(project)
+
+    return _AccessToken()
 
 
 def main(argv=None):
@@ -153,7 +178,7 @@ def main(argv=None):
 
         firebase_admin.initialize_app(_Anonymous(), {"projectId": args.project})
     else:
-        firebase_admin.initialize_app(options={"projectId": args.project})
+        firebase_admin.initialize_app(_real_credential(args.project), {"projectId": args.project})
     seeded = seed(firestore.client(), auth, args.shop, admin_password, barber_password)
     print(f"Seeded shop {args.shop!r} in {args.project} ({'emulator' if emulated else 'REAL'}):")
     for account in seeded.values():

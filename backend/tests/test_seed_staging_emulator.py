@@ -56,6 +56,11 @@ def test_guard_requires_confirmation_for_real_project():
         "barberia-staging", "barberia-staging", "test-x", PASSWORDS) is False
 
 
+def test_guard_refuses_real_projects_outside_the_staging_allowlist():
+    with pytest.raises(ValueError, match="must be one of"):
+        seed_staging.check_target("some-other-project", "some-other-project", "test-x", PASSWORDS)
+
+
 @pytest.mark.parametrize("env", [PASSWORDS, {**EMULATORS, **PASSWORDS}])
 def test_guard_always_refuses_production(env):
     for project in seed_staging.PRODUCTION_PROJECTS:
