@@ -1619,7 +1619,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatScheduleHeaderDate(DateTime.now(), l10n),
+                      _formatScheduleHeaderDate(_scheduleDay, l10n),
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.playfairDisplay(
                         color: Colors.white,

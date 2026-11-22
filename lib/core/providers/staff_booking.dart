@@ -129,7 +129,7 @@ List<Map<String, dynamic>> staffAppointmentsOnDay(
     final date = apt['date'];
     return date is Timestamp &&
         bookingCalendarDay(date.toDate(), offsetHours) == day;
-  }).toList();
+  }).toList()..sort(compareByStart);
 }
 
 /// The instant at [hour]:[minute] shop-local time on the calendar date of

@@ -217,4 +217,21 @@ void main() {
     final rows = [at(22), at(15), at(17)]..sort(compareByStart);
     expect(rows.map((r) => r['time']), ['9:00 AM', '11:00 AM', '4:00 PM']);
   });
+
+  test('staffAppointmentsOnDay lists the day chronologically', () {
+    Map<String, dynamic> at(String id, int utcHour) => staffBooking({
+      'id': id,
+      'startAt': Timestamp.fromDate(DateTime.utc(2026, 11, 24, utcHour)),
+    }, -6);
+    // Newest-created first, as the portal's query returns them.
+    final rows = [at('11am', 17), at('4pm', 22), at('10am', 16)];
+    expect(
+      staffAppointmentsOnDay(
+        rows,
+        DateTime.utc(2026, 11, 24),
+        -6,
+      ).map((r) => r['id']),
+      ['10am', '11am', '4pm'],
+    );
+  });
 }
