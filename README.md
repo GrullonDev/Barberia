@@ -176,7 +176,9 @@ Puertos configurados:
 - Hosting: `5000`
 - Emulator UI: `4000`
 
-La app Flutter no conecta automaticamente a emuladores en `main.dart`; si se necesita desarrollo local completo, hay que configurar `useAuthEmulator`, `useFirestoreEmulator` y `useFunctionsEmulator`.
+La app Flutter usa los emuladores solo si se compila con `--dart-define=USE_FIREBASE_EMULATORS=true` (ver `lib/core/firebase/dev_environment.dart`). Staging, seed de datos de prueba y pruebas end-to-end: [`docs/STAGING.md`](docs/STAGING.md).
+
+> El proyecto `default` de `.firebaserc` (`barbershop-ee9c0`) es **producción**. No existe aún un proyecto de staging.
 
 ## Deploy
 
