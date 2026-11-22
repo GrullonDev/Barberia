@@ -178,7 +178,7 @@ Puertos configurados:
 
 La app Flutter usa los emuladores solo si se compila con `--dart-define=USE_FIREBASE_EMULATORS=true` (ver `lib/core/firebase/dev_environment.dart`). Staging, seed de datos de prueba y pruebas end-to-end: [`docs/STAGING.md`](docs/STAGING.md).
 
-> El proyecto `default` de `.firebaserc` (`barbershop-ee9c0`) es **producción**. No existe aún un proyecto de staging.
+> El proyecto `default` de `.firebaserc` (`barbershop-ee9c0`) es **producción**. Staging es `barberia-staging`; operarlo solo con `tool/staging.sh`.
 
 ## Deploy
 
