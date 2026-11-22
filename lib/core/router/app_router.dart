@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:barberia/features/admin/presentation/pages/admin_portal_page.dart';
 import 'package:barberia/features/auth/presentation/pages/barber_password_change_page.dart';
 import 'package:barberia/features/auth/presentation/pages/staff_login_page.dart';
@@ -44,56 +45,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     );
   }
 
-  final auth = ref.watch(authProvider);
-
-  return GoRouter(
+  // One router for the app's lifetime. Rebuilding it whenever auth changes
+  // (ref.watch) restarted navigation at initialLocation, which on web is '/',
+  // so signing in dropped staff on the public home page instead of their
+  // portal. Auth changes now only re-run the redirect.
+  final authChanges = ValueNotifier<int>(0);
+  ref.listen(authProvider, (_, __) => authChanges.value++);
+  final router = GoRouter(
     initialLocation: capabilities.initialLocation,
-    redirect: (context, state) {
-      final isAuthenticated = auth.isAuthenticated;
-      final isLoginRoute = state.matchedLocation == '/login';
-      final isBarberRoute = state.matchedLocation.startsWith('/barber');
-      final isAdminRoute = state.matchedLocation.startsWith('/admin');
-      final isPasswordChangeRoute =
-          state.matchedLocation == '/barber/change-password';
-      final isPortalRoute = isBarberRoute || isAdminRoute;
-
-      // Unauthenticated user trying to reach a protected route
-      if (!isAuthenticated && isPortalRoute) return '/login';
-
-      // Authenticated staff landing on /login -> send to their required next step
-      if (isAuthenticated && isLoginRoute) {
-        if (auth.role == UserRole.barber && auth.mustChangePassword) {
-          return '/barber/change-password';
-        }
-        return auth.role == UserRole.admin ? '/admin/portal' : '/barber/portal';
-      }
-
-      if (isAuthenticated &&
-          auth.role == UserRole.barber &&
-          auth.mustChangePassword &&
-          !isPasswordChangeRoute) {
-        return '/barber/change-password';
-      }
-
-      if (isAuthenticated &&
-          auth.role == UserRole.barber &&
-          !auth.mustChangePassword &&
-          isPasswordChangeRoute) {
-        return '/barber/portal';
-      }
-
-      // Role mismatch redirection
-      if (isAuthenticated) {
-        if (auth.role == UserRole.admin && isBarberRoute) {
-          return '/admin/portal';
-        }
-        if (auth.role == UserRole.barber && isAdminRoute) {
-          return '/barber/portal';
-        }
-      }
-
-      return null;
-    },
+    refreshListenable: authChanges,
+    redirect: (context, state) =>
+        staffRedirect(ref.read(authProvider), state.matchedLocation),
     routes: [
       ..._clientRoutes,
       GoRoute(path: '/login', builder: (_, __) => const StaffLoginPage()),
@@ -111,4 +73,57 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(() {
+    router.dispose();
+    authChanges.dispose();
+  });
+  return router;
 });
+
+/// Where staff navigation must go for [auth] at [location]; null to stay.
+@visibleForTesting
+String? staffRedirect(AuthState auth, String location) {
+  final isAuthenticated = auth.isAuthenticated;
+  final isLoginRoute = location == '/login';
+  final isBarberRoute = location.startsWith('/barber');
+  final isAdminRoute = location.startsWith('/admin');
+  final isPasswordChangeRoute = location == '/barber/change-password';
+  final isPortalRoute = isBarberRoute || isAdminRoute;
+
+  // Unauthenticated user trying to reach a protected route
+  if (!isAuthenticated && isPortalRoute) return '/login';
+
+  // Authenticated staff landing on /login -> send to their required next step
+  if (isAuthenticated && isLoginRoute) {
+    if (auth.role == UserRole.barber && auth.mustChangePassword) {
+      return '/barber/change-password';
+    }
+    return auth.role == UserRole.admin ? '/admin/portal' : '/barber/portal';
+  }
+
+  if (isAuthenticated &&
+      auth.role == UserRole.barber &&
+      auth.mustChangePassword &&
+      !isPasswordChangeRoute) {
+    return '/barber/change-password';
+  }
+
+  if (isAuthenticated &&
+      auth.role == UserRole.barber &&
+      !auth.mustChangePassword &&
+      isPasswordChangeRoute) {
+    return '/barber/portal';
+  }
+
+  // Role mismatch redirection
+  if (isAuthenticated) {
+    if (auth.role == UserRole.admin && isBarberRoute) {
+      return '/admin/portal';
+    }
+    if (auth.role == UserRole.barber && isAdminRoute) {
+      return '/barber/portal';
+    }
+  }
+
+  return null;
+}
