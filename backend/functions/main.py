@@ -44,6 +44,8 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.transaction import Transaction
 
 from booking_api import availability, reserve
+from schedule_api import create_block
+from reputation import apply_no_show, is_no_show
 
 # Región: us-central1 es default de Firebase Functions. Para un negocio
 # guatemalteco, us-east1 o southamerica-east1 serían marginalmente más
@@ -58,14 +60,27 @@ firebase_admin.initialize_app()
 # -----------------------------------------------------------------------------
 
 
-@https_fn.on_call()
+# App Check for the public booking callables. Off by default: enforcing it
+# before the web app registers an App Check provider (reCAPTCHA Enterprise
+# site key + allowed domain) would reject every legitimate booking. Enable per
+# project with ENFORCE_APP_CHECK=true in backend/functions/.env.<projectId>
+# once bookings show `appCheckVerified: true` (see booking_api.reserve).
+ENFORCE_APP_CHECK = os.environ.get("ENFORCE_APP_CHECK", "false").strip().lower() == "true"
+
+
+@https_fn.on_call(enforce_app_check=ENFORCE_APP_CHECK)
 def reserveSlot(req: https_fn.CallableRequest) -> dict[str, Any]:
     return reserve(req)
 
 
-@https_fn.on_call()
+@https_fn.on_call(enforce_app_check=ENFORCE_APP_CHECK)
 def getAvailability(req: https_fn.CallableRequest) -> dict[str, Any]:
     return availability(req)
+
+
+@https_fn.on_call()
+def createScheduleBlock(req: https_fn.CallableRequest) -> dict[str, Any]:
+    return create_block(req)
 
 
 def _generate_temp_password(length: int = 12) -> str:
@@ -632,3 +647,12 @@ def syncBarberDirectory(event):
     uid = event.params["uid"]
     reconcile(db.transaction(), db.collection("users").document(uid),
               db.collection("barber_directory").document(uid))
+
+
+@firestore_fn.on_document_updated(document="bookings/{bookingId}")
+def onBookingNoShow(event):
+    """Counts a no-show exactly once per booking (see reputation.py)."""
+    before = (event.data.before.to_dict() or {}) if event.data.before else {}
+    after = (event.data.after.to_dict() or {}) if event.data.after else {}
+    if is_no_show(after.get("status")) and not is_no_show(before.get("status")):
+        apply_no_show(firestore.client(), event.params["bookingId"])

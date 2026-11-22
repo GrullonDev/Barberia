@@ -70,8 +70,10 @@ class Authorization(unittest.TestCase):
             self.assertEqual(call(self.base + self.booking, "GET", token=token)[0], 200)
             self.assertEqual(self.put(self.booking, {"shopId": "b"}, token, True)[0], 403)
         self.assertEqual(call(self.base + self.booking, "GET", token=self.people['other'][1])[0], 403)
-        self.assertEqual(self.put(self.booking, {"status": "confirmed"}, self.people['barber'][1], True)[0], 200)
-        self.assertEqual(self.put(self.booking, {"status": "cancelled"}, self.people['client'][1], True)[0], 200)
+        self.assertEqual(self.put(self.booking, self.audited("confirmed", "barber"),
+                                  self.people['barber'][1], True)[0], 200)
+        self.assertEqual(self.put(self.booking, self.audited("cancelled", "client"),
+                                  self.people['client'][1], True)[0], 200)
 
     def new_booking(self, barber_label="barber", shop="a", status="pending"):
         path = "bookings/" + uuid4().hex
@@ -86,7 +88,8 @@ class Authorization(unittest.TestCase):
         self.put("users/" + peer_uid, {"role": "barber", "shopId": "a"}, "owner")
         path = self.new_booking()
         self.assertEqual(call(self.base + path, "GET", token=peer_token)[0], 403)
-        self.assertEqual(self.put(path, {"status": "confirmed"}, peer_token, True)[0], 403)
+        self.assertEqual(self.put(path, {"status": "confirmed", "statusChangedBy": peer_uid},
+                                  peer_token, True)[0], 403)
         # The shop admin still sees every booking of the shop.
         self.assertEqual(call(self.base + path, "GET", token=self.people['admin'][1])[0], 200)
 
@@ -95,7 +98,7 @@ class Authorization(unittest.TestCase):
         for label in ('admin', 'barber'):
             token = self.people[label][1]
             self.assertEqual(call(self.base + path, "GET", token=token)[0], 403)
-            self.assertEqual(self.put(path, {"status": "cancelled"}, token, True)[0], 403)
+            self.assertEqual(self.put(path, self.audited("cancelled", label), token, True)[0], 403)
 
     def test_anonymous_cannot_read_bookings(self):
         self.assertEqual(call(self.base + self.new_booking(), "GET")[0], 403)
@@ -105,7 +108,7 @@ class Authorization(unittest.TestCase):
         for status in ("cancelled", "completed", "noshow"):
             path = self.new_booking(status=status)
             for label in ('barber', 'admin'):
-                self.assertEqual(self.put(path, {"status": "confirmed"},
+                self.assertEqual(self.put(path, self.audited("confirmed", label),
                                           self.people[label][1], True)[0], 403, (status, label))
 
     def test_staff_cannot_reschedule_or_reprice(self):
@@ -117,9 +120,10 @@ class Authorization(unittest.TestCase):
     def test_client_can_only_cancel(self):
         path = self.new_booking()
         token = self.people['client'][1]
-        self.assertEqual(self.put(path, {"status": "confirmed"}, token, True)[0], 403)
-        self.assertEqual(self.put(path, {"status": "cancelled", "startAt": "x"}, token, True)[0], 403)
-        self.assertEqual(self.put(path, {"status": "cancelled"}, token, True)[0], 200)
+        self.assertEqual(self.put(path, self.audited("confirmed", "client"), token, True)[0], 403)
+        self.assertEqual(self.put(path, {**self.audited("cancelled", "client"), "startAt": "x"},
+                                  token, True)[0], 403)
+        self.assertEqual(self.put(path, self.audited("cancelled", "client"), token, True)[0], 200)
 
     def test_server_only_collections_are_closed(self):
         for collection in ("booking_guards", "booking_requests", "booking_limits", "notifications",
@@ -134,16 +138,41 @@ class Authorization(unittest.TestCase):
                     self.assertEqual(call(self.base + path, "GET", token=token)[0], 403,
                                      (collection, label))
 
-    def test_schedule_blocks_are_tenant_scoped(self):
+    def audited(self, status, label):
+        return {"status": status, "statusChangedBy": self.people[label][0]}
+
+    def test_status_changes_must_name_their_author(self):
+        path = self.new_booking()
+        barber_token = self.people['barber'][1]
+        self.assertEqual(self.put(path, {"status": "confirmed"}, barber_token, True)[0], 403)
+        self.assertEqual(self.put(path, {"status": "confirmed", "statusChangedBy": "someone-else"},
+                                  barber_token, True)[0], 403)
+        self.assertEqual(self.put(path, self.audited("noshow", "barber"), barber_token, True)[0], 200)
+        # Non-status edits need no audit field.
+        self.assertEqual(self.put(self.new_booking(), {"notes": "ok"}, barber_token, True)[0], 200)
+
+    def test_schedule_blocks_are_server_written_but_deletable_by_owner(self):
         barber_uid, barber_token = self.people['barber']
-        own = self.put("schedule_blocks/" + uuid4().hex,
-                       {"shopId": "a", "barberId": barber_uid}, barber_token)
-        self.assertEqual(own[0], 200)
-        self.assertEqual(self.put("schedule_blocks/" + uuid4().hex,
-                                  {"shopId": "b", "barberId": barber_uid}, barber_token)[0], 403)
-        self.assertEqual(self.put("schedule_blocks/" + uuid4().hex,
-                                  {"shopId": "a", "barberId": self.people['other'][0]},
-                                  barber_token)[0], 403)
+        for label in ('barber', 'admin'):
+            self.assertEqual(self.put("schedule_blocks/" + uuid4().hex,
+                                      {"shopId": "a", "barberId": barber_uid},
+                                      self.people[label][1])[0], 403, label)
+        own = "schedule_blocks/" + uuid4().hex
+        self.put(own, {"shopId": "a", "barberId": barber_uid}, "owner")
+        self.assertEqual(self.put(own, {"endTime": "x"}, barber_token, True)[0], 403)
+        self.assertEqual(call(self.base + own, "GET", token=barber_token)[0], 200)
+        self.assertEqual(call(self.base + own, "DELETE", token=self.people['other'][1])[0], 403)
+        self.assertEqual(call(self.base + own, "DELETE", token=barber_token)[0], 200)
+
+    def test_reputation_is_server_only(self):
+        for collection in ("reputation", "reputation_events"):
+            path = collection + "/" + uuid4().hex
+            self.put(path, {"shopId": "a", "noShowCount": "1"}, "owner")
+            admin_token = self.people['admin'][1]
+            self.assertEqual(self.put(path, {"noShowCount": "0"}, admin_token, True)[0], 403)
+            self.assertEqual(call(self.base + path, "DELETE", token=admin_token)[0], 403)
+        self.assertEqual(call(self.base + "reputation_events/" + uuid4().hex, "GET",
+                              token=self.people['admin'][1])[0], 403)
 
     def test_public_directory(self):
         path = 'barber_directory/' + uuid4().hex

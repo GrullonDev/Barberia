@@ -327,3 +327,157 @@ def test_concurrent_different_barbers_and_tenants_are_independent():
                 booking_payload(b, at(10), barberId=b.barber2, customerPhone="64444444")]
     outcomes = _race(payloads)
     assert [o[0] for o in outcomes] == ["ok"] * 4, outcomes
+
+
+# ---------- schedule blocks vs bookings (createScheduleBlock) -------------------
+
+import schedule_api  # noqa: E402
+from reputation import apply_no_show  # noqa: E402
+
+
+def make_admin(tenant):
+    uid = "admin-" + uuid4().hex[:10]
+    db.collection("users").document(uid).set({"role": "admin", "shopId": tenant.shop})
+    return uid
+
+
+def block(tenant, start, end, uid=None, barber=None, reason="Almuerzo"):
+    data = {"barberId": barber or tenant.barber, "startIso": iso(start), "endIso": iso(end),
+            "reason": reason}
+    return schedule_api.create_block(request(data, uid=uid or tenant.barber))
+
+
+def active_overlaps_block(tenant, barber):
+    bookings = [r for r in _occupying(tenant, barber)
+                if str(r.get("status", "pending")).lower() in ("pending", "confirmed", "live")]
+    blocks = [d.to_dict() for d in db.collection("schedule_blocks")
+              .where(filter=booking_api.FieldFilter("barberId", "==", barber)).get()]
+    return [(b["startAt"], k["startTime"]) for b in bookings for k in blocks
+            if b["startAt"] < k["endTime"] and k["startTime"] < b["endAt"]]
+
+
+def test_block_rejects_interval_with_active_booking_but_not_cancelled():
+    t = Tenant()
+    booking_id = reserve(booking_payload(t, at(10)))["bookingId"]
+    assert code_of(block, t, at(9, 30), at(10, 15)) == Code.FAILED_PRECONDITION
+    assert block(t, at(10, 30), at(11))["blockId"]          # touching is fine
+    db.collection("bookings").document(booking_id).update({"status": "cancelled"})
+    assert block(t, at(9, 30), at(10, 15))["blockId"]
+
+
+def test_booking_inside_block_is_rejected_and_removal_frees_it():
+    t = Tenant()
+    blk = block(t, at(12), at(13))["blockId"]
+    assert iso(at(12)) not in slots(t)
+    assert code_of(reserve, booking_payload(t, at(12, 30))) == Code.ALREADY_EXISTS
+    db.collection("schedule_blocks").document(blk).delete()
+    assert iso(at(12, 30)) in slots(t)
+    assert reserve(booking_payload(t, at(12, 30)))["bookingId"]
+
+
+def test_block_authorization_and_tenancy():
+    a, b = Tenant(), Tenant()
+    assert code_of(block, a, at(9), at(10), uid=a.barber, barber=a.barber2) == Code.PERMISSION_DENIED
+    assert code_of(block, a, at(9), at(10), uid=b.barber, barber=a.barber) == Code.PERMISSION_DENIED
+    assert code_of(block, a, at(9), at(10), uid=make_admin(b), barber=a.barber) == (
+        Code.PERMISSION_DENIED)
+    assert block(a, at(9), at(10), uid=make_admin(a), barber=a.barber2)["blockId"]
+    anonymous = {"barberId": a.barber, "startIso": iso(at(9)), "endIso": iso(at(10)), "reason": "x"}
+    assert code_of(schedule_api.create_block, request(anonymous)) == Code.UNAUTHENTICATED
+    assert code_of(block, a, at(10), at(9)) == Code.INVALID_ARGUMENT
+    assert code_of(block, a, at(9), at(9) + timedelta(days=40)) == Code.INVALID_ARGUMENT
+
+
+def test_multi_day_block_checks_every_day():
+    t = Tenant()
+    next_day = DAY + timedelta(days=1)
+    reserve(booking_payload(t, at(9, day=next_day)))
+    assert code_of(block, t, at(18), at(12, day=next_day)) == Code.FAILED_PRECONDITION
+    assert block(t, at(18), at(8, day=next_day))["blockId"]
+
+
+def _race_calls(calls):
+    barrier = threading.Barrier(len(calls))
+    outcomes = [None] * len(calls)
+
+    def run(i):
+        barrier.wait()
+        try:
+            outcomes[i] = ("ok", calls[i]())
+        except https_fn.HttpsError as error:
+            outcomes[i] = ("error", error.code)
+        except Exception as error:  # surfaced in the assertion message
+            outcomes[i] = ("crash", repr(error))
+
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(len(calls))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=120)
+    return outcomes
+
+
+def test_concurrent_booking_and_block_never_overlap():
+    for _ in range(4):
+        t = Tenant()
+        outcomes = _race_calls([
+            lambda: reserve(booking_payload(t, at(10), serviceId=t.long)),
+            lambda: block(t, at(10, 30), at(12)),
+            lambda: reserve(booking_payload(t, at(11))),
+        ])
+        assert active_overlaps_block(t, t.barber) == [], outcomes
+        assert any(o[0] == "ok" for o in outcomes), outcomes
+        assert all(o[0] == "ok" or o[1] in (Code.ALREADY_EXISTS, Code.FAILED_PRECONDITION,
+                                            Code.ABORTED) for o in outcomes), outcomes
+
+
+def test_concurrent_blocks_and_other_barbers_are_independent():
+    t = Tenant()
+    other = Tenant()
+    outcomes = _race_calls([
+        lambda: block(t, at(9), at(10)),
+        lambda: block(t, at(9, 30), at(11)),                  # overlapping blocks are fine
+        lambda: reserve(booking_payload(t, at(9), barberId=t.barber2)),
+        lambda: reserve(booking_payload(other, at(9))),
+    ])
+    assert [o[0] for o in outcomes] == ["ok"] * 4, outcomes
+
+
+# ---------- no-show reputation ---------------------------------------------------------
+
+
+def mark_no_show(booking_id, by="staff-1"):
+    db.collection("bookings").document(booking_id).update(
+        {"status": "noshow", "statusChangedBy": by})
+    return apply_no_show(db, booking_id)
+
+
+def test_no_show_counts_once_and_blocks_at_threshold():
+    t = Tenant(maxNoShows=2)
+    phone = "33332222"
+    first = reserve(booking_payload(t, at(9), customerPhone=phone))["bookingId"]
+    assert mark_no_show(first) == "applied"
+    assert apply_no_show(db, first) == "duplicate"          # retried trigger
+    rep = booking_api.reputation_ref(db, t.shop, "+502" + phone).get().to_dict()
+    assert rep["noShowCount"] == 1 and rep["shopId"] == t.shop
+    event = db.collection("reputation_events").document(first).get().to_dict()
+    assert event["markedBy"] == "staff-1"
+
+    second = reserve(booking_payload(t, at(10), customerPhone=phone))["bookingId"]
+    assert mark_no_show(second) == "applied"
+    assert code_of(reserve, booking_payload(t, at(11), customerPhone=phone)) == (
+        Code.FAILED_PRECONDITION)
+    # Another tenant is unaffected.
+    other = Tenant(maxNoShows=2)
+    assert reserve(booking_payload(other, at(11), customerPhone=phone))["bookingId"]
+
+
+def test_no_show_ignores_other_statuses_and_honours_legacy_records():
+    t = Tenant()
+    booking_id = reserve(booking_payload(t, at(9), customerPhone="31313131"))["bookingId"]
+    assert apply_no_show(db, booking_id) == "not-no-show"
+    # Legacy reputation docs were keyed by phone and carried the shopId.
+    db.collection("reputation").document("+50232323232").set(
+        {"shopId": t.shop, "noShowCount": 5})
+    assert code_of(reserve, booking_payload(t, at(10), customerPhone="32323232")) == (
+        Code.FAILED_PRECONDITION)

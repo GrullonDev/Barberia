@@ -191,3 +191,39 @@ def test_missing_end_uses_recorded_duration():
 def test_schedule_uses_business_local_day():
     # 2026-01-05 is a Monday in Guatemala.
     assert date(2026, 1, 5).isoweekday() == 1
+
+
+# ---------- schedule blocks & reputation helpers ------------------------------------
+
+import schedule_api  # noqa: E402
+from reputation import is_no_show  # noqa: E402
+
+
+def test_local_days_spans_business_calendar_days():
+    start = datetime(2026, 1, 5, 18, tzinfo=GT)
+    assert schedule_api.local_days(start, start + timedelta(hours=1), GT) == [date(2026, 1, 5)]
+    # Ending exactly at local midnight does not touch the next day.
+    assert schedule_api.local_days(start, datetime(2026, 1, 6, tzinfo=GT), GT) == [date(2026, 1, 5)]
+    assert schedule_api.local_days(start, datetime(2026, 1, 7, 9, tzinfo=GT), GT) == [
+        date(2026, 1, 5), date(2026, 1, 6), date(2026, 1, 7)]
+    # 23:00 local is already the next UTC day; the business day is what counts.
+    late = datetime(2026, 1, 5, 23, tzinfo=GT)
+    assert schedule_api.local_days(late, late + timedelta(minutes=30), GT) == [date(2026, 1, 5)]
+
+
+@pytest.mark.parametrize("status,expected", [
+    ("noshow", True), ("NOSHOW", True), ("no_show", True), ("No-Show", True),
+    ("cancelled", False), ("pending", False), (None, False), (3, False)])
+def test_is_no_show(status, expected):
+    assert is_no_show(status) is expected
+
+
+def test_reputation_and_guard_keys_are_tenant_scoped():
+    class _Db:
+        def collection(self, name):
+            return SimpleNamespace(document=lambda key: (name, key))
+    db = _Db()
+    assert booking_api.reputation_ref(db, "a", "+50255551234") != (
+        booking_api.reputation_ref(db, "b", "+50255551234"))
+    assert booking_api.guard_ref(db, "a", "b1", date(2026, 1, 5)) != (
+        booking_api.guard_ref(db, "b", "b1", date(2026, 1, 5)))

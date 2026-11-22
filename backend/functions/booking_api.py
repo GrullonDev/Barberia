@@ -31,6 +31,7 @@ from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
 from firebase_functions import https_fn
+from google.api_core.exceptions import Aborted
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from slot_engine import bookings_to_ranges, blocks_to_ranges, generate_candidates, has_conflict
@@ -266,7 +267,7 @@ def reserve(req):
     tz = shop_timezone(read(db, "shops", shop_id, None))
     local_day = start.astimezone(tz).date()
     request_ref = db.collection("booking_requests").document(digest(shop_id, user_id, key))
-    guard = db.collection("booking_guards").document(digest(shop_id, barber_id, local_day.isoformat()))
+    guard = guard_ref(db, shop_id, barber_id, local_day)
     booking = db.collection("bookings").document()
     notification = db.collection("notifications").document(booking.id)
     peer = client_network(getattr(req, "raw_request", None))
@@ -285,9 +286,7 @@ def reserve(req):
         candidate = next((c for c in candidates if c.start == start and c.start > now), None)
         if candidate is None:
             fail(Code.FAILED_PRECONDITION, "Horario no disponible.")
-        rep = read(db, "reputation", phone, tx)
-        if rep.get("shopId") == shop_id and (rep.get("blocked") is True or
-                rep.get("noShowCount", 0) >= positive(shop, "maxNoShows", 3, 1000)):
+        if reputation_blocked(db, shop, shop_id, phone, tx):
             fail(Code.FAILED_PRECONDITION, "Cliente bloqueado por historial de no-shows.")
         hour = now.replace(minute=0, second=0, microsecond=0)
         quotas = [("phone", phone, 3)]
@@ -322,7 +321,10 @@ def reserve(req):
             "clientName": name, "customerName": name, "phoneNormalized": phone,
             "clientPhone": phone, "customerPhone": phone, "clientEmail": email or None,
             "customerEmail": email or None, "notes": notes or None, "cancelReason": None,
-            "confirmationSentAt": None, "confirmedAt": None, "createdAt": timestamp, "updatedAt": timestamp})
+            "confirmationSentAt": None, "confirmedAt": None, "createdAt": timestamp, "updatedAt": timestamp,
+            # Whether the caller presented a valid App Check token; used to
+            # decide when ENFORCE_APP_CHECK can be switched on safely.
+            "appCheckVerified": getattr(req, "app", None) is not None})
         tx.create(notification, {
             "shopId": shop_id, "title": "Nueva Cita Solicitada",
             "message": f"{name} ha agendado {service_name} con {barber_name}.",
@@ -335,19 +337,61 @@ def reserve(req):
         for ref, count in counts:
             tx.set(ref, {"hour": hour, "count": count})
         return result
-    # Inner retries reuse the aborted transaction id, which production
-    # Firestore honours to keep the caller's place in line. The jittered outer
-    # rounds additionally break up contenders that keep aborting each other
-    # (observed in the emulator with 8 simultaneous requests for one slot).
+    return run_guarded(db, commit, "Alta demanda en este horario. Intenta de nuevo.")
+
+
+def guard_ref(db, shop_id, barber_id, local_day):
+    """The per (shop, barber, business-local day) serialization document.
+
+    Every writer that can make a barber's interval unavailable — a booking
+    (reserve) or a schedule block (schedule_api.create_block) — reads and
+    writes the guard of each local day it touches inside its transaction.
+    """
+    return db.collection("booking_guards").document(
+        digest(shop_id, barber_id, local_day.isoformat()))
+
+
+def reputation_ref(db, shop_id, phone):
+    """Per-tenant reputation document for a normalized phone."""
+    return db.collection("reputation").document(digest(shop_id, phone))
+
+
+def reputation_blocked(db, shop, shop_id, phone, tx):
+    threshold = positive(shop, "maxNoShows", 3, 1000)
+    # Legacy rows were keyed by phone alone and carry their shopId.
+    candidates = [reputation_ref(db, shop_id, phone).get(transaction=tx).to_dict() or {},
+                  read(db, "reputation", phone, tx)]
+    for rep in candidates:
+        if rep.get("shopId") != shop_id:
+            continue
+        count = rep.get("noShowCount", 0)
+        if rep.get("blocked") is True or (type(count) is int and count >= threshold):
+            return True
+    return False
+
+
+def run_guarded(db, commit, busy_message):
+    """Runs a @firestore.transactional `commit` with contention handling.
+
+    Inner retries reuse the aborted transaction id, which production
+    Firestore honours to keep the caller's place in line. The jittered outer
+    rounds additionally break up contenders that keep aborting each other
+    (observed in the emulator with 8 simultaneous requests for one slot).
+    """
     for round_ in range(RESERVE_ROUNDS):
         try:
             return commit(db.transaction(max_attempts=RESERVE_ATTEMPTS_PER_ROUND))
+        except Aborted:
+            # Lock contention on a *read* inside the transaction ("Transaction
+            # lock timeout"). The client only retries aborted commits, so this
+            # escapes; the transaction was rolled back and nothing was written.
+            pass
         except ValueError as error:
             # google-cloud-firestore raises a bare ValueError once contention
             # has exhausted the attempts; nothing was written.
             if "Failed to commit transaction" not in str(error):
                 raise
-            if round_ + 1 < RESERVE_ROUNDS:
-                time.sleep(random.uniform(0, min(1.0, 0.05 * 2 ** round_)))
-    # Safe to retry with the same idempotency key.
-    fail(Code.ABORTED, "Alta demanda en este horario. Intenta de nuevo.")
+        if round_ + 1 < RESERVE_ROUNDS:
+            time.sleep(random.uniform(0, min(1.0, 0.05 * 2 ** round_)))
+    # Nothing was written: safe to retry (with the same idempotency key).
+    fail(Code.ABORTED, busy_message)
