@@ -35,6 +35,7 @@ irreversible para la base `(default)`.
 |---|---|---|
 | `FIREBASE_ENV` | `production` (defecto), `staging`, `demo` | proyecto Firebase; otro valor detiene la app al iniciar |
 | `SHOP_ID` | `barberia-staging` en staging | tenant público de reservas |
+| `WEB_STAFF_PORTALS` | `true` en staging (`tool/staging.sh`) | incluye `/login`, `/admin/portal`, `/barber/portal` en web; sin él la web es solo pública y el pie de página oculta "Acceso Personal" |
 | `USE_FIREBASE_EMULATORS` | `true` | Auth 9099, Firestore 8080, Functions 5001 |
 | `E2E_SEMANTICS` | `true` | árbol de accesibilidad para Playwright |
 
@@ -73,7 +74,7 @@ tool/staging.sh deploy firestore:indexes     # esperar estado READY
 tool/staging.sh deploy auth,firestore:rules
 tool/staging.sh deploy functions             # requiere Blaze
 tool/staging.sh seed                         # ver "Datos de prueba"
-tool/staging.sh build                        # FIREBASE_ENV=staging, SHOP_ID=barberia-staging
+tool/staging.sh build                        # FIREBASE_ENV=staging, SHOP_ID=barberia-staging, WEB_STAFF_PORTALS=true
 tool/staging.sh deploy hosting               # rechaza un build/web que no sea de staging
 ```
 

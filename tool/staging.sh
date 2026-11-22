@@ -14,6 +14,8 @@ readonly PROJECT=barberia-staging
 readonly PROJECT_NUMBER=169151296960
 readonly PRODUCTION=barbershop-ee9c0
 readonly SHOP_ID=${SHOP_ID:-barberia-staging}
+# Staging exercises the admin/barber portals, which public web builds omit.
+readonly WEB_STAFF_PORTALS=${WEB_STAFF_PORTALS:-true}
 readonly ALLOWED_TARGETS=" auth firestore firestore:rules firestore:indexes functions hosting "
 
 cd "$(dirname "$0")/.."
@@ -52,7 +54,8 @@ case "${1:-}" in
     verify_identity
     "${FLUTTER[@]}" build web --release \
       --dart-define=FIREBASE_ENV=staging \
-      --dart-define=SHOP_ID="$SHOP_ID"
+      --dart-define=SHOP_ID="$SHOP_ID" \
+      --dart-define=WEB_STAFF_PORTALS="$WEB_STAFF_PORTALS"
     verify_build
     ;;
   deploy)
