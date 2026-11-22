@@ -1,3 +1,4 @@
+import 'package:barberia/core/providers/staff_booking.dart';
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -281,7 +282,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
   // ─── Floating Action Button (for Bookings Tab) ──────────────────────
   Widget _buildFAB(BuildContext context, AppLocalizations l10n) {
     return FloatingActionButton(
-      onPressed: () => _showAddBookingDialog(context, l10n),
+      onPressed: () => context.push('/booking'),
       backgroundColor: AppColors.secondary,
       foregroundColor: AppColors.onSecondary,
       elevation: 4,
@@ -330,13 +331,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
         // Compute earnings per calendar day from completed/finished bookings,
         // so today's total, last week's same weekday, the monthly total and
         // the 7-day trend chart all derive from the same real data.
-        final now = DateTime.now();
+        final now = DateTime.now().toUtc().add(Duration(hours: config.timezoneOffsetHours));
         final startOfToday = DateTime(now.year, now.month, now.day);
         final startOfMonth = DateTime(now.year, now.month, 1);
         final earningsByDay = <DateTime, double>{};
 
         for (var doc in totalBookings) {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = staffBooking(doc.data() as Map<String, dynamic>, config.timezoneOffsetHours);
           final status = data['status'] as String? ?? '';
           final price = (data['price'] as num?)?.toDouble() ?? 0.0;
           final dateVal = data['date'];
@@ -344,7 +345,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
           if ((status.toUpperCase() == 'COMPLETED' ||
                   status.toUpperCase() == 'FINISHED') &&
               dateVal is Timestamp) {
-            final date = dateVal.toDate();
+            final date = dateVal.toDate().toUtc().add(Duration(hours: config.timezoneOffsetHours));
             final day = DateTime(date.year, date.month, date.day);
             earningsByDay[day] = (earningsByDay[day] ?? 0) + price;
           }
@@ -717,7 +718,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     // Find the next confirmed/pending booking in Firestore.
     Map<String, dynamic>? nextBooking;
     for (var doc in bookings) {
-      final data = doc.data() as Map<String, dynamic>;
+      final data = staffBooking(doc.data() as Map<String, dynamic>, ref.read(appConfigProvider).timezoneOffsetHours);
       final status = data['status'] as String? ?? '';
       if (status.toUpperCase() == 'CONFIRMED' ||
           status.toUpperCase() == 'PENDING') {
@@ -1092,7 +1093,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
 
               // Apply UI filter filters
               final filteredDocs = docs.where((doc) {
-                final data = doc.data() as Map<String, dynamic>;
+                final data = staffBooking(doc.data() as Map<String, dynamic>, config.timezoneOffsetHours);
                 final status = (data['status'] as String? ?? '').toUpperCase();
 
                 if (_bookingFilter == 'Pending') {
@@ -1102,13 +1103,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 if (_bookingFilter == 'Today') {
                   final dateVal = data['date'];
                   if (dateVal is Timestamp) {
-                    final date = dateVal.toDate();
-                    final now = DateTime.now();
+                    final date = dateVal.toDate().toUtc().add(Duration(hours: config.timezoneOffsetHours));
+                    final now = DateTime.now().toUtc().add(Duration(hours: config.timezoneOffsetHours));
                     return date.year == now.year &&
                         date.month == now.month &&
                         date.day == now.day;
                   }
-                  return true; // if date missing but today filter active, display it for debug
+                  return false;
                 }
 
                 return true;
@@ -1125,7 +1126,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                 itemCount: filteredDocs.length,
                 itemBuilder: (context, index) {
                   final bookingDoc = filteredDocs[index];
-                  final data = bookingDoc.data() as Map<String, dynamic>;
+                  final data = staffBooking(bookingDoc.data() as Map<String, dynamic>, config.timezoneOffsetHours);
                   final String id = bookingDoc.id;
                   final String clientName = data['clientName'] ?? 'No Name';
                   final String serviceName = data['service'] ?? 'No Service';
@@ -1428,9 +1429,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
                       ),
                       minimumSize: Size.zero,
                     ),
-                    onPressed: () => _deleteBooking(id, l10n),
+                    onPressed: ['PENDING','CONFIRMED','LIVE'].contains(status) ? () => _cancelBooking(id, l10n) : null,
                     child: Text(
-                      l10n.get('delete'),
+                      l10n.get('cancel'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.redAccent,
@@ -1455,7 +1456,7 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
       await FirebaseFirestore.instance
           .collection('bookings')
           .doc(bookingId)
-          .update({'status': newStatus});
+          .update({'status': newStatus.toLowerCase(), 'updatedAt': FieldValue.serverTimestamp()});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1478,19 +1479,19 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     }
   }
 
-  void _deleteBooking(String bookingId, AppLocalizations l10n) async {
+  void _cancelBooking(String bookingId, AppLocalizations l10n) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           l10n.languageCode == 'es'
-              ? '¿Eliminar Reserva?'
-              : 'Delete Reservation?',
+              ? '¿Cancelar reserva?'
+              : 'Cancel reservation?',
         ),
         content: Text(
           l10n.languageCode == 'es'
-              ? '¿Estás seguro de que deseas eliminar esta reserva permanentemente?'
-              : 'Are you sure you want to remove this booking permanently?',
+              ? '¿Estás seguro de que deseas cancelar esta reserva?'
+              : 'Are you sure you want to cancel this booking?',
         ),
         actions: [
           TextButton(
@@ -1501,39 +1502,15 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: Text(
-              l10n.languageCode == 'es' ? 'SÍ, ELIMINAR' : 'YES, DELETE',
+              l10n.languageCode == 'es' ? 'SÍ, CANCELAR' : 'YES, CANCEL',
             ),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('bookings')
-            .doc(bookingId)
-            .delete();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              l10n.languageCode == 'es'
-                  ? 'Reserva eliminada exitosamente.'
-                  : 'Booking deleted successfully.',
-            ),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              l10n.languageCode == 'es'
-                  ? 'Error al eliminar reserva: $e'
-                  : 'Error deleting booking: $e',
-            ),
-          ),
-        );
-      }
+    if (confirm == true && mounted) {
+      _updateBookingStatus(bookingId, 'CANCELLED', l10n);
     }
   }
 
@@ -3406,9 +3383,9 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
               final double? price = double.tryParse(priceController.text);
               final int? duration = int.tryParse(durationController.text);
 
-              if (nameController.text.isEmpty ||
-                  price == null ||
-                  duration == null) {
+              if (nameController.text.trim().isEmpty ||
+                  price == null || !price.isFinite || price < 0 ||
+                  duration == null || duration < 1 || duration > 1440) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -3959,164 +3936,4 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     );
   }
 
-  void _showAddBookingDialog(BuildContext context, AppLocalizations l10n) {
-    final config = ref.read(appConfigProvider);
-    final clientController = TextEditingController();
-    final serviceController = TextEditingController();
-    final priceController = TextEditingController(text: '50');
-    final timeController = TextEditingController(text: '10:00 AM');
-    String? selectedBarberName;
-
-    showDialog(
-      context: context,
-      builder: (context) => StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .where('shopId', isEqualTo: ref.read(currentShopIdProvider))
-            .where('role', isEqualTo: 'barber')
-            .snapshots(),
-        builder: (context, barberSnapshot) {
-          final barbersList = barberSnapshot.data?.docs ?? [];
-          final barberNames = barbersList
-              .map(
-                (doc) =>
-                    (doc.data() as Map<String, dynamic>)['name'] as String? ??
-                    'Barber',
-              )
-              .toList();
-
-          return StatefulBuilder(
-            builder: (context, setStateBuilder) => AlertDialog(
-              title: Text(
-                l10n.languageCode == 'es'
-                    ? 'Registrar Reserva'
-                    : 'Register Booking',
-                style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: clientController,
-                      decoration: InputDecoration(
-                        labelText: l10n.languageCode == 'es'
-                            ? 'Nombre del Cliente'
-                            : 'Client Name',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: serviceController,
-                      decoration: InputDecoration(
-                        labelText: l10n.languageCode == 'es'
-                            ? 'Nombre del Servicio'
-                            : 'Service Name',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText:
-                            '${l10n.get('price')} (${config.currencySymbol})',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: timeController,
-                      decoration: InputDecoration(
-                        labelText: l10n.languageCode == 'es'
-                            ? 'Hora (ej. 02:30 PM)'
-                            : 'Time (e.g. 02:30 PM)',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (barberNames.isNotEmpty) ...[
-                      DropdownButtonFormField<String>(
-                        dropdownColor: AppColors.surfaceContainerHigh,
-                        decoration: InputDecoration(
-                          labelText: l10n.languageCode == 'es'
-                              ? 'Barbero Asignado'
-                              : 'Assigned Barber',
-                        ),
-                        initialValue: selectedBarberName,
-                        items: barberNames.map((name) {
-                          return DropdownMenuItem<String>(
-                            value: name,
-                            child: Text(name),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setStateBuilder(() => selectedBarberName = val);
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(l10n.get('cancel')),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final double? price = double.tryParse(priceController.text);
-                    if (clientController.text.isEmpty ||
-                        serviceController.text.isEmpty ||
-                        price == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            l10n.languageCode == 'es'
-                                ? 'Por favor completa los campos requeridos con valores válidos.'
-                                : 'Please fill required fields with valid values.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('bookings')
-                          .add({
-                            'shopId': ref.read(currentShopIdProvider),
-                            'clientName': clientController.text.trim(),
-                            'service': serviceController.text.trim(),
-                            'price': price,
-                            'time': timeController.text.trim(),
-                            'barberName': selectedBarberName ?? 'Unassigned',
-                            'status': 'CONFIRMED',
-                            'date': FieldValue.serverTimestamp(),
-                          });
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              l10n.languageCode == 'es'
-                                  ? 'Reserva registrada exitosamente.'
-                                  : 'Booking registered successfully.',
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error adding booking: $e')),
-                      );
-                    }
-                  },
-                  child: Text(l10n.get('save')),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 }

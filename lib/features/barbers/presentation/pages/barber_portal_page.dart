@@ -1,3 +1,4 @@
+import 'package:barberia/core/providers/staff_booking.dart';
 import 'dart:async';
 import 'package:barberia/core/providers/config_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -95,40 +96,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   Timer? _sessionTimer;
 
   // Appointments List
-  final List<Map<String, dynamic>> _appointments = [
-    {
-      'id': '1',
-      'clientName': 'Marcus Sterling',
-      'service': 'Executive Cut & Hot Towel',
-      'time': '09:00',
-      'status': 'CONFIRMED',
-      'checkedIn': false,
-      'icon': Icons.content_cut_rounded,
-    },
-    {
-      'id': '2',
-      'clientName': 'Julian Rossi',
-      'service': 'Beard Sculpt & Shape',
-      'time': '10:30',
-      'status': 'PENDING',
-      'checkedIn': false,
-      'icon': Icons.face_rounded,
-    },
-    {
-      'id': '3',
-      'clientName': 'Dominic West',
-      'service': 'Signature Fade & Trim',
-      'time': '11:15',
-      'status': 'CONFIRMED',
-      'checkedIn': false,
-      'icon': Icons.keyboard_rounded,
-    },
-  ];
+  final List<Map<String, dynamic>> _appointments = [];
 
   // Appointments still pending/confirmed/in-progress; completed ones move to the revenue screen.
   List<Map<String, dynamic>> get _activeAppointments => _appointments
       .where(
-        (apt) => apt['status'] != 'COMPLETED' && apt['status'] != 'FINISHED',
+        (apt) => !staffTerminalStatuses.contains(apt['status']),
       )
       .toList();
 
@@ -264,6 +237,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     'SAT 28',
   ];
 
+  StreamSubscription<DocumentSnapshot>? _profileSubscription;
+  StreamSubscription<QuerySnapshot>? _unreadSubscription;
   StreamSubscription<QuerySnapshot>? _bookingsSubscription;
   StreamSubscription<QuerySnapshot>? _notificationsSubscription;
   int _unreadNotificationsCount = 0;
@@ -281,6 +256,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   @override
   void dispose() {
     _sessionTimer?.cancel();
+    _profileSubscription?.cancel();
+    _unreadSubscription?.cancel();
     _bookingsSubscription?.cancel();
     _notificationsSubscription?.cancel();
     super.dispose();
@@ -288,13 +265,13 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
   void _initFirebaseListeners() {
     final authState = ref.read(authProvider);
-    final barberName = authState.displayName ?? 'Julian Vance';
     final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
     final shopId = ref.read(currentShopIdProvider);
 
     // Listen to current barber user document for live settings details
-    if (currentBarberUid != null) {
-      FirebaseFirestore.instance
+    if (currentBarberUid == null) return;
+    {
+      _profileSubscription = FirebaseFirestore.instance
           .collection('users')
           .doc(currentBarberUid)
           .snapshots()
@@ -330,17 +307,12 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     _bookingsSubscription = FirebaseFirestore.instance
         .collection('bookings')
         .where('shopId', isEqualTo: shopId)
+        .where('barberId', isEqualTo: currentBarberUid)
         .snapshots()
         .listen((snapshot) {
           final List<Map<String, dynamic>> firestoreBookings = [];
           for (var doc in snapshot.docs) {
-            final data = doc.data();
-            final String docBarberName = data['barberName'] ?? '';
-            final String docBarberId = data['barberId'] ?? '';
-
-            if (docBarberId == currentBarberUid ||
-                docBarberName.toLowerCase() == barberName.toLowerCase() ||
-                docBarberId == authState.email) {
+            final data = staffBooking(doc.data(), ref.read(appConfigProvider).timezoneOffsetHours);
               firestoreBookings.add({
                 'id': doc.id,
                 'clientName': data['clientName'] ?? 'No Name',
@@ -351,12 +323,11 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 'status': data['status'] ?? 'PENDING',
                 'checkedIn': data['checkedIn'] as bool? ?? false,
                 'icon': Icons.content_cut_rounded,
-                'price': (data['price'] as num?)?.toDouble() ?? 50.0,
+                'price': (data['price'] as num?)?.toDouble() ?? 0.0,
                 'tip': (data['tip'] as num?)?.toDouble() ?? 0.0,
                 'date': data['date'],
                 'serviceStartedAt': data['serviceStartedAt'],
               });
-            }
           }
 
           if (mounted) {
@@ -385,23 +356,14 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         });
 
     // 2. Listen to notifications count
-    FirebaseFirestore.instance
+    _unreadSubscription = FirebaseFirestore.instance
         .collection('notifications')
         .where('shopId', isEqualTo: shopId)
+        .where('barberId', isEqualTo: currentBarberUid)
         .where('read', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
-          int count = 0;
-          for (var doc in snapshot.docs) {
-            final data = doc.data();
-            final String docBarberName = data['barberName'] ?? '';
-            final String docBarberId = data['barberId'] ?? '';
-            if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
-                docBarberId == currentBarberUid ||
-                docBarberId == authState.email) {
-              count++;
-            }
-          }
+          final count = snapshot.size;
           if (mounted) {
             setState(() {
               _unreadNotificationsCount = count;
@@ -413,6 +375,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
     _notificationsSubscription = FirebaseFirestore.instance
         .collection('notifications')
         .where('shopId', isEqualTo: shopId)
+        .where('barberId', isEqualTo: currentBarberUid)
         .orderBy('createdAt', descending: true)
         .limit(1)
         .snapshots()
@@ -421,12 +384,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
 
           final doc = snapshot.docs.first;
           final data = doc.data();
-          final String docBarberName = data['barberName'] ?? '';
-          final String docBarberId = data['barberId'] ?? '';
-
-          if (docBarberName.toLowerCase() == barberName.toLowerCase() ||
-              docBarberId == currentBarberUid ||
-              docBarberId == authState.email) {
+          {
             final createdAtVal = data['createdAt'];
             if (createdAtVal is Timestamp) {
               final createdAt = createdAtVal.toDate();
@@ -500,7 +458,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
         .collection('bookings')
         .doc(bookingId)
         .update({
-          'status': 'LIVE',
+          'status': 'live',
+                      'updatedAt': FieldValue.serverTimestamp(),
           'checkedIn': true,
           'serviceStartedAt': FieldValue.serverTimestamp(),
         });
@@ -632,35 +591,24 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   // Maps internal status values (used for logic comparisons) to a localized
   // display label without altering the underlying status string itself.
   String _localizedStatusLabel(String status, AppLocalizations l10n) {
-    final isSpanish = l10n.languageCode == 'es';
-    switch (status.toUpperCase()) {
-      case 'CONFIRMED':
-        return isSpanish ? 'CONFIRMADA' : 'CONFIRMED';
-      case 'PENDING':
-        return isSpanish ? 'PENDIENTE' : 'PENDING';
-      case 'COMPLETED':
-      case 'FINISHED':
-        return isSpanish ? 'COMPLETADA' : 'COMPLETED';
-      case 'LIVE':
-        return isSpanish ? 'EN VIVO' : 'LIVE';
-      default:
-        return status;
-    }
+    return staffStatusLabel(status, l10n.languageCode);
   }
 
-  Future<void> _updateBookingStatus(String? bookingId, String newStatus) async {
-    if (bookingId == null) return;
+  Future<bool> _updateBookingStatus(String? bookingId, String newStatus) async {
+    if (bookingId == null) return false;
     try {
       await FirebaseFirestore.instance
           .collection('bookings')
           .doc(bookingId)
-          .update({'status': newStatus});
+          .update({'status': newStatus.toLowerCase(), 'updatedAt': FieldValue.serverTimestamp()});
+      return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update booking status: $e')),
         );
       }
+      return false;
     }
   }
 
@@ -1275,7 +1223,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     .collection('bookings')
                     .doc(bookingId)
                     .update({
-                      'status': 'CONFIRMED',
+                      'status': 'confirmed',
+                      'updatedAt': FieldValue.serverTimestamp(),
                       'serviceStartedAt': FieldValue.delete(),
                     });
               }
@@ -1412,41 +1361,27 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
             ),
             ListTile(
               leading: const Icon(
-                Icons.access_time_rounded,
-                color: Colors.blueAccent,
+                Icons.person_off_outlined,
+                color: AppColors.onSurfaceVariant,
               ),
               title: Text(
                 l10n.languageCode == 'es'
-                    ? 'Retrasar 10 Minutos'
-                    : 'Delay 10 Minutes',
+                    ? 'Marcar como no-show'
+                    : 'Mark as no-show',
                 style: AppTextStyles.labelMd,
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.of(context).pop();
-                final parsed = _parseTime(item['time'] as String);
-                int hour = parsed.hour;
-                int min = parsed.minute + 10;
-                if (min >= 60) {
-                  hour = (hour + 1) % 24;
-                  min -= 60;
+                final bookingId = item['id'] as String?;
+                // Terminal status: releases the slot server-side; the live
+                // listener then drops it from the queue.
+                if (!await _updateBookingStatus(bookingId, 'NOSHOW') ||
+                    !mounted) {
+                  return;
                 }
-                final newTime = _formatTime12h(hour, min);
                 setState(() {
-                  item['time'] = newTime;
+                  _appointments.removeWhere((a) => a['id'] == bookingId);
                 });
-                FirebaseFirestore.instance
-                    .collection('bookings')
-                    .doc(item['id'])
-                    .update({'time': newTime});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      l10n.languageCode == 'es'
-                          ? 'Turno retrasado 10 minutos.'
-                          : 'Delayed queue item by 10 minutes.',
-                    ),
-                  ),
-                );
               },
             ),
             ListTile(
@@ -1469,7 +1404,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         .collection('bookings')
                         .doc(bookingId)
                         .update({
-                          'status': 'CANCELLED',
+                          'status': 'cancelled',
                           'updatedAt': FieldValue.serverTimestamp(),
                         });
                   }
@@ -2478,11 +2413,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         ),
                       )
                     : ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            apt['status'] = 'CONFIRMED';
-                          });
-                          _updateBookingStatus(apt['id'], 'CONFIRMED');
+                        onPressed: () async {
+                          if (!await _updateBookingStatus(apt['id'], 'CONFIRMED') || !context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -2644,7 +2576,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                       .collection('bookings')
                       .doc(bookingId)
                       .update({
-                        'status': 'CANCELLED',
+                        'status': 'cancelled',
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
                 }
@@ -3110,8 +3042,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      _updateBookingStatus(appt['id'], 'COMPLETED');
+                    onPressed: () async {
+                      if (!await _updateBookingStatus(appt['id'], 'COMPLETED') || !context.mounted) return;
                       setState(() {
                         for (var a in _appointments) {
                           if (a['id'] == appt['id']) {
@@ -3127,8 +3059,8 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                         SnackBar(
                           content: Text(
                             l10n.languageCode == 'es'
-                                ? 'Servicio Completado. Pago procesado exitosamente.'
-                                : 'Service Completed. Payment processed successfully.',
+                                ? 'Servicio completado.'
+                                : 'Service completed.',
                           ),
                         ),
                       );
@@ -4670,9 +4602,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
   }
 
   void _showNotificationsDialog(BuildContext context, AppLocalizations l10n) {
-    final authState = ref.read(authProvider);
     final currentBarberUid = FirebaseAuth.instance.currentUser?.uid;
-    final barberName = authState.displayName ?? 'Julian Vance';
     final shopId = ref.read(currentShopIdProvider);
 
     showDialog(
@@ -4715,6 +4645,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                   stream: FirebaseFirestore.instance
                       .collection('notifications')
                       .where('shopId', isEqualTo: shopId)
+                      .where('barberId', isEqualTo: currentBarberUid)
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -4727,16 +4658,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
                     }
 
                     final docs = snapshot.data?.docs ?? [];
-                    final barberDocs = docs.where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final String docBarberName = data['barberName'] ?? '';
-                      final String docBarberId = data['barberId'] ?? '';
-                      return docBarberName.toLowerCase() ==
-                              barberName.toLowerCase() ||
-                          docBarberId == currentBarberUid ||
-                          docBarberId == authState.email;
-                    }).toList();
-
+                    final barberDocs = docs;
                     if (barberDocs.isEmpty) {
                       return Center(
                         child: Text(
