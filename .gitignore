@@ -50,6 +50,7 @@ app.*.map.json
 
 # Android related
 /android/app/build/
+/android/build/
 /android/userdata/
 /android/.gradle/
 /android/captures/
