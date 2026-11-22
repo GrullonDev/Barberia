@@ -43,7 +43,7 @@ construye sobre una base que ya probamos estable en móvil, no al revés.
 | Login de staff | Sí (ruta inicial `/login`) | **No** (bloqueado en el router) |
 | Portal admin | Sí | **No** |
 | Portal barbero | Sí | **No** |
-| Página legacy `public/index.html` | — | Es lo que Hosting publica hoy; usa `config/barberia` (ya reemplazado por `shops/`) y escribe directo a `bookings`, lo que las reglas actuales deniegan |
+| Página legacy `public/index.html` | — | La configuración de Hosting apunta a `build/web`. Esta página usa `config/barberia` (ya reemplazado por `shops/`) y escribe directo a `bookings`, lo que las reglas actuales deniegan |
 
 Riesgos de estabilidad detectados en la revisión:
 

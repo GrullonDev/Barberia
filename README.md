@@ -132,8 +132,8 @@ En Android/iOS los errores no capturados (framework y async) se envian a Firebas
 
 ## Requisitos
 
-- Flutter estable compatible con Dart `^3.11.5`.
-- FVM opcional; `.fvmrc` apunta a `stable`.
+- Flutter 3.50.0 estable (Dart 3.14.0), fijado en `.fvmrc`.
+- FVM opcional para usar la versión fijada.
 - Firebase CLI para emuladores y deploy.
 - Python 3.11+ para Cloud Functions.
 
@@ -141,14 +141,14 @@ En Android/iOS los errores no capturados (framework y async) se envian a Firebas
 
 ```bash
 flutter pub get
-flutter run
+flutter run -d chrome
 ```
 
 Con FVM:
 
 ```bash
 fvm flutter pub get
-fvm flutter run
+fvm flutter run -d chrome
 ```
 
 Analisis y pruebas:
@@ -200,7 +200,7 @@ flutter build web
 firebase deploy --only hosting
 ```
 
-`firebase.json` sirve hosting desde `public/`. Si se desea publicar el build de Flutter, ajustar `hosting.public` a `build/web` o copiar el build a `public/` antes del deploy.
+Firebase Hosting sirve el contenido de `build/web/`. Genera el build antes de publicar.
 
 ## Scripts Utiles
 
@@ -226,7 +226,6 @@ Revisar cada script antes de ejecutarlo, especialmente los de migracion o escrit
 - Consolidar routers y entrada de app para evitar confusion.
 - Agregar pruebas Flutter para auth/routing/reserva (`slot_engine.py` ya tiene tests).
 - Documentar esquema definitivo de Firestore con ejemplos de documentos.
-- Revisar configuracion de Hosting para publicar `build/web`.
 
 ## Licencia
 
