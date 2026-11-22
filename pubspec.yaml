@@ -25,6 +25,7 @@ dependencies:
   cloud_functions: ^6.3.3
   firebase_crashlytics: ^5.4.1
 
+  material_ui: any
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   flutter_lints: ^5.0.0
