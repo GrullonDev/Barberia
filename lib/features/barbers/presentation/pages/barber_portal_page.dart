@@ -121,7 +121,7 @@ class _BarberPortalPageState extends ConsumerState<BarberPortalPage> {
               apt['status'] != 'CANCELLED',
         )
         .toList();
-    list.sort((a, b) => (a['time'] as String).compareTo(b['time'] as String));
+    list.sort(compareByStart);
     return list;
   }
 

@@ -716,17 +716,13 @@ class _AdminPortalPageState extends ConsumerState<AdminPortalPage> {
     List<QueryDocumentSnapshot> bookings,
     AppLocalizations l10n,
   ) {
-    // Find the next confirmed/pending booking in Firestore.
-    Map<String, dynamic>? nextBooking;
-    for (var doc in bookings) {
-      final data = staffBooking(doc.data() as Map<String, dynamic>, ref.read(appConfigProvider).timezoneOffsetHours);
-      final status = data['status'] as String? ?? '';
-      if (status.toUpperCase() == 'CONFIRMED' ||
-          status.toUpperCase() == 'PENDING') {
-        nextBooking = data;
-        break;
-      }
-    }
+    final offset = ref.read(appConfigProvider).timezoneOffsetHours;
+    final nextBooking = nextUpcomingBooking(
+      bookings.map(
+        (doc) => staffBooking(doc.data() as Map<String, dynamic>, offset),
+      ),
+      DateTime.now(),
+    );
 
     if (nextBooking == null) {
       return Container(

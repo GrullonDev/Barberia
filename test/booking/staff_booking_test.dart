@@ -177,4 +177,44 @@ void main() {
       DateTime.utc(2026, 1, 5, 15, 30),
     );
   });
+
+  group('nextUpcomingBooking', () {
+    final now = DateTime.utc(2026, 11, 23, 15);
+    Map<String, dynamic> row(String id, DateTime start, String status) =>
+        staffBooking({
+          'id': id,
+          'startAt': Timestamp.fromDate(start),
+          'status': status,
+        }, -6);
+
+    test('picks the earliest future appointment, not the newest created', () {
+      // Listed newest-created first, as the admin query returns them.
+      final rows = [
+        row('created-last', DateTime.utc(2026, 11, 24, 17), 'pending'),
+        row('afternoon', DateTime.utc(2026, 11, 24, 22), 'pending'),
+        row('earliest', DateTime.utc(2026, 11, 24, 16), 'confirmed'),
+      ];
+      expect(nextUpcomingBooking(rows, now)?['id'], 'earliest');
+    });
+
+    test('skips past, cancelled and finished appointments', () {
+      final rows = [
+        row('past', DateTime.utc(2026, 11, 23, 14), 'pending'),
+        row('cancelled', DateTime.utc(2026, 11, 23, 16), 'cancelled'),
+        row('done', DateTime.utc(2026, 11, 23, 17), 'completed'),
+        row('next', DateTime.utc(2026, 11, 23, 18), 'pending'),
+      ];
+      expect(nextUpcomingBooking(rows, now)?['id'], 'next');
+      expect(nextUpcomingBooking(rows.take(3), now), isNull);
+    });
+  });
+
+  test('compareByStart orders by instant, not by the 12-hour label', () {
+    Map<String, dynamic> at(int utcHour) => staffBooking({
+      'startAt': Timestamp.fromDate(DateTime.utc(2026, 11, 24, utcHour)),
+    }, -6);
+    // 9:00 AM, 4:00 PM, 11:00 AM local: as strings "9:00 AM" > "4:00 PM".
+    final rows = [at(22), at(15), at(17)]..sort(compareByStart);
+    expect(rows.map((r) => r['time']), ['9:00 AM', '11:00 AM', '4:00 PM']);
+  });
 }

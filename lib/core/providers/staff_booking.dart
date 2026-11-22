@@ -52,6 +52,41 @@ Map<String, dynamic> staffBooking(Map<String, dynamic> data, int offsetHours) {
   };
 }
 
+/// Orders projected rows by appointment instant (`date`); rows without one
+/// sort last. Never sort on `time`: unpadded 12-hour labels put "9:00 AM"
+/// after "4:00 PM".
+int compareByStart(Map<String, dynamic> a, Map<String, dynamic> b) {
+  final x = a['date'], y = b['date'];
+  if (x is Timestamp && y is Timestamp) return x.compareTo(y);
+  if (x is Timestamp) return -1;
+  if (y is Timestamp) return 1;
+  return 0;
+}
+
+/// The earliest pending/confirmed appointment starting at or after [now],
+/// from rows already projected with [staffBooking]. Order-independent: the
+/// portals list bookings newest-created first, which says nothing about
+/// which appointment comes next.
+Map<String, dynamic>? nextUpcomingBooking(
+  Iterable<Map<String, dynamic>> projected,
+  DateTime now,
+) {
+  Map<String, dynamic>? next;
+  DateTime? nextStart;
+  for (final row in projected) {
+    if (row['status'] != 'PENDING' && row['status'] != 'CONFIRMED') continue;
+    final date = row['date'];
+    if (date is! Timestamp) continue;
+    final start = date.toDate();
+    if (start.isBefore(now)) continue;
+    if (nextStart == null || start.isBefore(nextStart)) {
+      next = row;
+      nextStart = start;
+    }
+  }
+  return next;
+}
+
 final _legacyTime = RegExp(r'^\s*(\d{1,2}):(\d{2})\s*([AaPp][Mm])?\s*$');
 
 /// Appointment start for legacy rows without `startAt`: the shop-local day of
