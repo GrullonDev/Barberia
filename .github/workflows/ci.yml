@@ -11,13 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - id: sdk
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ steps.sdk.outputs.version }}
           channel: stable
           cache: true
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
-      - run: flutter test
+      - run: flutter test --platform chrome
+      - run: flutter build web --release
 
   functions:
     name: Cloud Functions tests
