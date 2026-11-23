@@ -97,29 +97,28 @@ tool/
 
 En Android/iOS la ruta inicial configurada es `/login`; en web/desktop inicia en `/`.
 
-## Modelo de Datos Esperado
+## Modelo de Datos y Backend
 
-Colecciones usadas o previstas en Firestore:
+El esquema canónico de `bookings`, el ciclo de vida de una cita, los
+contratos de Cloud Functions, el invariante anti doble-reserva, los índices
+requeridos y los comandos de prueba están documentados en
+[`docs/BOOKING_SYSTEM.md`](docs/BOOKING_SYSTEM.md).
 
-- `users`: perfiles de usuarios, barberos y admins. El campo `role` controla permisos (`client`, `barber`, `admin`).
-- `bookings`: reservas. La UI actual usa campos como `clientName`, `clientEmail`, `clientPhone`, `service`, `price`, `time`, `barberId`, `barberName`, `status`, `date` y `createdAt`.
-- `notifications`: notificaciones visibles para el portal administrativo.
-- `services`: catalogo administrable por admin y usado por las Cloud Functions.
-- `config/barberia`: idioma, moneda, horarios y parametros globales.
-- `schedule_blocks`: bloqueos de agenda por barbero.
-- `reputation`: control anti no-show por telefono normalizado.
-- `walkins`: cola sin cita, preparada en reglas.
+Colecciones principales: `shops` (configuración por tenant, reemplaza
+`config/barberia`), `users` (perfiles privados con `role` y `shopId`),
+`barber_directory` (proyección pública de barberos, escrita solo por el
+servidor), `services`, `bookings`, `schedule_blocks`, `notifications`,
+`reputation`, `walkins`/`clients`, y las colecciones solo-servidor
+`booking_guards`, `booking_requests` y `booking_limits`.
 
-## Backend y Reglas
+Funciones en `backend/functions`: `reserveSlot`, `getAvailability`,
+`inviteBarber`, `removeBarber`, `resetBarberPassword` y el trigger
+`syncBarberDirectory`.
 
-El backend en `backend/functions` expone:
-
-- `reserveSlot`: crea una reserva de forma atomica validando servicio, barbero, horario laboral, conflictos, bloqueos y reputacion.
-- `getAvailability`: devuelve slots libres para un barbero, fecha y servicio.
-- `inviteBarber`: crea cuenta de Firebase Auth, documento `users/{uid}` e intenta enviar credenciales por SendGrid.
-- `removeBarber`: elimina el documento del barbero y su cuenta Auth.
-
-Las reglas de Firestore estan en `firestore.rules`. El modelo de seguridad distingue clientes, barberos y administradores. Nota importante: actualmente las reglas permiten lectura/escritura abierta en `bookings` y `notifications`; conviene cerrarlas antes de produccion si la app publica queda expuesta.
+Las reglas (`firestore.rules`) aíslan cada tenant: los clientes no pueden
+crear reservas directamente, cada barbero ve solo sus citas, el admin solo
+gestiona su shop y ningún usuario puede cambiar su propio rol o `shopId`.
+Están cubiertas por `backend/tests/test_firestore_rules.py`.
 
 ## Reporte de Errores (Crashlytics)
 
@@ -177,7 +176,9 @@ Puertos configurados:
 - Hosting: `5000`
 - Emulator UI: `4000`
 
-La app Flutter no conecta automaticamente a emuladores en `main.dart`; si se necesita desarrollo local completo, hay que configurar `useAuthEmulator`, `useFirestoreEmulator` y `useFunctionsEmulator`.
+La app Flutter usa los emuladores solo si se compila con `--dart-define=USE_FIREBASE_EMULATORS=true` (ver `lib/core/firebase/dev_environment.dart`). Staging, seed de datos de prueba y pruebas end-to-end: [`docs/STAGING.md`](docs/STAGING.md).
+
+> El proyecto `default` de `.firebaserc` (`barbershop-ee9c0`) es **producción**. Staging es `barberia-staging`; operarlo solo con `tool/staging.sh`.
 
 ## Deploy
 
@@ -222,9 +223,9 @@ Revisar cada script antes de ejecutarlo, especialmente los de migracion o escrit
 
 ## Proximos Pasos Recomendados
 
-- Endurecer reglas de `bookings` y `notifications`.
 - Consolidar routers y entrada de app para evitar confusion.
-- Agregar pruebas Flutter para auth/routing/reserva (`slot_engine.py` ya tiene tests).
+- Agregar pruebas Flutter para auth/routing (el flujo de reserva ya tiene tests).
+- Habilitar App Check en las callables públicas.
 - Documentar esquema definitivo de Firestore con ejemplos de documentos.
 
 ## Licencia

@@ -19,15 +19,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
-    // Explicitly set JVM Toolchain for consistent compilation
-    kotlin {
-        jvmToolchain(17)
-    }
-
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.grullondev.barberia"
@@ -45,6 +36,15 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+// Kotlin 2.4 removed the `android.kotlinOptions` DSL; this mirrors the
+// Flutter 3.50 app template while keeping the existing JDK 17 toolchain.
+kotlin {
+    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
