@@ -14,16 +14,20 @@
 Toda operación de staging pasa por `tool/staging.sh`, que fija
 `--project barberia-staging` y falla si algo no cuadra.
 
-## Estado del entorno (2026-11-22)
+## Estado del entorno (verificado 2026-11-22)
 
 | Servicio | Estado |
 |---|---|
-| Plan de facturación | **Spark (sin billing)** — bloquea Cloud Functions |
-| Firestore | `(default)`, `nam5`, Standard, delete-protection ON. Reglas e índices del repo desplegados |
-| Authentication | Email/Password habilitado; dominios autorizados `barberia-staging.web.app`, `barberia-staging.firebaseapp.com` |
+| Plan de facturación | Blaze. Política de limpieza de Artifact Registry: 7 días |
+| Firestore | `(default)`, `nam5`, Standard, delete-protection ON. Reglas e índices del repo desplegados; 9/9 índices READY |
+| Authentication | Email/Password habilitado; dominios autorizados `barberia-staging.web.app`, `barberia-staging.firebaseapp.com`; 3 cuentas sintéticas |
 | App Web | `Barberia Web (staging)` — `1:169151296960:web:cb9ed6ec4580f0756e8425` |
-| Cloud Functions | **No desplegadas** (requiere Blaze) |
-| Hosting | Sitio `barberia-staging` existe |
+| Cloud Functions | 8 en `us-central1`, python311: `getAvailability`, `reserveSlot`, `createScheduleBlock`, `inviteBarber`, `removeBarber`, `resetBarberPassword` (callables); `syncBarberDirectory`, `onBookingNoShow` (triggers Firestore) |
+| Hosting | https://barberia-staging.web.app (build `FIREBASE_ENV=staging`, `SHOP_ID=barberia-staging`, `WEB_STAFF_PORTALS=true`) |
+
+El primer deploy de Functions en un proyecto nuevo puede fallar dos veces
+mientras se crean las cuentas de servicio (IAM y Eventarc); basta reintentar
+`tool/staging.sh deploy functions` uno o dos minutos después.
 
 Ubicación de Firestore: se eligió `nam5` (igual que producción y contiene
 `us-central1`, la región fijada en `backend/functions/main.py`). Es
@@ -140,10 +144,36 @@ No dar la prueba por aprobada si se ejecutó contra emuladores.
 - Functions: desplegar el commit anterior con `tool/staging.sh deploy functions`.
 - Datos: el tenant es sintético; se puede volver a sembrar en cualquier momento.
 
+## Resultado de la aceptación en Chrome (2026-11-22)
+
+Ejecutada con Playwright + Google Chrome contra https://barberia-staging.web.app:
+
+| Escenario | Resultado | Evidencia |
+|---|---|---|
+| A. Reserva de cliente | OK | `ck8fIq5YBvyb2uZgsSaz` (Carlos, Corte Clásico, mar 24 10:00) persistida en `bookings` |
+| B. Duplicado / carrera | OK | 10:00 ya no se ofrece; carrera en 10:30 y 11:00 → HTTP 409 y "Ese horario ya fue reservado por otro cliente. Elige otro."; sin documento duplicado |
+| C. Portal admin | OK (tras corrección) | reserva visible con datos correctos; "Próxima cita" correcta |
+| D. Portal barbero | OK (tras corrección) | aparece el martes 24 en orden; el barbero 2 no ve nada |
+| E. Cancelación | OK | admin cancela con confirmación → `status: cancelled`; 10:00 vuelve a ofrecerse y se reserva otra vez (`IJ4mCm1MJIAicpBhaYU1`) |
+| F. Validación y errores | OK | domingo sin horarios, almuerzo bloqueado, nombre/teléfono inválidos, `/admin/portal` anónimo → `/login`, contraseña errónea con mensaje |
+
+Defectos encontrados y corregidos en esta corrida: enlace "Acceso Personal"
+roto en web pública, router que mandaba al staff a `/` tras iniciar sesión,
+"Próxima cita" y cola del barbero mal ordenadas, encabezado del horario fijo
+en hoy.
+
+Notas para automatizar Flutter Web: activar el árbol de accesibilidad
+(`flt-semantics-placeholder`), escribir con el teclado (no `fill`) y
+verificar el valor, y no hacer clic por coordenadas en campos de texto.
+
 ## Limitaciones conocidas
 
-- Sin Blaze no hay Cloud Functions, por lo que disponibilidad, reservas,
-  bloqueos e invitaciones no funcionan en staging.
+- Cuota anti-abuso de `reserveSlot`: 3 reservas por teléfono y hora; usar
+  teléfonos sintéticos distintos en pruebas repetidas.
+- "Próximo espacio disponible: 16:00 (30m)" en el portal del barbero es un
+  texto fijo de maqueta (no se calcula).
+- La lista de reservas del admin se ordena por creación y las tarjetas no
+  muestran la fecha, solo la hora.
 - Correos de invitación/restablecimiento por SendGrid no configurados en
   staging (`SENDGRID_*`); el restablecimiento estándar de Firebase Auth sí.
 - App Check desactivado (`ENFORCE_APP_CHECK=false`).
