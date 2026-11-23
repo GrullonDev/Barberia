@@ -4,6 +4,7 @@
 *.pyc
 *.swp
 .DS_Store
+._*
 .atom/
 .build/
 .buildlog/
@@ -35,7 +36,6 @@ migrate_working_dir/
 /build/
 
 # Web related
-lib/generated_plugin_registrant.dart
 
 # Symbolication related
 app.*.symbols
@@ -154,6 +154,8 @@ logs/
 .firebase/
 firebase-debug.log
 firestore-debug.log
+*firebase-adminsdk*.json
+serviceAccountKey*.json
 
 # Sentry
 .sentryclirc
@@ -171,3 +173,11 @@ linux/
 macOS/
 windows/
 .metadata/
+
+# Node Related
+node_modules/
+pnpm-lock.yaml
+
+# Temporary File Copies
+*pubspec.lock
+untranslated.txt
