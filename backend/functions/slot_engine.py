@@ -17,14 +17,48 @@ Modelo mental:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from typing import Iterable
 
-# Status que bloquean el slot. Coincide con Booking.occupiesSlot en Dart.
+# Status que bloquean el slot, en minúsculas. Los documentos históricos usan
+# mayúsculas ('CONFIRMED', 'LIVE') y camelCase ('inProgress'); el barber
+# portal escribe 'live' al iniciar el servicio. La comparación es siempre
+# case-insensitive (ver `occupies_slot`). Terminales: completed, finished,
+# cancelled/canceled, noshow/no_show.
 OCCUPYING_STATUSES: frozenset[str] = frozenset(
-    {"pending", "confirmed", "inProgress"}
+    {"pending", "confirmed", "inprogress", "live", "active"}
 )
+
+LEGACY_DEFAULT_MINUTES = 30
+_LEGACY_TIME = re.compile(r"^\s*(\d{1,2}):(\d{2})\s*([AaPp][Mm])?\s*$")
+
+
+def occupies_slot(status: object) -> bool:
+    """True si el status (cualquier casing; ausente = pending) ocupa agenda."""
+    if status is None:
+        return True
+    return isinstance(status, str) and status.strip().lower() in OCCUPYING_STATUSES
+
+
+def parse_legacy_time(value: object) -> tuple[int, int] | None:
+    """'10:00 AM' / '2:30 pm' / '14:30' → (hora, minuto) en 24h."""
+    if not isinstance(value, str):
+        return None
+    match = _LEGACY_TIME.match(value)
+    if not match:
+        return None
+    hour, minute, meridiem = int(match.group(1)), int(match.group(2)), match.group(3)
+    if minute > 59:
+        return None
+    if meridiem:
+        if not 1 <= hour <= 12:
+            return None
+        hour = hour % 12 + (12 if meridiem.lower() == "pm" else 0)
+    elif hour > 23:
+        return None
+    return hour, minute
 
 
 @dataclass(frozen=True)
@@ -139,23 +173,52 @@ def generate_candidates(
 # -----------------------------------------------------------------------------
 
 
-def bookings_to_ranges(booking_docs: Iterable[dict]) -> list[TimeRange]:
-    """Mapea docs de `bookings/` a TimeRange solo si ocupan slot."""
+def bookings_to_ranges(
+    booking_docs: Iterable[dict], business_tz_offset_hours: int | None = None
+) -> list[TimeRange]:
+    """Mapea docs de `bookings/` a TimeRange solo si ocupan slot.
+
+    Esquema canónico: `startAt`/`endAt` (Timestamps UTC). Compatibilidad
+    legacy, en orden:
+      * sin `endAt` → `serviceDurationMinutes` o 30 min;
+      * sin `startAt` pero con `date` + `time` ('10:00 AM') → el día local de
+        `date` a la hora `time` (requiere `business_tz_offset_hours`). Las
+        reservas manuales antiguas guardaban en `date` la hora de *creación*,
+        así que `date` solo no indica cuándo es la cita.
+    """
     out: list[TimeRange] = []
     for b in booking_docs:
-        status = b.get("status", "pending")
-        if status not in OCCUPYING_STATUSES:
+        if not occupies_slot(b.get("status", "pending")):
             continue
-        start = _coerce_dt(b.get("startAt") or b.get("date"))
+        start = _coerce_dt(b.get("startAt"))
+        if start is None:
+            start = _legacy_start(b, business_tz_offset_hours)
+        if start is None:
+            continue
+        start = _as_utc(start)
         end = _coerce_dt(b.get("endAt"))
-        if start is None or end is None:
-            # Best effort: si falta endAt, asumimos 30min.
-            if start is not None and end is None:
-                end = start + timedelta(minutes=30)
-            else:
-                continue
-        out.append(TimeRange(start=_as_utc(start), end=_as_utc(end)))
+        if end is None:
+            minutes = b.get("serviceDurationMinutes")
+            if type(minutes) is not int or minutes <= 0:
+                minutes = LEGACY_DEFAULT_MINUTES
+            end = start + timedelta(minutes=minutes)
+        end = _as_utc(end)
+        if end <= start:
+            continue
+        out.append(TimeRange(start=start, end=end))
     return out
+
+
+def _legacy_start(b: dict, business_tz_offset_hours: int | None) -> datetime | None:
+    date_value = _coerce_dt(b.get("date"))
+    if date_value is None:
+        return None
+    clock = parse_legacy_time(b.get("time"))
+    if clock is None or business_tz_offset_hours is None:
+        return date_value
+    tz = timezone(timedelta(hours=business_tz_offset_hours))
+    local_day = _as_utc(date_value).astimezone(tz).date()
+    return datetime.combine(local_day, time(hour=clock[0], minute=clock[1]), tzinfo=tz)
 
 
 def blocks_to_ranges(block_docs: Iterable[dict]) -> list[TimeRange]:

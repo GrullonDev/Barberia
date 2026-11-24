@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,11 +65,32 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
   bool _barbersLoadFailed = false;
 
+  bool _servicesLoadFailed = false;
+  bool _slotsLoadFailed = false;
+  int _slotRequest = 0;
+  String? _attemptPayload;
+  String? _attemptKey;
+  ReservationResult? _confirmation;
+  late String _shopId;
+  int _catalogVersion = 0;
+
   @override
   void initState() {
     super.initState();
-    _fetchBarbers();
-    _fetchServices();
+    ref.listenManual(currentShopIdProvider, (_, shopId) {
+      _shopId = shopId;
+      _catalogVersion++;
+      _currentStep = 0;
+      _selectedBarberId = null;
+      _selectedBarber = null;
+      _selectedServiceData = null;
+      _selectedSlotUtc = null;
+      _selectedDate = null;
+      _isSaving = false;
+      _slotRequest++;
+      _fetchBarbers();
+      _fetchServices();
+    }, fireImmediately: true);
   }
 
   @override
@@ -80,39 +102,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   Future<void> _fetchBarbers() async {
+    final shop = _shopId;
+    final version = _catalogVersion;
+    setState(() {
+      _isLoadingBarbers = true;
+      _barbersLoadFailed = false;
+    });
     try {
-      // Clientes públicos (sin sesión de staff) no pueden leer `users`
-      // (ver firestore.rules) — se usa `barber_directory`, la vista
-      // denormalizada de solo campos seguros que escribe inviteBarber.
-      final snapshot = await FirebaseFirestore.instance
-          .collection('barber_directory')
-          .where('shopId', isEqualTo: ref.read(currentShopIdProvider))
-          .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        setState(() {
-          _firestoreBarbers = snapshot.docs.map((doc) {
-            final data = doc.data();
-            return {
-              'id': doc.id,
-              'name': data['name'] ?? 'Barber',
-              'specialty': data['specialty'] ?? 'Estilo & Corte',
-              'tag': data['isAvailable'] == false ? 'IN SESSION' : 'ELITE',
-              'image':
-                  data['photoUrl'] ?? 'assets/images/barber_julian_vance.png',
-              'rating': '4.9',
-              'reviews': '100+ reseñas',
-            };
-          }).toList();
-          _isLoadingBarbers = false;
-        });
-      } else {
-        setState(() {
-          _firestoreBarbers = [];
-          _isLoadingBarbers = false;
-        });
-      }
-    } catch (e) {
+      final barbers = await ref
+          .read(bookingRepositoryProvider)
+          .fetchBarbers(shop);
+      if (!mounted || version != _catalogVersion) return;
+      setState(() {
+        _firestoreBarbers = barbers;
+        _isLoadingBarbers = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _catalogVersion) return;
       setState(() {
         _firestoreBarbers = [];
         _isLoadingBarbers = false;
@@ -122,18 +128,27 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   Future<void> _fetchServices() async {
+    final shop = _shopId;
+    final version = _catalogVersion;
+    setState(() {
+      _isLoadingServices = true;
+      _servicesLoadFailed = false;
+    });
     try {
       final services = await ref
           .read(bookingRepositoryProvider)
-          .fetchActiveServices();
+          .fetchActiveServices(shop);
+      if (!mounted || version != _catalogVersion) return;
       setState(() {
         _services = services;
         _isLoadingServices = false;
       });
-    } catch (e) {
+    } catch (_) {
+      if (!mounted || version != _catalogVersion) return;
       setState(() {
         _services = [];
         _isLoadingServices = false;
+        _servicesLoadFailed = true;
       });
     }
   }
@@ -147,30 +162,31 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     if (barberId == null || serviceId == null || _selectedDate == null) return;
 
     setState(() {
+      _slotsLoadFailed = false;
       _isLoadingSlots = true;
       _availableSlots = [];
       _selectedSlotUtc = null;
     });
 
+    final request = ++_slotRequest;
     try {
       final slots = await ref
           .read(bookingRepositoryProvider)
           .fetchAvailability(
+            shopId: _shopId,
             barberId: barberId,
             date: _selectedDate!,
             serviceId: serviceId,
           );
+      if (!mounted || request != _slotRequest) return;
       setState(() {
         _availableSlots = slots;
         _isLoadingSlots = false;
       });
-    } on BookingException catch (_) {
-      setState(() {
-        _availableSlots = [];
-        _isLoadingSlots = false;
-      });
     } catch (_) {
+      if (!mounted || request != _slotRequest) return;
       setState(() {
+        _slotsLoadFailed = true;
         _availableSlots = [];
         _isLoadingSlots = false;
       });
@@ -178,7 +194,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   }
 
   List<DateTime> _getDates() {
-    final today = DateTime.now();
+    final today = bookingCalendarDay(
+      DateTime.now(),
+      ref.read(appConfigProvider).timezoneOffsetHours,
+    );
     return List.generate(7, (index) => today.add(Duration(days: index)));
   }
 
@@ -249,15 +268,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return '$_selectedDialCode$digits';
   }
 
-  double _selectedServicePrice() {
-    final data = _selectedServiceData;
-    if (data == null) return 0.0;
-    if (data['priceCents'] != null) {
-      return (data['priceCents'] as num).toDouble() / 100;
-    }
-    return (data['price'] as num?)?.toDouble() ?? 0.0;
-  }
-
   Future<void> _submitBooking(AppLocalizations l10n) async {
     if (_isSaving) return;
     final barberId = _selectedBarber?['id'] ?? _selectedBarberId;
@@ -265,6 +275,25 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final slot = _selectedSlotUtc;
     if (barberId == null || serviceId == null || slot == null) return;
 
+    final shop = _shopId;
+    final version = _catalogVersion;
+    final email = _emailController.text.trim();
+    final payload = jsonEncode([
+      shop,
+      barberId,
+      serviceId,
+      slot.toUtc().toIso8601String(),
+      _nameController.text.trim(),
+      email,
+      _formattedCustomerPhone,
+    ]);
+    if (_attemptPayload != payload) {
+      _attemptPayload = payload;
+      final random = Random.secure();
+      _attemptKey = base64UrlEncode(
+        List.generate(24, (_) => random.nextInt(256)),
+      );
+    }
     setState(() => _isSaving = true);
 
     try {
@@ -273,30 +302,41 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       // transacción, y crea el booking + la notificación al barbero. El
       // cliente nunca escribe directo a `bookings`/`notifications`
       // (firestore.rules deniega esos `create` desde el SDK de cliente).
-      await ref
+      final confirmation = await ref
           .read(bookingRepositoryProvider)
           .reserveSlot(
+            shopId: _shopId,
             barberId: barberId,
             serviceId: serviceId,
             startAt: slot,
             customerName: _nameController.text.trim(),
-            customerEmail: _emailController.text.trim(),
+            customerEmail: email.isEmpty ? null : email,
+            idempotencyKey: _attemptKey!,
             customerPhone: _formattedCustomerPhone,
           );
 
+      if (!mounted || version != _catalogVersion) return;
       setState(() {
+        _confirmation = confirmation;
+        // Retire the key: the next reservation from this screen is a new one.
+        _attemptPayload = null;
+        _attemptKey = null;
         _isSaving = false;
         _currentStep = 3; // Go to Success
       });
     } on BookingException catch (e) {
+      if (!mounted || version != _catalogVersion) return;
       setState(() => _isSaving = false);
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_mapBookingError(e, l10n))));
+      if (e.code == 'already-exists' || e.code == 'failed-precondition') {
+        setState(() => _currentStep = 1);
+        _fetchAvailableSlots();
+      }
     } catch (e) {
+      if (!mounted || version != _catalogVersion) return;
       setState(() => _isSaving = false);
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -312,6 +352,17 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   String _mapBookingError(BookingException e, AppLocalizations l10n) {
     final isSpanish = l10n.languageCode == 'es';
     switch (e.code) {
+      case 'resource-exhausted':
+        return l10n.get('booking_rate_limit');
+      case 'aborted':
+        // Contention: nothing was written. Retrying reuses the same
+        // idempotency key, so it can never create a duplicate booking.
+        return l10n.get('booking_busy_retry');
+      case 'unavailable':
+      case 'deadline-exceeded':
+        return l10n.get('booking_network_error');
+      case 'invalid-argument':
+        return l10n.get('booking_invalid');
       case 'already-exists':
         return isSpanish
             ? 'Ese horario ya fue reservado por otro cliente. Elige otro.'
@@ -526,6 +577,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       );
     }
 
+    if (_barbersLoadFailed) {
+      return _retry(l10n.get('barbers_load_error'), l10n, _fetchBarbers);
+    }
     if (_firestoreBarbers.isEmpty) {
       return SizedBox(
         height: 300,
@@ -589,7 +643,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             (b) => b['id'] == _selectedBarberId,
                           );
                           setState(() {
+                            final changed =
+                                _selectedBarber?['id'] != barber['id'];
                             _selectedBarber = barber;
+                            if (changed) {
+                              _slotRequest++;
+                              _availableSlots = [];
+                              _selectedSlotUtc = null;
+                              _selectedDate = null;
+                            }
                             _currentStep = 1;
                           });
                         },
@@ -674,44 +736,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1.0,
-                    child: Image.asset(
-                      barber['image'],
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppColors.surfaceContainerHigh,
-                        child: const Icon(
-                          Icons.person_outline,
-                          color: AppColors.onSurfaceVariant,
-                          size: 48,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 12,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      color: AppColors.secondary,
-                      child: Text(
-                        barber['tag'],
-                        style: AppTextStyles.labelSm.copyWith(
-                          color: AppColors.onSecondary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 10,
-                          letterSpacing: 0.08 * 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              AspectRatio(
+                aspectRatio: 1,
+                child:
+                    barber['photoUrl'] is String &&
+                        Uri.tryParse(barber['photoUrl'])?.scheme == 'https'
+                    ? Image.network(
+                        barber['photoUrl'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.person_outline),
+                      )
+                    : const Icon(Icons.person_outline),
               ),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -723,7 +759,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            barber['name'],
+                            barber['name'] ?? l10n.get('barber'),
                             style: AppTextStyles.headlineSm.copyWith(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -732,7 +768,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            barber['specialty'],
+                            barber['specialty'] ?? '',
                             style: AppTextStyles.bodyMd.copyWith(
                               fontSize: 13,
                               color: AppColors.onSurfaceVariant,
@@ -740,39 +776,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star_border,
-                              color: AppColors.secondary,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              barber['rating'],
-                              style: AppTextStyles.labelMd.copyWith(
-                                color: AppColors.secondary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.languageCode == 'es'
-                              ? '${barber['reviews'].replaceAll(RegExp(r'[^0-9\+]'), '')} reseñas'
-                              : '${barber['reviews'].replaceAll(RegExp(r'[^0-9\+]'), '')} reviews',
-                          style: AppTextStyles.labelSm.copyWith(
-                            fontSize: 11,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -830,6 +833,12 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           ),
                         ),
                       )
+                    else if (_servicesLoadFailed)
+                      _retry(
+                        l10n.get('services_load_error'),
+                        l10n,
+                        _fetchServices,
+                      )
                     else if (_services.isEmpty)
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -862,10 +871,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           children: _services.map((service) {
                             final isSelected =
                                 _selectedServiceData?['id'] == service['id'];
-                            final priceValue = service['priceCents'] != null
-                                ? (service['priceCents'] as num).toDouble() /
-                                      100
-                                : (service['price'] as num?)?.toDouble() ?? 0.0;
+                            final priceValue = bookingServicePrice(service);
                             final durationMinutes =
                                 (service['durationMinutes'] as num?)?.toInt() ??
                                 0;
@@ -934,7 +940,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                             CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            '${config.currencySymbol}${priceValue.toStringAsFixed(0)}',
+                                            '${config.currencySymbol}${priceValue.toStringAsFixed(2)}',
                                             style: GoogleFonts.playfairDisplay(
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
@@ -1092,17 +1098,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                 ),
                               ),
                             ),
-                            validator: (val) =>
-                                val == null || val.trim().isEmpty
-                                ? l10n.get('enter_name')
-                                : null,
+                            validator: (val) {
+                              final length = val?.trim().length ?? 0;
+                              return length >= 2 && length <= 100 ? null : l10n.get('booking_name_length');
+                            },
                           ),
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
                             controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
-                              labelText: l10n.get('email_address'),
+                              labelText: l10n.get('booking_optional_email'),
                               labelStyle: const TextStyle(
                                 color: Colors.white70,
                               ),
@@ -1119,10 +1126,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             ),
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
-                                return l10n.get('enter_email');
+                                return null;
                               }
-                              if (!RegExp(
-                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                              if (val.trim().length > 254 || !RegExp(
+                                r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
                               ).hasMatch(val.trim())) {
                                 return l10n.get('valid_email');
                               }
@@ -1300,6 +1307,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     );
   }
 
+  Widget _retry(String message, AppLocalizations l10n, VoidCallback retry) {
+    return Column(
+      children: [
+        Text(message),
+        TextButton(onPressed: retry, child: Text(l10n.get('retry'))),
+      ],
+    );
+  }
+
   Widget _buildTimeSlotGrid(
     AppLocalizations l10n,
     AppConfigState config,
@@ -1320,6 +1336,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           child: CircularProgressIndicator(color: AppColors.secondary),
         ),
       );
+    }
+    if (_slotsLoadFailed) {
+      return _retry(l10n.get('slots_load_error'), l10n, _fetchAvailableSlots);
     }
     if (_availableSlots.isEmpty) {
       return Container(
@@ -1447,7 +1466,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     ),
                     _buildSummaryRow(
                       '${l10n.get('price')}:',
-                      '${config.currencySymbol}${_selectedServicePrice().toStringAsFixed(0)}',
+                      '${config.currencySymbol}${bookingServicePrice(_selectedServiceData!).toStringAsFixed(2)}',
                     ),
                     const Divider(color: AppColors.outlineVariant, height: 24),
                     _buildSummaryRow(
@@ -1468,7 +1487,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       l10n.languageCode == 'es' ? 'Cliente:' : 'Client:',
                       _nameController.text.trim(),
                     ),
-                    _buildSummaryRow('Email:', _emailController.text.trim()),
+                    if (_emailController.text.trim().isNotEmpty) _buildSummaryRow('Email:', _emailController.text.trim()),
                     _buildSummaryRow(
                       l10n.languageCode == 'es' ? 'Teléfono:' : 'Phone:',
                       _formattedCustomerPhone,
@@ -1537,13 +1556,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               color: AppColors.onSurfaceVariant,
             ),
           ),
-          Text(
-            value,
-            style: AppTextStyles.bodyLg.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Flexible(child: Text(value, textAlign: TextAlign.end, style: AppTextStyles.bodyLg.copyWith(color: Colors.white, fontWeight: FontWeight.bold))),
         ],
       ),
     );
@@ -1599,6 +1612,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 color: AppColors.surfaceContainerLow,
                 child: Column(
                   children: [
+                    _buildSummaryRow(
+                      l10n.get('reservation_reference'),
+                      _confirmation!.bookingId,
+                    ),
                     _buildSummaryRow(
                       '${l10n.get('barber')}:',
                       _selectedBarber?['name'] ?? '',
